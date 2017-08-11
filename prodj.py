@@ -1,0 +1,126 @@
+import socket
+import packets
+from threading import Thread
+from select import select
+from packets_dump import *
+import logging
+from enum import Enum
+
+from clientlist import ClientList
+from vcdj import Vcdj
+from ip import guess_own_iface
+
+class OwnIpStatus(Enum):
+  notNeeded = 1,
+  waiting = 2,
+  acquired = 3
+
+class ProDj(Thread):
+  def __init__(self, client_change_callback=None):
+    super().__init__()
+    self.cl = ClientList(client_change_callback)
+    self.keepalive_ip = "0.0.0.0"
+    self.keepalive_port = 50000
+    self.beat_ip = "0.0.0.0"
+    self.beat_port = 50001
+    self.status_ip = "0.0.0.0"
+    self.status_port = 50002
+    self.vcdj = None
+    self.need_own_ip = OwnIpStatus.notNeeded
+    self.own_ip = None
+
+  def start(self):
+    self.keepalive_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    self.keepalive_sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+    self.keepalive_sock.bind((self.keepalive_ip, self.keepalive_port))
+    logging.info("Listening on {}:{} for keepalive packets".format(self.keepalive_ip, self.keepalive_port))
+    self.beat_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    self.beat_sock.bind((self.beat_ip, self.beat_port))
+    logging.info("Listening on {}:{} for beat packets".format(self.beat_ip, self.beat_port))
+    self.status_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    self.status_sock.bind((self.status_ip, self.status_port))
+    logging.info("Listening on {}:{} for status packets".format(self.status_ip, self.status_port))
+    self.socks = [self.keepalive_sock, self.beat_sock, self.status_sock]
+    self.keep_running = True
+    super().start()
+
+  def stop(self):
+    self.keep_running = False
+    if self.vcdj is not None:
+      self.vcdj_disable()
+    self.join()
+    self.keepalive_sock.close()
+    self.beat_sock.close()
+
+  def vcdj_enable(self, vcdj_player_number=5):
+    self.vcdj = Vcdj(self.keepalive_sock, self.keepalive_port)
+    self.vcdj.player_number = vcdj_player_number
+    self.vcdj_set_iface()
+    self.vcdj.start()
+
+  def vcdj_disable(self):
+    self.vcdj.stop()
+    self.vcdj.join()
+
+  def vcdj_set_iface(self):
+    if self.own_ip is not None and self.vcdj is not None:
+      self.vcdj.set_interface_data(*self.own_ip[1:4])
+
+  def run(self):
+    logging.debug("ProDj: starting main loop")
+    while self.keep_running:
+      rdy = select(self.socks,[],[],1)[0]
+      for sock in rdy:
+        if sock == self.keepalive_sock:
+          data, addr = self.keepalive_sock.recvfrom(128)
+          self.handle_keepalive_packet(data, addr)
+        elif sock == self.beat_sock:
+          data, addr = self.beat_sock.recvfrom(128)
+          self.handle_beat_packet(data, addr)
+        elif sock == self.status_sock:
+          data, addr = self.status_sock.recvfrom(256)
+          self.handle_status_packet(data, addr)
+      self.cl.gc()
+    logging.debug("ProDj: main loop finished")
+
+  def handle_keepalive_packet(self, data, addr):
+    #logging.debug("Broadcast keepalive packet from {}".format(addr))
+    try:
+      packet = packets.KeepAlivePacket.parse(data)
+    except Exception as e:
+      logging.warning("Failed to parse packet from {}, {} bytes: {}".format(addr, len(data), e))
+      dump_packet_raw(data)
+      return
+    # both packet types give us enough information to store the client
+    if packet["subtype"] in ["stype_status", "stype_ip"]:
+      self.cl.eatKeepalive(packet)
+    if self.own_ip is None and len(self.cl.getClientIps()) > 0:
+      self.own_ip = guess_own_iface(self.keepalive_sock, self.cl.getClientIps())
+      if self.own_ip is not None:
+        logging.info("Guessed own interface {} ip {} mask {} mac {}".format(*self.own_ip))
+        self.vcdj_set_iface()
+    dump_keepalive_packet(packet)
+
+  def handle_beat_packet(self, data, addr):
+    #logging.debug("Broadcast beat packet from {}".format(addr))
+    try:
+      packet = packets.BeatPacket.parse(data)
+    except Exception as e:
+      logging.warning("Failed to parse packet from {}, {} bytes: {}".format(addr, len(data), e))
+      dump_packet_raw(data)
+      return
+    if packet["type"] == "type_beat":
+      self.cl.eatBeat(packet)
+    dump_beat_packet(packet)
+
+  def handle_status_packet(self, data, addr):
+    #logging.debug("Broadcast status packet from {}".format(addr))
+    try:
+      packet = packets.StatusPacket.parse(data)
+    except Exception as e:
+      logging.warning("Failed to parse packet from {}, {} bytes: {}".format(addr, len(data), e))
+      dump_packet_raw(data)
+      return
+    if packet["type"] == "type_status":
+      self.cl.eatStatus(packet)
+    dump_status_packet(packet)
