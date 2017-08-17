@@ -11,6 +11,9 @@ class ClientList:
   def __len__():
     return len(self.clients)
 
+  def getClient(self, player_number):
+    return next((p for p in self.clients if p.player_number == player_number), None)
+
   # adds client if it is not known yet, in any case it resets the ttl
   def eatKeepalive(self, keepalive_packet):
     c = next((x for x in self.clients if x.ip_addr == keepalive_packet["ip_addr"]), None)
@@ -83,6 +86,7 @@ class ClientList:
   def gc(self):
     self.clients = [x for x in self.clients if not x.ttlExpired()]
 
+  # returns a list of ips of all clients (used to guess own ip)
   def getClientIps(self):
     return [client.ip_addr for client in self.clients]
 
