@@ -88,7 +88,7 @@ class ProDj(Thread):
     try:
       packet = packets.KeepAlivePacket.parse(data)
     except Exception as e:
-      logging.warning("Failed to parse packet from {}, {} bytes: {}".format(addr, len(data), e))
+      logging.warning("Failed to parse keepalive packet from {}, {} bytes: {}".format(addr, len(data), e))
       dump_packet_raw(data)
       return
     # both packet types give us enough information to store the client
@@ -106,7 +106,7 @@ class ProDj(Thread):
     try:
       packet = packets.BeatPacket.parse(data)
     except Exception as e:
-      logging.warning("Failed to parse packet from {}, {} bytes: {}".format(addr, len(data), e))
+      logging.warning("Failed to parse beat packet from {}, {} bytes: {}".format(addr, len(data), e))
       dump_packet_raw(data)
       return
     if packet["type"] == "type_beat":
@@ -118,9 +118,9 @@ class ProDj(Thread):
     try:
       packet = packets.StatusPacket.parse(data)
     except Exception as e:
-      logging.warning("Failed to parse packet from {}, {} bytes: {}".format(addr, len(data), e))
+      logging.warning("Failed to parse status packet from {}, {} bytes: {}".format(addr, len(data), e))
       dump_packet_raw(data)
       return
-    if packet["type"] == "type_status":
-      self.cl.eatStatus(packet)
+    #if packet["type"] == "cdj":
+    self.cl.eatStatus(packet)
     dump_status_packet(packet)

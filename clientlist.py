@@ -44,25 +44,25 @@ class ClientList:
     if c is None: # packet from unknown client
       return
     c.status_packet_received = True
-    c.fw = status_packet["firmware"]
-    c.bpm = status_packet["bpm"] if status_packet["bpm"] != 655.36 else "?"
-    c.pitch = status_packet["physical_pitch"]
-    c.actual_pitch = status_packet["actual_pitch"]
+    c.type = status_packet["type"] # cdj or djm
+    c.bpm = status_packet["bpm"] if status_packet["bpm"] != 655.35 else "?"
+    c.pitch = status_packet["pitch"]
     c.beat = status_packet["beat"] if status_packet["beat"] != 0xffffffff else 0
-    c.beat_count = status_packet["beat_count"] if status_packet["beat_count"] != 0xffffffff else "-"
-    c.cue_distance = status_packet["cue_distance"] if status_packet["cue_distance"] != 511 else "-"
-    c.play_state = status_packet["play_state"]
-    c.usb_state = status_packet["usb_state"]
-    c.sd_state = status_packet["sd_state"]
-    c.player_slot = status_packet["loaded_slot"]
     c.state = [x for x in ["on_air","sync","master","play"] if status_packet["state"][x]==True]
-    c.track_number = status_packet["track_number"]
-    c.loaded_player_number = status_packet["loaded_player_number"]
-    c.loaded_slot = status_packet["loaded_slot"]
-    #c.on_air = status_packet["state"]["on_air"]
-    #c.sync_on = status_packet["state"]["sync"]
-    #c.master_on = status_packet["state"]["master"]
-    #c.playing = status_packet["state"]["play"]
+
+    if c.type == "cdj":
+      c.fw = status_packet["firmware"]
+      c.actual_pitch = status_packet["actual_pitch"]
+      c.beat_count = status_packet["beat_count"] if status_packet["beat_count"] != 0xffffffff else "-"
+      c.cue_distance = status_packet["cue_distance"] if status_packet["cue_distance"] != 511 else "-"
+      c.play_state = status_packet["play_state"]
+      c.usb_state = status_packet["usb_state"]
+      c.sd_state = status_packet["sd_state"]
+      c.player_slot = status_packet["loaded_slot"]
+      c.track_number = status_packet["track_number"]
+      c.loaded_player_number = status_packet["loaded_player_number"]
+      c.loaded_slot = status_packet["loaded_slot"]
+
     c.updateTtl()
     logging.debug("eatStatus done")
     self.cb(self, c.player_number)
@@ -77,6 +77,7 @@ class ClientList:
 class Client:
   def __init__(self):
     # device specific
+    self.type = "" # cdj, djm, rekordbox (currently rekordbox is detected as djm)
     self.model = ""
     self.fw = ""
     self.ip_addr = ""
@@ -93,10 +94,6 @@ class Client:
     self.usb_state = "not_loaded"
     self.sd_state = "not_loaded"
     self.player_slot = "empty"
-    #self.on_air = False
-    #self.sync_on = False
-    #self.master_on = False
-    #self.playing = False
     self.state = []
     self.track_number = None
     self.loaded_player_number = 0

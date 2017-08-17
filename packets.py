@@ -123,7 +123,7 @@ BeatPacket = Struct(
   "magic" / Const(String(10), b'Qspt1WmJOL'),
   "type" / BeatPacketType, # pairs with subtype
   "model" / Padded(20, CString(encoding="ascii")),
-  "u1" / Const(Int16ub, 256),
+  "u1" / Default(Int16ub, 256), # 256 for cdjs, 257 for rekordbox
   "player_number" / Int8ub,
   "u2" / Const(Int8ub, 0),
   "subtype" / BeatPacketSubtype,
@@ -150,7 +150,8 @@ BeatPacket = Struct(
 )
 
 StatusPacketType = Enum(Int8ub,
-  type_status = 0x0a,
+  cdj = 0x0a,
+  djm = 0x29
 )
 
 PlayerSlot = Enum(Int8ub,
@@ -217,55 +218,66 @@ StatusPacket = Struct(
   "type" / StatusPacketType,
   "model" / Padded(20, CString(encoding="ascii")),
   "u1" / Const(Int8ub, 1),
-  "u2" / Default(Int8ub, 4), # some kind of revision? 3 for cdj2000nx, 4 for xdj1000?
-  "player_number" / Int8ub,
-  "u3" / Default(Int16ub, 0xf8), # 0xb0 cdj2000nxs, 0xf8 xdj1000
-  "player_number2" / Int8ub,
-  "u4" / Default(Int16ub, 0), # 1 cdj2000nxs or 0 xdj1000?
-  "activity" / Int8ub, # 0 when idle, 1 when playing
-  "loaded_player_number" / Int8ub, # player number of loaded track, own number if local track
-  "loaded_slot" / PlayerSlot,
-  "track_analyze_type" / TrackAnalyzeType,
-  Padding(1),
-  "track_id" / Int32ub, # rekordbox database id or cd track number
-  "track_number" / Int32ub, # number in playlist or browse list
-  "u5" / Default(Int32ub, 0), # 0 on start, 4 after loading track, 17 on unanalyzed track
-  "u6" / Default(Int32ub, 0), # become != 0 when loading track, unknown
-  "u7" / Default(Int32ub, 0), # become != 0 when loading track, unknown
-  Padding(4), # always zero
-  "u8" / Default(Int32ub, 0), # 0 on start, 4 after loading track, 1 on unanalyzed track
-  Padding(32), # a lot of zero fields
-  Const(Int16ub, 0x100),
-  "usb_active" / Default(ActivityIndicator, "inactive"),
-  "sd_active" / Default(ActivityIndicator, "inactive"),
-  "usb_state" / Default(StorageIndicator, "not_loaded"), # having "loaded" makes them try to mount nfs
-  "sd_state" / Default(StorageIndicator, "not_loaded"), # having "loaded" makes them try to mount nfs
-  "link_available" / Default(Int32ub, 1), # may be cd state
-  "play_state" / Default(PlayState, "no_track"),
-  "firmware" / String(4, encoding="ascii"),
-  # 0x80
-  Padding(4), # always zero
-  "tempo_master_count" / Default(Int32ub, 0), # how often a player changed its tempo master
-  "state" / StateMask,
-  "u9" / Default(Int8ub, 0xff), # counts from 0 up to 0xff after startup, then stays at 0xff
-  "play_state2" / Int8ub, # xdj1000: 0xfe=stop, 0xfa=playing (also reverse), 2000nxs: 0x6e=stop, 0x6a=playing
-  "actual_pitch" / Pitch,
-  "bpm_state" / Default(BpmState, "rekordbox"),
-  "bpm" / Bpm,
-  Const(Int32ub, 0x7fffffff),
-  "physical_pitch" / Pitch,
-  "play_state3" / Int16ub, # 0=empty, 1=paused/reverse/vinyl grab, 9=playing, 0xd=jog
-  "u10" / Int8ub, # 1 for rekordbox analyzed tracks, 2 for unanalyzed mp3
-  Const(Int8ub, 0xff),
-  "beat_count" / Default(Int32ub, 0),
-  "cue_distance" / Default(Int16ub, 0x1ff), # 0x1ff when no next cue, 0x100 for 64 bars (=256 beats)
-  "beat" / Default(Int8ub, 1), # 1..4
-  Padding(15),
-  "u11" / Default(Int16ub, 0x1000), # 0x0100 for xdj1000, 0x1000 for cdj2000nxs
-  Padding(8),
-  "actual_pitch2" / Pitch,
-  "physical_pitch2" / Pitch,
-  "packet_count" / Default(Int32ub, 0), # permanently increasing
-  "u12" / Default(Int8ub, 0x0f), # 0x0f=nexus, 0x05=non-nexus player
-  Padding(7)
+  "u2" / Default(Int8ub, 4), # some kind of revision? 3 for cdj2000nx, 4 for xdj1000. 1 for djm/rekordbox
+  "player_number" / Int8ub, # 0x11 for rekordbox
+  "u3" / Default(Int16ub, 0xf8), # 0xb0 cdj2000nxs, 0xf8 xdj1000, 0x14 djm, 0x38 rekordbox
+  "player_number2" / Int8ub, # equal to player_number
+  "u4" / Default(Int8ub, 0), # 1 cdj2000nxs or 0 xdj1000, 0 for rekordbox
+  Embedded(Switch(this.type, {
+    "cdj": Struct(
+      "activity" / Int16ub, # 0 when idle, 1 when playing, 0xc0 for rekordbox
+      "loaded_player_number" / Int8ub, # player number of loaded track, own number if local track
+      "loaded_slot" / PlayerSlot,
+      "track_analyze_type" / TrackAnalyzeType,
+      Padding(1),
+      "track_id" / Int32ub, # rekordbox database id or cd track number
+      "track_number" / Int32ub, # number in playlist or browse list
+      "u5" / Default(Int32ub, 0), # 0 on start, 4 after loading track, 17 on unanalyzed track
+      "u6" / Default(Int32ub, 0), # become != 0 when loading track, unknown
+      "u7" / Default(Int32ub, 0), # become != 0 when loading track, unknown
+      Padding(4), # always zero
+      "u8" / Default(Int32ub, 0), # 0 on start, 4 after loading track, 1 on unanalyzed track
+      Padding(32), # a lot of zero fields
+      Const(Int16ub, 0x100),
+      "usb_active" / Default(ActivityIndicator, "inactive"),
+      "sd_active" / Default(ActivityIndicator, "inactive"),
+      "usb_state" / Default(StorageIndicator, "not_loaded"), # having "loaded" makes them try to mount nfs
+      "sd_state" / Default(StorageIndicator, "not_loaded"), # having "loaded" makes them try to mount nfs
+      "link_available" / Default(Int32ub, 1), # may be cd state
+      "play_state" / Default(PlayState, "no_track"),
+      "firmware" / String(4, encoding="ascii"),
+      # 0x80
+      Padding(4), # always zero
+      "tempo_master_count" / Default(Int32ub, 0), # how often a player changed its tempo master
+      "state" / StateMask,
+      "u9" / Default(Int8ub, 0xff), # counts from 0 up to 0xff after startup, then stays at 0xff
+      "play_state2" / Int8ub, # xdj1000: 0xfe=stop, 0xfa=playing (also reverse), 2000nxs: 0x6e=stop, 0x6a=playing
+      "actual_pitch" / Pitch,
+      "bpm_state" / Default(BpmState, "rekordbox"),
+      "bpm" / Bpm,
+      Const(Int32ub, 0x7fffffff),
+      "pitch" / Pitch, # physical pitch
+      "play_state3" / Int16ub, # 0=empty, 1=paused/reverse/vinyl grab, 9=playing, 0xd=jog
+      "u10" / Int8ub, # 1 for rekordbox analyzed tracks, 2 for unanalyzed mp3
+      Const(Int8ub, 0xff),
+      "beat_count" / Default(Int32ub, 0),
+      "cue_distance" / Default(Int16ub, 0x1ff), # 0x1ff when no next cue, 0x100 for 64 bars (=256 beats)
+      "beat" / Default(Int8ub, 1), # 1..4
+      Padding(15),
+      "u11" / Default(Int16ub, 0x1000), # 0x0100 for xdj1000, 0x1000 for cdj2000nxs
+      Padding(8),
+      "actual_pitch2" / Pitch,
+      "physical_pitch2" / Pitch,
+      "packet_count" / Default(Int32ub, 0), # permanently increasing
+      "u12" / Default(Int8ub, 0x0f), # 0x0f=nexus, 0x05=non-nexus player
+      Padding(7)),
+    "djm": Struct(
+      "state" / StateMask,
+      "pitch" / Pitch,
+      "u5" / Default(Int16ub, 0x8000),
+      "bpm" / Bpm,
+      Padding(7),
+      "beat" / Default(Int8ub, 1), # 1..4
+    )
+  }))
 )

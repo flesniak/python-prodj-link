@@ -37,22 +37,22 @@ def dump_beat_packet(packet):
     ))
 
 def dump_status_packet(packet):
-  logging.debug("pn {} active {} ldpn {} lds {} tat {} tid {} tn {} link {} tmc {} fw {} state {} usb {}/{}".format(
-    packet["player_number"], packet["activity"], packet["loaded_player_number"], packet["loaded_slot"],
-    packet["track_analyze_type"], packet["track_id"], packet["track_number"], packet["link_available"],
-    packet["tempo_master_count"], packet["firmware"], ",".join(x for x,y in packet["state"].items() if y==True),
-    packet["usb_state"], packet["usb_active"]
-  ))
-  logging.debug("pstate {} pstate2 {} pstate3 {} pitch {:.2f} {:.2f} {:.2f} {:.2f} bpm {} ({}) beat {}/{} cue {}".format(
-    packet["play_state"], packet["play_state2"], packet["play_state3"],
-    packet["actual_pitch"], packet["physical_pitch"],
-    packet["actual_pitch2"], packet["physical_pitch2"], packet["bpm"], packet["bpm_state"],
-    packet["beat_count"], packet["beat"], packet["cue_distance"]
-  ))
-  logging.debug("u1 {} u2 {} u3 {} u4 {} u5 {} u6 {} u7 {} u8 {} u9 {} u10 {} u11 {} u12 {}".format(
-    packet["u1"], packet["u2"], packet["u3"], packet["u4"], packet["u5"], packet["u6"],
-    packet["u7"], packet["u8"], packet["u9"], packet["u10"], packet["u11"], packet["u12"]
-  ))
+  logging.debug("type {} model \"{}\" pn {} u1 {} u2 {} u3 {} u4 {}".format(packet["type"], packet["model"],
+    packet["player_number"], packet["u1"], packet["u2"], packet["u3"], packet["u4"]))
+  logging.debug("state {} pitch {:.2f} bpm {} beat {} u5 {}".format(
+    ",".join(x for x,y in packet["state"].items() if y==True),
+    packet["pitch"], packet["bpm"], packet["beat"], packet["u5"]))
+  if packet["type"] == "cdj":
+    logging.debug("active {} ldpn {} lds {} tat {} tid {} tn {} link {} tmc {} fw {} usb {}/{}".format(
+      packet["activity"], packet["loaded_player_number"], packet["loaded_slot"],
+      packet["track_analyze_type"], packet["track_id"], packet["track_number"], packet["link_available"],
+      packet["tempo_master_count"], packet["firmware"], packet["usb_state"], packet["usb_active"]))
+    logging.debug("pstate {} pstate2 {} pstate3 {} pitch {:.2f} {:.2f} {:.2f} {:.2f} bpm {} ({}) beat {}/{} cue {}".format(
+      packet["play_state"], packet["play_state2"], packet["play_state3"],
+      packet["actual_pitch"], packet["actual_pitch2"], packet["pitch"], packet["physical_pitch2"],
+      packet["bpm"], packet["bpm_state"], packet["beat_count"], packet["beat"], packet["cue_distance"]))
+    logging.debug("u5 {} u6 {} u7 {} u8 {} u9 {} u10 {} u11 {} u12 {}".format(packet["u5"], packet["u6"],
+      packet["u7"], packet["u8"], packet["u9"], packet["u10"], packet["u11"], packet["u12"]))
 
 def dump_packet_raw(data):
   # warning level to get message in case of decoding errors
