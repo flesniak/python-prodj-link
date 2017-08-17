@@ -16,7 +16,9 @@ def print_clients(cl, player_number):
       logging.info("Player {}: {} {} BPM Pitch {:.2f}% Beat {}".format(
         c.player_number, c.model, c.bpm, (c.pitch-1)*100, c.beat))
 
-p = ProDj(print_clients)
+p = ProDj()
+p.set_client_keepalive_callback(print_clients)
+p.set_client_change_callback(print_clients)
 
 try:
   p.start()

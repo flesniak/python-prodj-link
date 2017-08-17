@@ -2,9 +2,11 @@ import time
 import logging
 
 class ClientList:
-  def __init__(self, client_change_callback=None):
+  def __init__(self):
     self.clients = []
-    self.cb = client_change_callback
+    self.client_keepalive_callback = None
+    self.client_change_callback = None
+    self.master_change_callback = None
 
   def __len__():
     return len(self.clients)
@@ -19,15 +21,20 @@ class ClientList:
       c.mac_addr = keepalive_packet["mac_addr"]
       c.player_number = keepalive_packet["player_number"]
       self.clients += [c]
-      self.cb(self, c.player_number)
+      if self.client_keepalive_callback:
+        self.client_keepalive_callback(self, c.player_number)
     else:
       n = keepalive_packet["player_number"]
       if c.player_number != n:
         logging.info("Player {} changed player number from {} to {}".format(c.ip_addr, c.player_number, n))
         c.player_number = n
-        self.cb(self, c.player_number)
+        if self.client_keepalive_callback:
+          self.client_keepalive_callback(self, c.player_number)
+        if self.client_change_callback:
+          self.client_change_callback(self, c.player_number)
     c.updateTtl()
 
+  # updates pitch/bpm/beat information for player if we do not receive status packets (e.g. no vcdj enabled)
   def eatBeat(self, beat_packet):
     c = next((x for x in self.clients if x.player_number == beat_packet["player_number"]), None)
     if c is None: # packet from unknown client
@@ -37,8 +44,10 @@ class ClientList:
       c.pitch = beat_packet["pitch"]
       c.bpm = beat_packet["bpm"]
       c.beat = beat_packet["beat"]
-      self.cb(self, c.player_number)
+      if self.client_change_callback:
+        self.client_change_callback(self, c.player_number)
 
+  # update all known player information
   def eatStatus(self, status_packet):
     c = next((x for x in self.clients if x.player_number == status_packet["player_number"]), None)
     if c is None: # packet from unknown client
@@ -65,7 +74,10 @@ class ClientList:
 
     c.updateTtl()
     logging.debug("eatStatus done")
-    self.cb(self, c.player_number)
+    if self.client_change_callback:
+      self.client_change_callback(self, c.player_number)
+    if self.master_change_callback and "master" in c.state:
+      self.master_change_callback(self, c.player_number)
 
   # checks ttl and clears expired clients
   def gc(self):

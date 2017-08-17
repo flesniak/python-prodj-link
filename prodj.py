@@ -18,7 +18,7 @@ class OwnIpStatus(Enum):
 class ProDj(Thread):
   def __init__(self, client_change_callback=None):
     super().__init__()
-    self.cl = ClientList(client_change_callback)
+    self.cl = ClientList()
     self.keepalive_ip = "0.0.0.0"
     self.keepalive_port = 50000
     self.beat_ip = "0.0.0.0"
@@ -121,6 +121,20 @@ class ProDj(Thread):
       logging.warning("Failed to parse status packet from {}, {} bytes: {}".format(addr, len(data), e))
       dump_packet_raw(data)
       return
-    #if packet["type"] == "cdj":
     self.cl.eatStatus(packet)
     dump_status_packet(packet)
+
+  # called whenever a keepalive packet is received
+  # arguments of cb: this clientlist object, player number of changed client
+  def set_client_keepalive_callback(self, cb=None):
+    self.cl.client_keepalive_callback = cb
+
+  # called whenever a status update of a known client is received
+  # arguments of cb: this clientlist object, player number of changed client
+  def set_client_change_callback(self, cb=None):
+    self.cl.client_change_callback = cb
+
+  # called when status update of a known master is received or the master changes
+  # arguments of cb: this clientlist object, player number of changed master
+  def set_master_change_callback(self, cb=None):
+    self.cl.master_change_callback = cb

@@ -6,7 +6,7 @@ import logging
 from prodj import ProDj
 from logcurse import CursesHandler
 
-default_loglevel=logging.DEBUG
+#default_loglevel=logging.DEBUG
 default_loglevel=logging.INFO
 
 # init curses
@@ -42,7 +42,9 @@ def update_clients(client_win, cl):
   except Exception as e:
     logging.critical(str(e))
 
-p = ProDj(lambda cl, n: update_clients(client_win, cl))
+p = ProDj()
+p.set_client_keepalive_callback(lambda cl, n: update_clients(client_win, cl))
+p.set_client_change_callback(lambda cl, n: update_clients(client_win, cl))
 update_clients(client_win, p.cl)
 
 try:
