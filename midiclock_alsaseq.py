@@ -66,6 +66,9 @@ class MidiClock(Thread):
       alsaseq.output(send)
       self.advance_time()
 
+  def send_note(self, note):
+    alsaseq.output((6, 0, 0, 0, (0,0), (128,0), (self.client_id, self.client_port), (0,note,127,0,0)))
+
   def run(self):
     logging.info("Starting MIDI clock queue")
     self.enqueue_events()

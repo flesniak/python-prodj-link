@@ -13,18 +13,22 @@ logging.basicConfig(level=default_loglevel, format='%(levelname)s: %(message)s')
 
 c = MidiClock("CH345")
 bpm = 128 # default bpm until reported from player
+beat = 0
 c.setBpm(bpm)
 
-def update_master_bpm(cl, player_number):
-  global bpm
+def update_master(cl, player_number):
+  global bpm, beat
   client = cl.getClient(player_number)
+  if beat != client.beat:
+    beat = client.beat
+    c.send_note(59+beat)
   newbpm = client.bpm*client.actual_pitch
   if bpm != newbpm:
     c.setBpm(newbpm)
     bpm = newbpm
 
 p = ProDj()
-p.set_master_change_callback(update_master_bpm)
+p.set_master_change_callback(update_master)
 
 try:
   p.start()
