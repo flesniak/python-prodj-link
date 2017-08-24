@@ -2,11 +2,12 @@ import time
 import logging
 
 class ClientList:
-  def __init__(self):
+  def __init__(self, prodj):
     self.clients = []
     self.client_keepalive_callback = None
     self.client_change_callback = None
     self.master_change_callback = None
+    self.prodj = prodj
 
   def __len__():
     return len(self.clients)
@@ -39,7 +40,7 @@ class ClientList:
 
   # updates pitch/bpm/beat information for player if we do not receive status packets (e.g. no vcdj enabled)
   def eatBeat(self, beat_packet):
-    c = next((x for x in self.clients if x.player_number == beat_packet["player_number"]), None)
+    c = self.getClient(beat_packet["player_number"])
     if c is None: # packet from unknown client
       return
     c.updateTtl()
@@ -52,39 +53,86 @@ class ClientList:
 
   # update all known player information
   def eatStatus(self, status_packet):
-    c = next((x for x in self.clients if x.player_number == status_packet["player_number"]), None)
+    c = self.getClient(status_packet["player_number"])
     if c is None: # packet from unknown client
       return
+    client_changed = False
     c.status_packet_received = True
     c.type = status_packet["type"] # cdj or djm
-    c.bpm = status_packet["bpm"] if status_packet["bpm"] != 655.35 else "?"
-    c.pitch = status_packet["pitch"]
-    c.beat = status_packet["beat"] if status_packet["beat"] != 0xffffffff else 0
-    c.state = [x for x in ["on_air","sync","master","play"] if status_packet["state"][x]==True]
+
+    new_bpm = status_packet["bpm"] if status_packet["bpm"] != 655.35 else "-"
+    if c.bpm != new_bpm:
+      c.bpm = new_bpm
+      client_changed = True
+    new_pitch = status_packet["pitch"]
+    if c.pitch != new_pitch:
+      c.pitch = new_pitch
+      client_changed = True
+    new_beat = status_packet["beat"] if status_packet["beat"] != 0xffffffff else 0
+    if c.beat != new_beat:
+      c.beat = new_beat
+      client_changed = True
+    new_state = [x for x in ["on_air","sync","master","play"] if status_packet["state"][x]==True]
+    if c.state != new_state:
+      c.state = new_state
+      client_changed = True
 
     if c.type == "cdj":
       c.fw = status_packet["firmware"]
-      c.actual_pitch = status_packet["actual_pitch"]
-      c.beat_count = status_packet["beat_count"] if status_packet["beat_count"] != 0xffffffff else "-"
-      c.cue_distance = status_packet["cue_distance"] if status_packet["cue_distance"] != 511 else "-"
-      c.play_state = status_packet["play_state"]
+      new_actual_pitch = status_packet["actual_pitch"]
+      if c.actual_pitch != new_actual_pitch:
+        c.actual_pitch = new_actual_pitch
+        client_changed = True
+      new_beat_count = status_packet["beat_count"] if status_packet["beat_count"] != 0xffffffff else "-"
+      if c.beat_count != new_beat_count:
+        c.beat_count = new_beat_count
+        client_changed = True
+      new_cue_distance = status_packet["cue_distance"] if status_packet["cue_distance"] != 511 else "-"
+      if c.cue_distance != new_cue_distance:
+        c.cue_distance = new_cue_distance
+        client_changed = True
+      new_play_state = status_packet["play_state"]
+      if c.play_state != new_play_state:
+        c.play_state = new_play_state
+        client_changed = True
       c.usb_state = status_packet["usb_state"]
       c.sd_state = status_packet["sd_state"]
       c.player_slot = status_packet["loaded_slot"]
       c.track_number = status_packet["track_number"]
       c.loaded_player_number = status_packet["loaded_player_number"]
       c.loaded_slot = status_packet["loaded_slot"]
+      new_track_id = status_packet["track_id"]
+      if c.track_id != new_track_id:
+        c.track_id = new_track_id
+        client_changed = True
+        if c.track_id != 0:
+          self.prodj.dbs.get_track_metadata(c.player_number, c.player_slot, c.track_id, self.setMetadata)
 
     c.updateTtl()
-    logging.debug("eatStatus done")
-    if self.client_change_callback:
+    if self.client_change_callback and client_changed:
       self.client_change_callback(self, c.player_number)
-    if self.master_change_callback and "master" in c.state:
+    if self.master_change_callback and "master" in c.state and client_changed:
       self.master_change_callback(self, c.player_number)
+
+  def setMetadata(self, player_number, slot, track_id, md):
+    c = self.getClient(player_number)
+    if c is None: # metadata from unknown client
+      return
+    c.metadata = md
+    if self.client_change_callback:
+      self.client_change_callback(self, player_number)
 
   # checks ttl and clears expired clients
   def gc(self):
-    self.clients = [x for x in self.clients if not x.ttlExpired()]
+    cur_clients = self.clients
+    self.clients = []
+    for client in cur_clients:
+      if not client.ttlExpired():
+        self.clients += [client]
+      else:
+        logging.info("Player {} dropped due to timeout".format(client.player_number))
+        if self.client_change_callback:
+          self.client_change_callback(self, client.player_number)
 
   # returns a list of ips of all clients (used to guess own ip)
   def getClientIps(self):
@@ -114,7 +162,9 @@ class Client:
     self.track_number = None
     self.loaded_player_number = 0
     self.loaded_slot = "empty"
+    self.track_id = None
     # internal use
+    self.metadata = None
     self.status_packet_received = False # ignore play state from beat packets
     self.ttl = time.time()
 

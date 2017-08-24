@@ -2,7 +2,7 @@
 # https://github.com/brunchboy/dysentery
 # https://bitbucket.org/awwright/libpdjl
 
-from construct import Adapter, Array, Byte, Const, CString, Default, Embedded, Enum, FlagsEnum, If, Int8ub, Int16ub, Int24ub, Int32ub, Padded, Padding, String, Struct, Switch, this
+from construct import Adapter, Array, Byte, Const, CString, Default, Embedded, Enum, ExprAdapter, FlagsEnum, FocusedSeq, GreedyBytes, GreedyRange, Int8ub, Int16ub, Int24ub, Int32ub, Padded, Padding, PascalString, Prefixed, Rebuild, String, Struct, Subconstruct, Switch, this, len_, byte2int
 
 MacAddr = Array(6, Byte)
 IpAddr = Array(4, Byte)
@@ -191,6 +191,7 @@ PlayState = Enum(Int32ub,
   cueing = 0x07, # playing from cue point = cue play
   cuescratch = 0x08, # cue play + touching platter
   seeking = 0x09,
+  cannot_play_track = 0x0e,
   end_of_track = 0x11,
   emergency = 0x12 # emergency mode when losing connection
 )
@@ -281,3 +282,95 @@ StatusPacket = Struct(
     )
   }))
 )
+
+DBServerQueryPort = 12523
+DBServerQuery = Struct(
+  "magic" / Const(Int32ub, 0x0f),
+  "query" / Const(CString(encoding="ascii"), "RemoteDBServer")
+)
+DBServerReply = Int16ub
+
+DBFieldType = Enum(Int8ub,
+  int8 = 0x0f,
+  int16 = 0x10,
+  int32 = 0x11,
+  binary = 0x14,
+  string = 0x26
+)
+
+DBField = Struct(
+  "type" / DBFieldType,
+  "value" / Switch(this.type, {
+    "int8": Int8ub,
+    "int16": Int16ub,
+    "int32": Int32ub,
+    "string" : FocusedSeq(0, PascalString(
+        ExprAdapter(Int32ub, encoder=lambda obj,ctx: obj//2+1, decoder=lambda obj,ctx: (obj-1)*2),
+        encoding="utf-16-be"),
+      Padding(2)),
+    "binary": Prefixed(Int32ub, GreedyBytes) # parses to byte string
+  })
+)
+
+class DBFieldFixedAdapter(Adapter):
+  def __init__(self, subcon, ftype):
+    self.ftype = ftype
+    super().__init__(subcon)
+  def _encode(self, obj, context):
+    return {"type": self.ftype, "value": obj}
+  def _decode(self, obj, context):
+    if obj["type"] != self.ftype:
+      raise TypeError("Parsed type {} but expected {}".format(obj["type"], self.ftype))
+    return obj["value"]
+DBFieldFixed = lambda x: DBFieldFixedAdapter(DBField, x)
+
+DBMessageFieldType = Enum(Int8ub,
+  int8 = 0x04,
+  int16 = 0x05,
+  int32 = 0x06,
+  binary = 0x03,
+  string = 0x02
+)
+
+class ArgumentTypes(Subconstruct):
+  def __init__(self, subcon):
+    super().__init__(subcon)
+    self.flagbuildnone = True
+  def _parse(self, stream, context, path):
+    subobj = self.subcon._parse(stream, context, path)
+    return [DBMessageFieldType.parse(bytes([x])) for x in subobj if x != 0]
+  def _build(self, obj, stream, context, path):
+    arg_types = b"".join([DBMessageFieldType.build(x["type"]) for x in context.args])
+    return self.subcon._build(arg_types[:12] + b"\x00"*(12-len(arg_types)), stream, context, path)
+  def _sizeof(self, context, path):
+    raise 17
+ArgumentTypesField = ArgumentTypes(DBFieldFixed("binary"))
+
+DBRequestType = Enum(DBFieldFixed("int16"),
+  setup = 0,
+  invalid = 1,
+  root_menu = 0x1000,
+  metadata_request = 0x2002,
+  artwork_request = 0x2003,
+  preview_waveform_request = 0x2004,
+  waveform_request = 0x2904,
+  render = 0x3000,
+  success = 0x4000,
+  menu_header = 0x4001,
+  artwork = 0x4002,
+  menu_item = 0x4101,
+  menu_footer = 0x4201,
+  preview_waveform = 0x4402,
+  waveform = 0x4a02,
+)
+
+DBMessage = Struct(
+  "magic" / Const(DBFieldFixed("int32"), 0x872349ae),
+  "transaction_id" / Default(DBFieldFixed("int32"), 1),
+  "type" / DBRequestType,
+  "argument_count" / Rebuild(DBFieldFixed("int8"), len_(this.args)),
+  "arg_types" / ArgumentTypesField,
+  "args" / Array(this.argument_count, DBField)
+)
+
+ManyDBMessages = GreedyRange(DBMessage)

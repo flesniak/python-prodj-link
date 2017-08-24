@@ -7,6 +7,7 @@ import logging
 from enum import Enum
 
 from clientlist import ClientList
+from dbserver import DBClient
 from vcdj import Vcdj
 from ip import guess_own_iface
 
@@ -16,16 +17,17 @@ class OwnIpStatus(Enum):
   acquired = 3
 
 class ProDj(Thread):
-  def __init__(self, client_change_callback=None):
+  def __init__(self):
     super().__init__()
-    self.cl = ClientList()
+    self.cl = ClientList(self)
+    self.dbs = DBClient(self)
+    self.vcdj = Vcdj(self)
     self.keepalive_ip = "0.0.0.0"
     self.keepalive_port = 50000
     self.beat_ip = "0.0.0.0"
     self.beat_port = 50001
     self.status_ip = "0.0.0.0"
     self.status_port = 50002
-    self.vcdj = None
     self.need_own_ip = OwnIpStatus.notNeeded
     self.own_ip = None
 
@@ -42,19 +44,24 @@ class ProDj(Thread):
     logging.info("Listening on {}:{} for status packets".format(self.status_ip, self.status_port))
     self.socks = [self.keepalive_sock, self.beat_sock, self.status_sock]
     self.keep_running = True
+    self.dbs.start()
     super().start()
 
   def stop(self):
     self.keep_running = False
+    self.dbs.stop()
     if self.vcdj is not None:
       self.vcdj_disable()
     self.join()
     self.keepalive_sock.close()
     self.beat_sock.close()
 
-  def vcdj_enable(self, vcdj_player_number=5):
-    self.vcdj = Vcdj(self.keepalive_sock, self.keepalive_port)
+  def vcdj_set_player_number(self, vcdj_player_number=5):
+    logging.info("Player number set to {}".format(vcdj_player_number))
     self.vcdj.player_number = vcdj_player_number
+    #self.dbs.player_number = vcdj_player_number
+
+  def vcdj_enable(self):
     self.vcdj_set_iface()
     self.vcdj.start()
 
@@ -138,3 +145,8 @@ class ProDj(Thread):
   # arguments of cb: this clientlist object, player number of changed master
   def set_master_change_callback(self, cb=None):
     self.cl.master_change_callback = cb
+
+  # called when the available metadata of a player changes
+  # arguments of cb: player number, metadata dict
+  def set_metadata_change_callback(self, cb=None):
+    self.dbs.metadata_change_callback = cb

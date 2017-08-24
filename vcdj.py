@@ -5,11 +5,10 @@ import logging
 import traceback
 
 class Vcdj(Thread):
-  def __init__(self, keepalive_sock, keepalive_port=50000):
+  def __init__(self, prodj):
     super().__init__()
+    self.prodj = prodj
     self.player_number = 5
-    self.sock = keepalive_sock
-    self.port = keepalive_port
     self.packet_interval = 1.5
     self.event = Event()
     self.ip_addr = ""
@@ -50,4 +49,4 @@ class Vcdj(Thread):
     }
     logging.debug("send keepalive data: "+str(data))
     raw = packets.KeepAlivePacket.build(data)
-    self.sock.sendto(raw, (self.broadcast_addr, self.port))
+    self.prodj.keepalive_sock.sendto(raw, (self.broadcast_addr, self.prodj.keepalive_port))
