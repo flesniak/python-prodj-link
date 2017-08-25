@@ -280,7 +280,7 @@ class DBClient(Thread):
       try:
         reply = packets.DBMessage.parse(data)
       except RangeError as e:
-        logging.info("Received {} bytes but parsing failed, trying to receive more".format(len(data)))
+        logging.debug("Received {} bytes but parsing failed, trying to receive more".format(len(data)))
         reply = None
       else:
         break
@@ -291,7 +291,7 @@ class DBClient(Thread):
       logging.warning("DBServer: no waveform for {}".format(track_id))
       return None
     waveform_data = reply["args"][3]["value"]
-    logging.info("DBServer: got {} bytes of waveform data".format(len(waveform_data)))
+    logging.debug("DBServer: got {} bytes of waveform data".format(len(waveform_data)))
     return waveform_data
 
   def connectDb(self, player_number):
