@@ -145,8 +145,3 @@ class ProDj(Thread):
   # arguments of cb: this clientlist object, player number of changed master
   def set_master_change_callback(self, cb=None):
     self.cl.master_change_callback = cb
-
-  # called when the available metadata of a player changes
-  # arguments of cb: player number, metadata dict
-  def set_metadata_change_callback(self, cb=None):
-    self.dbs.metadata_change_callback = cb

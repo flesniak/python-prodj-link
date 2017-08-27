@@ -105,8 +105,6 @@ class ClientList:
       if c.track_id != new_track_id:
         c.track_id = new_track_id
         client_changed = True
-        if c.track_id != 0:
-          self.prodj.dbs.get_metadata(c.player_number, c.player_slot, c.track_id, self.setMetadata)
 
     c.updateTtl()
     if self.client_change_callback and client_changed:

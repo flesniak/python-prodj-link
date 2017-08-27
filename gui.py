@@ -162,6 +162,7 @@ class PlayerWidget(QFrame):
     super().__init__(parent)
     self.setFrameStyle(QFrame.Box | QFrame.Plain)
     self.labels = {}
+    self.track_id = None # track id of displayed metadata, waveform etc from dbclient queries
 
     # metadata and player info
     self.labels["title"] = QLabel(self)
@@ -285,12 +286,10 @@ class PlayerWidget(QFrame):
 
 class Gui(QWidget):
   keepalive_signal = pyqtSignal(int)
-  change_signal = pyqtSignal(int)
-  metadata_signal = pyqtSignal(int)
 
-  def __init__(self, clientlist):
+  def __init__(self, prodj):
     super().__init__()
-    self.clientlist = clientlist
+    self.prodj = prodj
     #self.resize(800, 600)
     self.setWindowTitle('Pioneer ProDJ Link Monitor')
     p = self.palette()
@@ -298,9 +297,7 @@ class Gui(QWidget):
     self.setPalette(p)
     self.setAutoFillBackground(True)
 
-    self.keepalive_signal.connect(self.keepalive_callback)
-    self.change_signal.connect(self.change_callback)
-    self.metadata_signal.connect(self.metadata_callback)
+    self.keepalive_signal.connect(self.keepalive_slot)
 
     self.players = {}
     self.layout = QGridLayout(self)
@@ -323,24 +320,34 @@ class Gui(QWidget):
     del self.players[player_number]
     logging.info("Gui: Removed player {}".format(player_number))
 
-  def keepalive_callback(self, player_number):
+  # has to be called using a signal, otherwise windows are created standalone
+  def keepalive_slot(self, player_number):
+    if player_number not in range(1,5):
+      return
     if not player_number in self.players: # on new keepalive, create player
       self.create_player(player_number)
-    c = self.clientlist.getClient(player_number)
+    c = self.prodj.cl.getClient(player_number)
     self.players[player_number].setPlayerInfo(c.model, c.ip_addr)
 
-  def change_callback(self, player_number):
+  def change_callback(self, clientlist, player_number):
     if not player_number in self.players:
       return
-    c = self.clientlist.getClient(player_number)
+    c = clientlist.getClient(player_number)
     self.players[player_number].setSpeed(c.bpm, c.pitch)
     self.players[player_number].setMaster("master" in c.state)
     self.players[player_number].beat_bar.setBeat(c.beat)
     if len(c.fw) > 0:
       self.players[player_number].setPlayerInfo(c.model, c.ip_addr, c.fw)
+    if self.players[player_number].track_id != c.track_id and c.track_id != 0:
+      logging.info("Gui: track id of player %d changed to %d, requesting metadata", player_number, player_number)
+      self.players[player_number].track_id = c.track_id # remember requested track id
+      self.prodj.dbs.get_metadata(c.player_number, c.player_slot, c.track_id, self.dbserver_callback)
 
-  def metadata_callback(self, player_number):
+  def dbserver_callback(self, request, player_number, slot, item_id, reply):
+    logging.debug("Gui: dbserver_callback %s %d", request, player_number)
     if not player_number in self.players:
       return
-    md = self.clientlist.getClient(player_number).metadata
-    self.players[player_number].setMetadata(md["title"], md["artist"], md["album"])
+    if request == "metadata":
+      self.players[player_number].setMetadata(reply["title"], reply["artist"], reply["album"])
+    else:
+      logging.warning("Gui: unhandled dbserver callback %s", request)

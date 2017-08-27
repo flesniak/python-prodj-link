@@ -58,7 +58,6 @@ class DBClient(Thread):
     self.remote_ports = {} # dict {player_number: (ip, port)}
     self.socks = {} # dict of player_number: (sock, ttl, transaction_id)
     self.queue = Queue()
-    self.metadata_change_callback = None # 2 parameters: player_number, metadata
 
     self.metadata_store = {} # map of player_number,slot,track_id: metadata
     self.artwork_store = {} # map of player_number,slot,artwork_id: artwork_data
@@ -315,17 +314,17 @@ class DBClient(Thread):
     if player_number == 0 or player_number > 4 or item_id == 0:
       logging.warning("DBServer: invalid %s request parameters", request)
       return
+    logging.debug("DBServer: enqueueing %s request for player %d slot %s item_id %d",
+      request, player_number, slot, item_id)
+    self.queue.put((request, store, player_number, slot, item_id, callback))
+
+  def _handle_request(self, request, store, player_number, slot, item_id, callback):
     if (player_number, slot, item_id) in store:
       logging.debug("DBServer: %s request for player %d slot %s item_id %d already known",
         request, player_number, slot, item_id)
       if callback:
-        callback(player_number, slot, item_id, store[player_number, slot, item_id])
-    else:
-      logging.debug("DBServer: enqueueing %s request for player %d slot %s item_id %d",
-        request, player_number, slot, item_id)
-      self.queue.put((request, store, player_number, slot, item_id, callback))
-
-  def _handle_request(self, request, store, player_number, slot, item_id, callback):
+        callback(request, player_number, slot, item_id, store[player_number, slot, item_id])
+      return
     logging.debug("DBServer: handling %s request for player %d slot %s id %d",
       request, player_number, slot, item_id)
     if request == "metadata":
