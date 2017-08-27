@@ -122,6 +122,19 @@ class DBClient(Thread):
       logging.warning("DBServer: metadata packet not ending with menu_footer, buffer too small?")
     return md
 
+  def receive_dbmessage(self, sock):
+    recv_tries = 0
+    data = b""
+    while recv_tries < 30:
+      data += sock.recv(4096)
+      try:
+        reply = packets.DBMessage.parse(data)
+        return reply
+      except RangeError as e:
+        logging.debug("DBServer: Received %d bytes but parsing failed, trying to receive more", len(data))
+        recv_tries += 1
+    return None
+
   def query_metadata(self, player_number, slot, track_id):
     sock = self.getSocket(player_number)
     slot_id = byte2int(packets.PlayerSlot.build(slot))
@@ -136,8 +149,7 @@ class DBClient(Thread):
     data = packets.DBMessage.build(query)
     logging.debug("DBServer: metadata_request query {}".format(query))
     sock.send(data)
-    data = sock.recv(48)
-    reply = packets.DBMessage.parse(data)
+    reply = self.receive_dbmessage(sock)
     entry_count = reply["args"][1]["value"]
     if entry_count == 0:
       logging.error("DBServer: not metadata for track {} available (0 entries)".format(track_id))
@@ -167,7 +179,7 @@ class DBClient(Thread):
     metadata = self.parse_metadata(reply)
     return metadata
 
-  def query_blob(self, player_number, slot, id, request_type, location=8):
+  def query_blob(self, player_number, slot, item_id, request_type, location=8):
     sock = self.getSocket(player_number)
     slot_id = byte2int(packets.PlayerSlot.build(slot))
     query = {
@@ -175,34 +187,24 @@ class DBClient(Thread):
       "type": request_type,
       "args": [
         {"type": "int32", "value": self.own_player_number<<24 | location<<16 | slot_id<<8 | 1},
-        {"type": "int32", "value": track_id}
+        {"type": "int32", "value": item_id}
       ]
     }
     # request-specifig argument agumentations
     if request_type == "waveform_request":
-      query["args"] += [{"type": "int32", "value": 0}]
-    elif request_type == "preview_waveform":
+      query["args"].append({"type": "int32", "value": 0})
+    elif request_type == "preview_waveform_request":
       query["args"].insert(1, {"type": "int32", "value": 4})
-      query["args"] += [{"type": "int32", "value": 0}]
+      query["args"].append({"type": "int32", "value": 0})
     logging.debug("DBServer: {} query {}".format(request_type, query))
     data = packets.DBMessage.build(query)
     sock.send(data)
-    recv_tries = 0
-    data = b""
-    while recv_tries < 30:
-      data += sock.recv(4096)
-      try:
-        reply = packets.DBMessage.parse(data)
-      except RangeError as e:
-        logging.debug("DBServer: Received %d bytes but parsing failed, trying to receive more", len(data))
-        reply = None
-      else:
-        break
+    reply = self.receive_dbmessage(sock)
     if reply is None:
       logging.error("Failed to receive %s blob (%d tries)", request_type, recv_tries)
       return None
     if reply["args"][2]["value"] == 0:
-      logging.warning("DBServer: no {} blob for track {}".format(request_type, track_id))
+      logging.warning("DBServer: no {} blob for track {}".format(request_type, item_id))
       return None
     blob = reply["args"][3]["value"]
     logging.debug("DBServer: got {} bytes of blob data".format(len(blob)))
@@ -299,16 +301,16 @@ class DBClient(Thread):
     self._enqueue_request("metadata", self.metadata_store, player_number, slot, track_id, callback)
 
   def get_artwork(self, player_number, slot, artwork_id, callback=None):
-    self._enqueue_request("artwork", self.waveform_store, player_number, slot, artwork_id, callback)
+    self._enqueue_request("artwork", self.artwork_store, player_number, slot, artwork_id, callback)
 
   def get_waveform(self, player_number, slot, track_id, callback=None):
     self._enqueue_request("waveform", self.waveform_store, player_number, slot, track_id, callback)
 
   def get_preview_waveform(self, player_number, slot, track_id, callback=None):
-    self._enqueue_request("preview_waveform", self.waveform_store, player_number, slot, track_id, callback)
+    self._enqueue_request("preview_waveform", self.preview_waveform_store, player_number, slot, track_id, callback)
 
   def get_beatgrid(self, player_number, slot, track_id, callback=None):
-    self._enqueue_request("beatgrid", self.waveform_store, player_number, slot, track_id, callback)
+    self._enqueue_request("beatgrid", self.beatgrid_store, player_number, slot, track_id, callback)
 
   def _enqueue_request(self, request, store, player_number, slot, item_id, callback):
     if player_number == 0 or player_number > 4 or item_id == 0:
@@ -337,6 +339,8 @@ class DBClient(Thread):
       reply = self.query_blob(player_number, slot, item_id, "preview_waveform_request")
     elif request == "beatgrid":
       reply = self.query_blob(player_number, slot, item_id, "beatgrid_request")
+      with open("beatgrid.bin", "wb") as f:
+        f.write(reply)
     else:
       logging.error("DBServer: invalid request type %s", request)
       return

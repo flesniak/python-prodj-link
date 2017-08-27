@@ -4,23 +4,39 @@ from PyQt5.QtGui import QColor, QPainter, QPixmap
 from PyQt5.QtCore import pyqtSignal, Qt, QSize
 import sys
 import math
+from construct import FieldError, RangeError
+
+from packets import Beatgrid
 
 class WaveformWidget(QWidget):
   def __init__(self, parent):
     super().__init__(parent)
-    self.setMinimumSize(3*150, 65)
-    self.data = None
+    self.waveform_height = 75
+    self.waveform_center = self.waveform_height//2
+    self.waveform_px_per_s = 150
+    self.setMinimumSize(3*self.waveform_px_per_s, self.waveform_height)
+    self.waveform_data = None
+    self.beatgrid_data = None
     self.pixmap = None
     self.offset = 0 # frames = pixels of waveform
     self.position_marker = 0.5
-    self.setFrameCount(150*10)
+    self.setFrameCount(self.waveform_px_per_s*10)
     #self.setPositionMarkerOffset(0.5)
     self.startTimer(40)
 
   def setData(self, data):
     self.pixmap = None
-    self.data = data
+    self.waveform_data = data[20:]
     self.renderWaveformPixmap()
+
+  def setBeatgridData(self, beatgrid_data):
+    try:
+      self.beatgrid_data = Beatgrid.parse(beatgrid_data)
+    except (RangeError, FieldError) as e:
+      logging.error("Gui: failed to parse beatgrid data: %s", e)
+      self.beatgrid_data = None
+    if self.waveform_data:
+      self.renderWaveformPixmap()
 
   def setFrameCount(self, frames): # frames-to-show -> 150*10 = 10 seconds
     self.frames = frames
@@ -35,7 +51,7 @@ class WaveformWidget(QWidget):
     painter = QPainter()
     painter.begin(self)
     if self.pixmap:
-      pixmap = self.pixmap.copy(self.offset, 0, self.frames, 65)
+      pixmap = self.pixmap.copy(self.offset, 0, self.frames, self.waveform_height)
       self.drawPositionMarker(pixmap)
       scaled_pixmap = pixmap.scaled(self.size(), Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
       painter.drawPixmap(0, 0, scaled_pixmap)
@@ -45,7 +61,7 @@ class WaveformWidget(QWidget):
   def drawPositionMarker(self, pixmap):
     pixmap_painter = QPainter()
     pixmap_painter.begin(pixmap)
-    pixmap_painter.fillRect(self.position_marker_offset, 0, 4, 65, Qt.red)
+    pixmap_painter.fillRect(self.position_marker_offset, 0, 4, self.waveform_height, Qt.red)
     pixmap_painter.end()
 
   # draw position marker into scaled pixmap
@@ -54,7 +70,7 @@ class WaveformWidget(QWidget):
 
   def renderWaveformPixmap(self):
     logging.info("rendering waveform")
-    self.pixmap = QPixmap(self.position_marker_offset+len(self.data), 65)
+    self.pixmap = QPixmap(self.position_marker_offset+len(self.waveform_data), self.waveform_height)
     # background
     self.pixmap.fill(Qt.black)
     painter = QPainter()
@@ -62,15 +78,26 @@ class WaveformWidget(QWidget):
     painter.setBrush(Qt.SolidPattern)
     # vertical orientation line
     painter.setPen(Qt.white)
-    painter.drawLine(0, 32, self.pixmap.width(), 32)
+    painter.drawLine(0, self.waveform_center, self.pixmap.width(), self.waveform_center)
     # waveform data
-    if self.data:
-      for data_x in range(0, len(self.data)):
+    if self.waveform_data:
+      for data_x in range(0, len(self.waveform_data)):
         draw_x = data_x + self.position_marker_offset
-        height = self.data[data_x] & 0x1f
-        whiteness = self.data[data_x] >> 5
+        height = self.waveform_data[data_x] & 0x1f
+        whiteness = self.waveform_data[data_x] >> 5
         painter.setPen(QColor(36*whiteness, 36*whiteness, 255))
-        painter.drawLine(draw_x, 32-height, draw_x, 32+height)
+        painter.drawLine(draw_x, self.waveform_center-height, draw_x, self.waveform_center+height)
+      if self.beatgrid_data:
+        for beat in self.beatgrid_data["beats"]:
+          if beat["beat"] == 1:
+            brush = Qt.red
+            length = 8
+          else:
+            brush = Qt.white
+            length = 5
+          draw_x = beat["time"]*self.waveform_px_per_s//1000 + self.position_marker_offset
+          painter.fillRect(draw_x-1, 0, 4, length, brush)
+          painter.fillRect(draw_x-1, self.waveform_height-length, 4, length, brush)
     painter.end()
     logging.info("rendering waveform done")
 
@@ -91,11 +118,15 @@ class PreviewWaveformWidget(QWidget):
     self.data = None
     self.position = 0
 
+  def setData(self, data):
+    self.data = data
+    self.update()
+
   def sizeHint(self):
     return QSize(400, 34)
 
   def heightForWidth(self, width):
-    logging.info("preview width {} height {}".format(width, int(width/400*34)))
+    #logging.info("preview width {} height {}".format(width, int(width/400*34)))
     return int(width/400*34)
 
   def setProgress(self, relative):
@@ -105,7 +136,7 @@ class PreviewWaveformWidget(QWidget):
       self.update()
 
   def paintEvent(self, e):
-    logging.info("preview size {}".format(self.size()))
+    #logging.info("preview size {}".format(self.size()))
     painter = QPainter()
     painter.begin(self)
     pixmap = self.drawPreviewWaveformPixmap()
@@ -166,14 +197,13 @@ class PlayerWidget(QFrame):
 
     # metadata and player info
     self.labels["title"] = QLabel(self)
-    self.labels["title"].setStyleSheet("QLabel { font: bold 16pt; qproperty-alignment: AlignCenter; }")
+    self.labels["title"].setStyleSheet("QLabel { font: bold 16pt; }")
     self.labels["artist"] = QLabel(self)
     self.labels["album"] = QLabel(self)
     self.labels["info"] = QLabel(self)
     font = self.labels["title"].font()
     font.setBold(1)
     font.setPointSize(16)
-    #self.labels["title"].setFont(font)
 
     # artwork and player number
     self.labels["player_number"] = QLabel(self)
@@ -200,19 +230,18 @@ class PlayerWidget(QFrame):
 
     # waveform widgets
     self.waveform = WaveformWidget(self)
-    self.waveform.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+    #self.waveform.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
     self.preview_waveform = PreviewWaveformWidget(self)
     #self.preview_waveform.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
-    qsp = QSizePolicy(QSizePolicy.Preferred,QSizePolicy.Minimum)
-    qsp.setHeightForWidth(True)
-    self.preview_waveform.setSizePolicy(qsp)
+    #qsp = QSizePolicy(QSizePolicy.Preferred,QSizePolicy.Minimum)
+    #qsp.setHeightForWidth(True)
+    #self.preview_waveform.setSizePolicy(qsp)
 
     # BPM / Pitch / Master display
     bpm_label = QLabel("BPM", self)
     bpm_label.setStyleSheet("QLabel { font: bold 8pt; qproperty-alignment: AlignLeft; }")
     self.labels["bpm"] = QLabel(self)
     self.labels["bpm"].setStyleSheet("QLabel { font: bold 16pt; qproperty-alignment: AlignRight; }")
-    #self.labels["bpm"].setFont(font)
     self.labels["pitch"] = QLabel("+10.00%", self)
     self.labels["pitch"].setStyleSheet("QLabel { font: bold 14pt; qproperty-alignment: AlignRight; }")
     self.labels["pitch"].show() # makes the widget calculate its current size
@@ -284,6 +313,11 @@ class PlayerWidget(QFrame):
     self.labels["artist"].setText(artist)
     self.labels["album"].setText(album)
 
+  def setArtwork(self, data):
+    p = QPixmap()
+    p.loadFromData(data)
+    self.labels["artwork"].setPixmap(p)
+
 class Gui(QWidget):
   keepalive_signal = pyqtSignal(int)
 
@@ -342,6 +376,10 @@ class Gui(QWidget):
       logging.info("Gui: track id of player %d changed to %d, requesting metadata", player_number, player_number)
       self.players[player_number].track_id = c.track_id # remember requested track id
       self.prodj.dbs.get_metadata(c.player_number, c.player_slot, c.track_id, self.dbserver_callback)
+      # we do not get artwork yet because we need metadata to know the artwork_id
+      self.prodj.dbs.get_preview_waveform(c.player_number, c.player_slot, c.track_id, self.dbserver_callback)
+      self.prodj.dbs.get_beatgrid(c.player_number, c.player_slot, c.track_id, self.dbserver_callback)
+      self.prodj.dbs.get_waveform(c.player_number, c.player_slot, c.track_id, self.dbserver_callback)
 
   def dbserver_callback(self, request, player_number, slot, item_id, reply):
     logging.debug("Gui: dbserver_callback %s %d", request, player_number)
@@ -349,5 +387,15 @@ class Gui(QWidget):
       return
     if request == "metadata":
       self.players[player_number].setMetadata(reply["title"], reply["artist"], reply["album"])
+      if "artwork_id" in reply and reply["artwork_id"] != 0:
+        self.prodj.dbs.get_artwork(player_number, player_slot, reply["artwork_id"], self.dbserver_callback)
+    elif request == "artwork":
+      self.players[player_number].setArtwork(reply)
+    elif request == "waveform":
+      self.players[player_number].waveform.setData(reply)
+    elif request == "preview_waveform":
+      self.players[player_number].preview_waveform.setData(reply)
+    elif request == "beatgrid":
+      self.players[player_number].waveform.setBeatgridData(reply)
     else:
       logging.warning("Gui: unhandled dbserver callback %s", request)

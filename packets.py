@@ -2,7 +2,7 @@
 # https://github.com/brunchboy/dysentery
 # https://bitbucket.org/awwright/libpdjl
 
-from construct import Adapter, Array, Byte, Const, CString, Default, Embedded, Enum, ExprAdapter, FlagsEnum, FocusedSeq, GreedyBytes, GreedyRange, Int8ub, Int16ub, Int24ub, Int32ub, Padded, Padding, PascalString, Prefixed, Rebuild, String, Struct, Subconstruct, Switch, this, len_, byte2int
+from construct import Adapter, Array, Byte, Const, CString, Default, Embedded, Enum, ExprAdapter, FlagsEnum, FocusedSeq, GreedyBytes, GreedyRange, Int8ub, Int16ub, Int32ub, Int16ul, Int32ul, Padded, Padding, PascalString, Prefixed, Rebuild, String, Struct, Subconstruct, Switch, this, len_
 
 MacAddr = Array(6, Byte)
 IpAddr = Array(4, Byte)
@@ -362,6 +362,7 @@ DBRequestType = Enum(DBFieldFixed("int16"),
   menu_item = 0x4101,
   menu_footer = 0x4201,
   preview_waveform = 0x4402,
+  beatgrid = 0x4602,
   waveform = 0x4a02,
 )
 
@@ -375,3 +376,18 @@ DBMessage = Struct(
 )
 
 ManyDBMessages = GreedyRange(DBMessage)
+
+Beatgrid = Struct(
+  Padding(4),
+  "beat_count" / Int32ul,
+  "payload_size" / Int32ul, # bytes
+  "u1" / Default(Int32ul, 1),
+  "u2" / Int16ul,
+  "u3" / Int16ul,
+  "beats" / Array(this.beat_count, Struct(
+    "beat" / Int16ul, # beat in measure 1..4
+    "u1" / Const(Int16ul, 0x3168),
+    "time" / Int32ul, # time in ms from start
+    Padding(8) # 8 times 0xff
+  ))
+)
