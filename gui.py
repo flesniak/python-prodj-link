@@ -3,17 +3,24 @@ from PyQt5.QtWidgets import QFrame, QGridLayout, QLabel, QLCDNumber, QSizePolicy
 from PyQt5.QtGui import QColor, QPainter, QPixmap
 from PyQt5.QtCore import pyqtSignal, Qt, QSize
 import sys
+import math
 
 class WaveformWidget(QWidget):
   def __init__(self, parent):
     super().__init__(parent)
     self.setMinimumSize(3*150, 65)
     self.data = None
+    self.pixmap = None
     self.offset = 0 # frames = pixels of waveform
     self.position_marker = 0.5
     self.setFrameCount(150*10)
     #self.setPositionMarkerOffset(0.5)
     self.startTimer(40)
+
+  def setData(self, data):
+    self.pixmap = None
+    self.data = data
+    self.renderWaveformPixmap()
 
   def setFrameCount(self, frames): # frames-to-show -> 150*10 = 10 seconds
     self.frames = frames
@@ -24,41 +31,53 @@ class WaveformWidget(QWidget):
     self.position_marker_offset = int(relative*self.frames)
 
   def paintEvent(self, e):
+    #logging.info("paintEvent {}".format(e.rect()))
     painter = QPainter()
     painter.begin(self)
-    pixmap = self.drawWaveformPixmap()
-    if pixmap:
+    if self.pixmap:
+      pixmap = self.pixmap.copy(self.offset, 0, self.frames, 65)
+      self.drawPositionMarker(pixmap)
       scaled_pixmap = pixmap.scaled(self.size(), Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
-      painter.drawPixmap(0,0,scaled_pixmap)
+      painter.drawPixmap(0, 0, scaled_pixmap)
     painter.end()
 
-  def drawWaveformPixmap(self):
-    pixmap = QPixmap(self.frames, 65)
+  # draw position marker into unscaled pixmap
+  def drawPositionMarker(self, pixmap):
+    pixmap_painter = QPainter()
+    pixmap_painter.begin(pixmap)
+    pixmap_painter.fillRect(self.position_marker_offset, 0, 4, 65, Qt.red)
+    pixmap_painter.end()
+
+  # draw position marker into scaled pixmap
+  def drawPositionMarkerScaled(self, painter):
+    painter.fillRect(self.position_marker*self.size().width(), 0, 4, self.size().height(), Qt.red)
+
+  def renderWaveformPixmap(self):
+    logging.info("rendering waveform")
+    self.pixmap = QPixmap(self.position_marker_offset+len(self.data), 65)
     # background
-    pixmap.fill(Qt.black)
+    self.pixmap.fill(Qt.black)
     painter = QPainter()
-    painter.begin(pixmap)
+    painter.begin(self.pixmap)
     painter.setBrush(Qt.SolidPattern)
     # vertical orientation line
     painter.setPen(Qt.white)
-    painter.drawLine(0,32,self.frames,32)
+    painter.drawLine(0, 32, self.pixmap.width(), 32)
     # waveform data
-    if self.data and len(self.data) >= self.offset+self.frames:
-      for draw_x in range(0, self.frames):
-        data_x = self.offset+draw_x-self.position_marker_offset
-        if data_x < 0:
-          continue
+    if self.data:
+      for data_x in range(0, len(self.data)):
+        draw_x = data_x + self.position_marker_offset
         height = self.data[data_x] & 0x1f
         whiteness = self.data[data_x] >> 5
         painter.setPen(QColor(36*whiteness, 36*whiteness, 255))
-        painter.drawLine(draw_x,32-height,draw_x,32+height)
-    # position marker
-    painter.fillRect(self.position_marker_offset, 0, 4, 65, Qt.red)
+        painter.drawLine(draw_x, 32-height, draw_x, 32+height)
     painter.end()
-    return pixmap
+    logging.info("rendering waveform done")
 
   def timerEvent(self, event):
+    pass
     self.offset += int(142*0.04)
+    #self.scroll(-10,0)
     self.update()
 
 class PreviewWaveformWidget(QWidget):

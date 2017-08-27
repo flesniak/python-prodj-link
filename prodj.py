@@ -59,7 +59,7 @@ class ProDj(Thread):
   def vcdj_set_player_number(self, vcdj_player_number=5):
     logging.info("Player number set to {}".format(vcdj_player_number))
     self.vcdj.player_number = vcdj_player_number
-    #self.dbs.player_number = vcdj_player_number
+    #self.dbs.own_player_number = vcdj_player_number
 
   def vcdj_enable(self):
     self.vcdj_set_iface()

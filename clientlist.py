@@ -64,7 +64,7 @@ class ClientList:
     if c.bpm != new_bpm:
       c.bpm = new_bpm
       client_changed = True
-    new_pitch = status_packet["pitch"]
+    new_pitch = status_packet["physical_pitch"]
     if c.pitch != new_pitch:
       c.pitch = new_pitch
       client_changed = True
@@ -106,7 +106,7 @@ class ClientList:
         c.track_id = new_track_id
         client_changed = True
         if c.track_id != 0:
-          self.prodj.dbs.get_track_metadata(c.player_number, c.player_slot, c.track_id, self.setMetadata)
+          self.prodj.dbs.get_metadata(c.player_number, c.player_slot, c.track_id, self.setMetadata)
 
     c.updateTtl()
     if self.client_change_callback and client_changed:
@@ -114,9 +114,9 @@ class ClientList:
     if self.master_change_callback and "master" in c.state and client_changed:
       self.master_change_callback(self, c.player_number)
 
-  def setMetadata(self, player_number, slot, track_id, md):
+  def setMetadata(self, request, player_number, slot, track_id, md):
     c = self.getClient(player_number)
-    if c is None: # metadata from unknown client
+    if c is None or request != "metadata": # metadata from unknown client
       return
     c.metadata = md
     if self.client_change_callback:

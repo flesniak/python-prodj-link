@@ -7,7 +7,7 @@ from prodj import ProDj
 
 default_loglevel=0
 #default_loglevel=logging.DEBUG
-default_loglevel=logging.INFO
+#default_loglevel=logging.INFO
 #default_loglevel=logging.WARNING
 
 logging.basicConfig(level=default_loglevel, format='%(levelname)s: %(message)s')

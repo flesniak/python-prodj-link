@@ -253,11 +253,11 @@ StatusPacket = Struct(
       "state" / StateMask,
       "u9" / Default(Int8ub, 0xff), # counts from 0 up to 0xff after startup, then stays at 0xff
       "play_state2" / Int8ub, # xdj1000: 0xfe=stop, 0xfa=playing (also reverse), 2000nxs: 0x6e=stop, 0x6a=playing
-      "actual_pitch" / Pitch,
+      "physical_pitch" / Pitch, # the pitch slider position,
       "bpm_state" / Default(BpmState, "rekordbox"),
       "bpm" / Bpm,
       Const(Int32ub, 0x7fffffff),
-      "pitch" / Pitch, # physical pitch
+      "actual_pitch" / Pitch, # the actual pitch the player is currently playing
       "play_state3" / Int16ub, # 0=empty, 1=paused/reverse/vinyl grab, 9=playing, 0xd=jog
       "u10" / Int8ub, # 1 for rekordbox analyzed tracks, 2 for unanalyzed mp3
       Const(Int8ub, 0xff),
@@ -267,8 +267,8 @@ StatusPacket = Struct(
       Padding(15),
       "u11" / Default(Int16ub, 0x1000), # 0x0100 for xdj1000, 0x1000 for cdj2000nxs
       Padding(8),
-      "actual_pitch2" / Pitch,
       "physical_pitch2" / Pitch,
+      "actual_pitch2" / Pitch,
       "packet_count" / Default(Int32ub, 0), # permanently increasing
       "u12" / Default(Int8ub, 0x0f), # 0x0f=nexus, 0x05=non-nexus player
       Padding(7)),
@@ -353,6 +353,7 @@ DBRequestType = Enum(DBFieldFixed("int16"),
   metadata_request = 0x2002,
   artwork_request = 0x2003,
   preview_waveform_request = 0x2004,
+  beatgrid_request = 0x2204,
   waveform_request = 0x2904,
   render = 0x3000,
   success = 0x4000,

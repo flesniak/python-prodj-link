@@ -54,15 +54,17 @@ class DBClient(Thread):
   def __init__(self, prodj):
     super().__init__()
     self.cl = prodj.cl
+    self.own_player_number = 0 # db queries seem to work if we submit player number 0 everywhere
     self.remote_ports = {} # dict {player_number: (ip, port)}
-    self.transaction_id = 1
+    self.socks = {} # dict of player_number: (sock, ttl, transaction_id)
     self.queue = Queue()
-    self.sock = None # a single connection to one player
-    self.player_number = 0 # db queries seem to work if we submit player number 0 everywhere
+    self.metadata_change_callback = None # 2 parameters: player_number, metadata
+
     self.metadata_store = {} # map of player_number,slot,track_id: metadata
     self.artwork_store = {} # map of player_number,slot,artwork_id: artwork_data
     self.waveform_store = {} # map of player_number,slot,artwork_id: waveform_data
-    self.metadata_change_callback = None # 2 parameters: player_number, metadata
+    self.preview_waveform_store = {} # map of player_number,slot,artwork_id: preview_waveform_data
+    self.beatgrid_store = {} # map of player_number,slot,artwork_id: beatgrid_data
 
   def start(self):
     self.keep_running = True
@@ -71,46 +73,6 @@ class DBClient(Thread):
   def stop(self):
     self.keep_running = False
     self.join()
-
-  def get_transaction_id(self):
-    tid = self.transaction_id
-    self.transaction_id += 1
-    return tid
-
-  def get_server_port(self, player_number):
-    if player_number not in self.remote_ports:
-      client = self.cl.getClient(player_number)
-      if client is None:
-        logging.error("DBClient: client {} not found".format(player_number))
-        return
-      sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-      sock.connect((client.ip_addr, packets.DBServerQueryPort))
-      sock.send(packets.DBServerQuery.build({}))
-      data = sock.recv(2)
-      sock.close()
-      port = packets.DBServerReply.parse(data)
-      self.remote_ports[player_number] = (client.ip_addr, port)
-      logging.info("DBServer port of player {}: {}".format(player_number, port))
-    return self.remote_ports[player_number]
-
-  def send_initial_packet(self):
-    init_packet = packets.DBFieldFixed("int32")
-    self.sock.send(init_packet.build(1))
-    data = self.sock.recv(16)
-
-  def send_setup_packet(self, connect_player_number):
-    query = {
-      "transaction_id": 0xfffffffe,
-      "type": "setup",
-      "args": [{"type": "int32", "value": self.player_number}]
-    }
-    self.sock.send(packets.DBMessage.build(query))
-    data = self.sock.recv(48)
-    if len(data) == 0:
-      logging.error("Failed to connect to player {}".format(connect_player_number))
-      return
-    reply = packets.DBMessage.parse(data)
-    logging.info("DBServer: connected to player {}".format(reply["args"][1]["value"]))
 
   def parse_metadata(self, data):
     md = {}
@@ -161,31 +123,32 @@ class DBClient(Thread):
       logging.warning("DBServer: metadata packet not ending with menu_footer, buffer too small?")
     return md
 
-  def query_track_metadata(self, slot, track_id):
+  def query_metadata(self, player_number, slot, track_id):
+    sock = self.getSocket(player_number)
     slot_id = byte2int(packets.PlayerSlot.build(slot))
     query = {
-      "transaction_id": self.get_transaction_id(),
+      "transaction_id": self.getTransactionId(player_number),
       "type": "metadata_request",
       "args": [
-        {"type": "int32", "value": self.player_number<<24 | 1<<16 | slot_id<<8 | 1},
+        {"type": "int32", "value": self.own_player_number<<24 | 1<<16 | slot_id<<8 | 1},
         {"type": "int32", "value": track_id}
       ]
     }
     data = packets.DBMessage.build(query)
     logging.debug("DBServer: metadata_request query {}".format(query))
-    self.sock.send(data)
-    data = self.sock.recv(48)
+    sock.send(data)
+    data = sock.recv(48)
     reply = packets.DBMessage.parse(data)
     entry_count = reply["args"][1]["value"]
     if entry_count == 0:
       logging.error("DBServer: not metadata for track {} available (0 entries)".format(track_id))
-    logging.info("DBServer: metadata request: {} entries available".format(entry_count))
+    logging.debug("DBServer: metadata request: {} entries available".format(entry_count))
 
     query = {
-      "transaction_id": self.get_transaction_id(),
+      "transaction_id": self.getTransactionId(player_number),
       "type": "render",
       "args": [
-        {"type": "int32", "value": self.player_number<<24 | 1<<16 | slot_id<<8 | 1},
+        {"type": "int32", "value": self.own_player_number<<24 | 1<<16 | slot_id<<8 | 1},
         {"type": "int32", "value": 0}, # entry offset
         {"type": "int32", "value": entry_count}, # entry count
         {"type": "int32", "value": 0},
@@ -195,8 +158,8 @@ class DBClient(Thread):
     }
     data = packets.DBMessage.build(query)
     logging.debug("DBServer: render query {}".format(query))
-    self.sock.send(data)
-    data = self.sock.recv(1500)
+    sock.send(data)
+    data = sock.recv(1500)
     try:
       reply = packets.ManyDBMessages.parse(data)
     except (RangeError, FieldError):
@@ -205,197 +168,200 @@ class DBClient(Thread):
     metadata = self.parse_metadata(reply)
     return metadata
 
-  def query_artwork(self, slot, artwork_id):
+  def query_blob(self, player_number, slot, id, request_type, location=8):
+    sock = self.getSocket(player_number)
     slot_id = byte2int(packets.PlayerSlot.build(slot))
     query = {
-      "transaction_id": self.get_transaction_id(),
-      "type": "artwork_request",
+      "transaction_id": self.getTransactionId(player_number),
+      "type": request_type,
       "args": [
-        {"type": "int32", "value": self.player_number<<24 | 8<<16 | slot_id<<8 | 1},
-        {"type": "int32", "value": artwork_id}
+        {"type": "int32", "value": self.own_player_number<<24 | location<<16 | slot_id<<8 | 1},
+        {"type": "int32", "value": track_id}
       ]
     }
+    # request-specifig argument agumentations
+    if request_type == "waveform_request":
+      query["args"] += [{"type": "int32", "value": 0}]
+    elif request_type == "preview_waveform":
+      query["args"].insert(1, {"type": "int32", "value": 4})
+      query["args"] += [{"type": "int32", "value": 0}]
+    logging.debug("DBServer: {} query {}".format(request_type, query))
     data = packets.DBMessage.build(query)
-    logging.debug("DBServer: artwork_request query {}".format(query))
-    self.sock.send(data)
-    data = self.sock.recv(2000)
-    if len(data) == 0:
-      logging.error("DBServer: artwork request for id {} failed".format(artwork_id))
-      return None
-    reply = packets.DBMessage.parse(data)
-    if reply["args"][2]["value"] == 0:
-      logging.warning("DBServer: not artwork for {}".format(artwork_id))
-      return None
-    artwork_data = reply["args"][3]["value"]
-    logging.info("DBServer: got {} bytes of artwork data".format(len(artwork_data)))
-    return artwork_data
-
-  def query_preview_waveform(self, slot, track_id):
-    slot_id = byte2int(packets.PlayerSlot.build(slot))
-    query = {
-      "transaction_id": self.get_transaction_id(),
-      "type": "preview_waveform_request",
-      "args": [
-        {"type": "int32", "value": self.player_number<<24 | 8<<16 | slot_id<<8 | 1},
-        {"type": "int32", "value": 4},
-        {"type": "int32", "value": track_id},
-        {"type": "int32", "value": 0}
-      ]
-    }
-    data = packets.DBMessage.build(query)
-    logging.debug("DBServer: preview_waveform_request query {}".format(query))
-    self.sock.send(data)
-    data = self.sock.recv(2000)
-    if len(data) == 0:
-      logging.error("DBServer: preview_waveform request for id {} failed".format(track_id))
-      return None
-    reply = packets.DBMessage.parse(data)
-    if reply["args"][2]["value"] == 0:
-      logging.warning("DBServer: not preview_waveform for {}".format(track_id))
-      return None
-    preview_waveform_data = reply["args"][3]["value"]
-    logging.info("DBServer: got {} bytes of preview_waveform data".format(len(preview_waveform_data)))
-    with open("preview_waveform.bin", "wb") as f:
-      f.write(preview_waveform_data)
-    return preview_waveform_data
-
-  def query_waveform(self, slot, track_id, player_number=0):
-    slot_id = byte2int(packets.PlayerSlot.build(slot))
-    query = {
-      "transaction_id": self.get_transaction_id(),
-      "type": "waveform_request",
-      "args": [
-        {"type": "int32", "value": self.player_number<<24 | 1<<16 | slot_id<<8 | 1},
-        {"type": "int32", "value": track_id},
-        {"type": "int32", "value": 0}
-      ]
-    }
-    data = packets.DBMessage.build(query)
-    logging.debug("DBServer: waveform_request query {}".format(query))
-    self.sock.send(data)
+    sock.send(data)
     recv_tries = 0
     data = b""
     while recv_tries < 30:
-      data += self.sock.recv(4096)
+      data += sock.recv(4096)
       try:
         reply = packets.DBMessage.parse(data)
       except RangeError as e:
-        logging.debug("Received {} bytes but parsing failed, trying to receive more".format(len(data)))
+        logging.debug("DBServer: Received %d bytes but parsing failed, trying to receive more", len(data))
         reply = None
       else:
         break
-    if reply is None and recv_tries == 30:
-      logging.error("Failed to receive waveform")
+    if reply is None:
+      logging.error("Failed to receive %s blob (%d tries)", request_type, recv_tries)
       return None
     if reply["args"][2]["value"] == 0:
-      logging.warning("DBServer: no waveform for {}".format(track_id))
+      logging.warning("DBServer: no {} blob for track {}".format(request_type, track_id))
       return None
-    waveform_data = reply["args"][3]["value"]
-    logging.debug("DBServer: got {} bytes of waveform data".format(len(waveform_data)))
-    return waveform_data
+    blob = reply["args"][3]["value"]
+    logging.debug("DBServer: got {} bytes of blob data".format(len(blob)))
+    return blob
 
-  def connectDb(self, player_number):
-    if self.sock is not None:
-      logging.warning("DBClient: db socket still connected, closing and resetting")
-      self.closeDb()
+  def get_server_port(self, player_number):
+    if player_number not in self.remote_ports:
+      client = self.cl.getClient(player_number)
+      if client is None:
+        logging.error("DBClient: client {} not found".format(player_number))
+        return
+      sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+      sock.connect((client.ip_addr, packets.DBServerQueryPort))
+      sock.send(packets.DBServerQuery.build({}))
+      data = sock.recv(2)
+      sock.close()
+      port = packets.DBServerReply.parse(data)
+      self.remote_ports[player_number] = (client.ip_addr, port)
+      logging.info("DBServer port of player {}: {}".format(player_number, port))
+    return self.remote_ports[player_number]
+
+  def send_initial_packet(self, sock):
+    init_packet = packets.DBFieldFixed("int32")
+    sock.send(init_packet.build(1))
+    data = sock.recv(16)
+    try:
+      reply = init_packet.parse(data)
+      logging.debug("DBServer: initial packet reply %d", reply)
+    except:
+      logging.warning("DBServer: failed to parse initial packet reply, ignoring")
+
+  def send_setup_packet(self, sock, player_number):
+    query = {
+      "transaction_id": 0xfffffffe,
+      "type": "setup",
+      "args": [{"type": "int32", "value": self.own_player_number}]
+    }
+    sock.send(packets.DBMessage.build(query))
+    data = sock.recv(48)
+    if len(data) == 0:
+      logging.error("Failed to connect to player {}".format(player_number))
+      return
+    reply = packets.DBMessage.parse(data)
+    logging.info("DBServer: connected to player {}".format(reply["args"][1]["value"]))
+
+  def getTransactionId(self, player_number):
+    sock_info = self.socks[player_number]
+    self.socks[player_number] = (sock_info[0], sock_info[1], sock_info[2]+1)
+    return sock_info[2]
+
+  def resetSocketTtl(self, player_number):
+    sock = self.socks[player_number]
+    self.socks[player_number] = (sock[0], 30, sock[2])
+
+  def gc(self):
+    for player_number, sock in self.socks.items():
+      if sock[1] <= 0:
+        logging.info("Closing DB socket of player %d", player_number)
+        self.closeSocket()
+      else:
+        self.socks[player_number] = (sock[0], sock[1]-1, sock[2])
+
+  def getSocket(self, player_number):
+    if player_number in self.socks:
+      self.resetSocketTtl(player_number)
+      return self.socks[player_number][0]
+
     ip_port = self.get_server_port(player_number)
     if ip_port is None:
       logging.error("DBClient: failed to get remote port of player {}".format(player_number))
       return
-    self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 65536)
-    self.sock.connect(ip_port)
-    self.transaction_id = 1 # on successful connect, reset transaction_id
+
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 65536)
+    sock.connect(ip_port)
+    self.socks[player_number] = (sock, 30, 1) # socket, ttl, transaction_id
 
     # send connection initialization packet
-    self.send_initial_packet()
-
+    self.send_initial_packet(sock)
     # first query
-    self.send_setup_packet(player_number)
+    self.send_setup_packet(sock, player_number)
 
-  def closeDb(self):
-    if self.sock:
-      self.sock.close()
-    self.sock = None
+    return sock
 
-  # called from outside, enqueues request
-  def get_track_metadata(self, player_number, slot, track_id, callback=None):
-    if player_number == 0 or player_number > 4 or track_id == 0:
-      logging.warning("DBServer: invalid get_track_metadata parameters")
-      return
-    if (player_number, slot, track_id) in self.metadata_store:
-      logging.info("DBServer: metadata of player {} slot {} track_id {} already known".format(
-        player_number, slot, track_id))
-      if callback:
-        callback(player_number, slot, track_id, self.metadata_store[player_number, slot, track_id])
+  def closeSocket(self, player_number):
+    if player_number in self.socks:
+      self.socks[player_number].close()
+      del self.socks[player_number]
     else:
-      self.queue.put(("metadata", player_number, slot, track_id, callback))
-
-  # called from inside
-  def _get_track_metadata(self, player_number, slot, track_id, callback):
-    self.connectDb(player_number)
-    logging.info("DBServer: requesting metadata from player {} slot {} id {}".format(player_number, slot, track_id))
-    md = self.query_track_metadata(slot, track_id)
-    if md:
-      logging.info("DBServer: got metadata of {} - {}".format(md["artist"], md["title"]))
-      self.metadata_store[player_number, slot, track_id] = md
-      preview_waveform = self.query_preview_waveform(slot, track_id)
-      if "artwork_id" in md and md["artwork_id"] != 0:
-        artwork = self.query_artwork(slot, md["artwork_id"])
-        if artwork:
-          self.artwork_store[player_number,slot,track_id] = artwork
-      # FIXME do not call from here, client should do it if big waveform is required
-      self._get_waveform(player_number, slot, track_id, None)
-      if self.metadata_change_callback:
-        self.metadata_change_callback(player_number, md)
-      if callback:
-        callback(player_number, slot, track_id, md)
-    self.closeDb()
+      logging.warning("Requested to delete unexistant socket for player %d", player_number)
 
   # called from outside, enqueues request
+  def get_metadata(self, player_number, slot, track_id, callback=None):
+    self._enqueue_request("metadata", self.metadata_store, player_number, slot, track_id, callback)
+
+  def get_artwork(self, player_number, slot, artwork_id, callback=None):
+    self._enqueue_request("artwork", self.waveform_store, player_number, slot, artwork_id, callback)
+
   def get_waveform(self, player_number, slot, track_id, callback=None):
-    if player_number == 0 or player_number > 4 or track_id == 0:
-      logging.warning("DBServer: invalid get_waveform parameters")
-      return
-    if (player_number, slot, track_id) in self.waveform_store:
-      logging.info("DBServer: preview waveform of player {} slot {} track_id {} already known".format(
-        player_number, slot, track_id))
-      if callback:
-        callback(player_number, slot, track_id, self.waveform_store[player_number, slot, track_id])
-    else:
-      self.queue.put(("waveform", player_number, slot, track_id, callback))
+    self._enqueue_request("waveform", self.waveform_store, player_number, slot, track_id, callback)
 
-  # called from inside
-  def _get_waveform(self, player_number, slot, track_id, callback):
-    self.connectDb(player_number)
-    logging.info("DBServer: requesting waveform from player {} slot {} id {}".format(player_number, slot, track_id))
-    waveform = self.query_waveform(slot, track_id)
-    if waveform:
-      logging.info("DBServer: got waveform from player {} slot {} id {}".format(player_number, slot, track_id))
-      self.waveform_store[player_number, slot, track_id] = waveform
-      with open("waveform.bin", "wb") as f:
-        f.write(waveform)
+  def get_preview_waveform(self, player_number, slot, track_id, callback=None):
+    self._enqueue_request("preview_waveform", self.waveform_store, player_number, slot, track_id, callback)
+
+  def get_beatgrid(self, player_number, slot, track_id, callback=None):
+    self._enqueue_request("beatgrid", self.waveform_store, player_number, slot, track_id, callback)
+
+  def _enqueue_request(self, request, store, player_number, slot, item_id, callback):
+    if player_number == 0 or player_number > 4 or item_id == 0:
+      logging.warning("DBServer: invalid %s request parameters", request)
+      return
+    if (player_number, slot, item_id) in store:
+      logging.debug("DBServer: %s request for player %d slot %s item_id %d already known",
+        request, player_number, slot, item_id)
       if callback:
-        callback(player_number, slot, track_id, waveform)
-    self.closeDb()
+        callback(player_number, slot, item_id, store[player_number, slot, item_id])
+    else:
+      logging.debug("DBServer: enqueueing %s request for player %d slot %s item_id %d",
+        request, player_number, slot, item_id)
+      self.queue.put((request, store, player_number, slot, item_id, callback))
+
+  def _handle_request(self, request, store, player_number, slot, item_id, callback):
+    logging.debug("DBServer: handling %s request for player %d slot %s id %d",
+      request, player_number, slot, item_id)
+    if request == "metadata":
+      reply = self.query_metadata(player_number, slot, item_id)
+    elif request == "artwork":
+      reply = self.query_blob(player_number, slot, item_id, "artwork_request")
+    elif request == "waveform":
+      reply = self.query_blob(player_number, slot, item_id, "waveform_request", 1)
+    elif request == "preview_waveform":
+      reply = self.query_blob(player_number, slot, item_id, "preview_waveform_request")
+    elif request == "beatgrid":
+      reply = self.query_blob(player_number, slot, item_id, "beatgrid_request")
+    else:
+      logging.error("DBServer: invalid request type %s", request)
+      return
+    store[player_number, slot, item_id] = reply
+    if callback:
+      callback(request, player_number, slot, item_id, reply)
 
   def run(self):
     logging.debug("DBClient starting")
     while self.keep_running:
       try:
-        item = self.queue.get(timeout=1)
+        request = self.queue.get(timeout=1)
       except Empty:
+        self.gc()
         continue
-      client = self.cl.getClient(item[1])
+      client = self.cl.getClient(request[2])
       if not client or client.play_state in ["no_track", "loading_track", "cannot_play_track", "emergency"]:
-        logging.debug("DBClient: delaying metadata request due to play state: {}".format(client.play_state))
-        self.queue.put(item)
+        if client:
+          logging.debug("DBClient: delaying %s request due to play state: %s", request[0], client.play_state)
+        else:
+          logging.warning("DBClient: player %s not found in clientlist", request[2])
+        self.queue.put(request)
         time.sleep(1)
         continue
-      logging.debug("DBClient request player {} slot {} track {}".format(*item[1:4]))
-      if item[0] == "metadata":
-        self._get_track_metadata(*item[1:])
-      elif item[0] == "waveform":
-        self._get_waveform(*item[1:])
+      self._handle_request(*request)
       self.queue.task_done()
     logging.debug("DBClient shutting down")
