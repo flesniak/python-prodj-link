@@ -7,6 +7,7 @@ class ClientList:
     self.client_keepalive_callback = None
     self.client_change_callback = None
     self.master_change_callback = None
+    self.auto_request_beatgrid = True # to enable position detection
     self.prodj = prodj
 
   def __len__():
@@ -14,6 +15,22 @@ class ClientList:
 
   def getClient(self, player_number):
     return next((p for p in self.clients if p.player_number == player_number), None)
+
+  def updatePositionByBeat(self, player_number, current_beat):
+    c = self.getClient(player_number)
+    identifier = (c.player_number, c.loaded_slot, c.track_id)
+    if identifier in self.prodj.dbs.beatgrid_store:
+      if current_beat > 0:
+        if c.play_state != "cued":
+          current_beat -= 1
+        beatgrid = self.prodj.dbs.beatgrid_store[identifier]
+        c.position = beatgrid["beats"][current_beat]["time"] / 1000
+      else:
+        c.position = 0
+      c.position_timestamp = time.time()
+      #logging.debug("Track position abs %f", c.position)
+    else:
+      c.position = None
 
   # adds client if it is not known yet, in any case it resets the ttl
   def eatKeepalive(self, keepalive_packet):
@@ -44,29 +61,22 @@ class ClientList:
     if c is None: # packet from unknown client
       return
     c.updateTtl()
-    #if not c.status_packet_received:
-    client_changed = False;
-    new_pitch = beat_packet["pitch"]
-    if c.pitch != new_pitch:
-      c.pitch = new_pitch
-      client_changed = True
-    logging.info("BEAT PACKET PITCH %f", new_pitch)
-    new_bpm = beat_packet["bpm"]
-    if c.bpm != new_bpm:
-      c.bpm = new_bpm
-      client_changed = True
-    new_beat = beat_packet["beat"]
-    if c.beat != new_beat:
-      c.beat = new_beat
-      client_changed = True
-    if self.client_change_callback and client_changed:
-      self.client_change_callback(self, c.player_number)
-    # position tracking
-    identifier = (c.player_number, c.slot, c.track_id)
-    if identifier in self.prodj.dsb.beatgrid_store:
-      beatgrid = self.prodj.dsb.beatgrid_store[identifier]
-    else:
-      c.position = None
+    if not c.status_packet_received:
+      client_changed = False;
+      new_actual_pitch = beat_packet["pitch"]
+      if c.actual_pitch != new_actual_pitch:
+        c.actual_pitch = new_actual_pitch
+        client_changed = True
+      new_bpm = beat_packet["bpm"]
+      if c.bpm != new_bpm:
+        c.bpm = new_bpm
+        client_changed = True
+      new_beat = beat_packet["beat"]
+      if c.beat != new_beat:
+        c.beat = new_beat
+        client_changed = True
+      if self.client_change_callback and client_changed:
+        self.client_change_callback(self, c.player_number)
 
   # update all known player information
   def eatStatus(self, status_packet):
@@ -104,6 +114,10 @@ class ClientList:
       if c.beat_count != new_beat_count:
         c.beat_count = new_beat_count
         client_changed = True
+        # position tracking, set new absolute grid value
+        self.updatePositionByBeat(c.player_number, new_beat_count)
+      else: # otherwise, increment by bpm
+        c.updatePositionByBpm()
       new_cue_distance = status_packet["cue_distance"] if status_packet["cue_distance"] != 511 else "-"
       if c.cue_distance != new_cue_distance:
         c.cue_distance = new_cue_distance
@@ -121,6 +135,8 @@ class ClientList:
       if c.track_id != new_track_id:
         c.track_id = new_track_id
         client_changed = True
+        if self.auto_request_beatgrid:
+          self.prodj.dbs.get_beatgrid(c.player_number, c.loaded_slot, c.track_id)
 
     c.updateTtl()
     if self.client_change_callback and client_changed:
@@ -177,10 +193,21 @@ class Client:
     self.track_number = None
     self.track_id = None
     self.position = None # position in track in seconds, 0 if not determinable
+    self.position_timestamp = None
     # internal use
     self.metadata = None
     self.status_packet_received = False # ignore play state from beat packets
     self.ttl = time.time()
+
+  # calculate the current position by linear interpolation
+  def updatePositionByBpm(self):
+    if not self.position or self.actual_pitch == 0:
+      return
+    now = time.time()
+    self.position += self.actual_pitch*(now-self.position_timestamp)
+    self.position_timestamp = now
+    #logging.debug("Track position inc %f", self.position)
+    return self.position
 
   def updateTtl(self):
     self.ttl = time.time()

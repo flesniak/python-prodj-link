@@ -4,9 +4,6 @@ from PyQt5.QtGui import QColor, QPainter, QPixmap
 from PyQt5.QtCore import pyqtSignal, Qt, QSize
 import sys
 import math
-from construct import FieldError, RangeError
-
-from packets import Beatgrid
 
 class WaveformWidget(QWidget):
   def __init__(self, parent):
@@ -19,24 +16,24 @@ class WaveformWidget(QWidget):
     self.beatgrid_data = None
     self.pixmap = None
     self.offset = 0 # frames = pixels of waveform
+    self.pitch = 0
     self.position_marker = 0.5
     self.setFrameCount(self.waveform_px_per_s*10)
     #self.setPositionMarkerOffset(0.5)
-    self.startTimer(40)
+    self.update_interval = 0.04
+    self.startTimer(self.update_interval*1000)
 
   def setData(self, data):
     self.pixmap = None
     self.waveform_data = data[20:]
     self.renderWaveformPixmap()
+    self.update()
 
   def setBeatgridData(self, beatgrid_data):
-    try:
-      self.beatgrid_data = Beatgrid.parse(beatgrid_data)
-    except (RangeError, FieldError) as e:
-      logging.error("Gui: failed to parse beatgrid data: %s", e)
-      self.beatgrid_data = None
+    self.beatgrid_data = beatgrid_data
     if self.waveform_data:
       self.renderWaveformPixmap()
+      self.update()
 
   def setFrameCount(self, frames): # frames-to-show -> 150*10 = 10 seconds
     self.frames = frames
@@ -45,6 +42,15 @@ class WaveformWidget(QWidget):
   def setPositionMarkerOffset(self, relative): # relative location of position marker
     self.position_marker = relative
     self.position_marker_offset = int(relative*self.frames)
+
+  def setPosition(self, position, pitch=1):
+    logging.debug("Gui: setPosition {} pitch {}".format(position, pitch))
+    if position is not None and pitch is not None:
+      self.offset = int(self.waveform_px_per_s*position)
+      self.pitch = pitch
+    else:
+      self.offset = 0
+      self.pitch = 0
 
   def paintEvent(self, e):
     #logging.info("paintEvent {}".format(e.rect()))
@@ -102,10 +108,9 @@ class WaveformWidget(QWidget):
     logging.info("rendering waveform done")
 
   def timerEvent(self, event):
-    pass
-    self.offset += int(142*0.04)
-    #self.scroll(-10,0)
-    self.update()
+    if self.pitch > 0:
+      self.offset += int(self.waveform_px_per_s*self.pitch*self.update_interval)
+      self.update()
 
 class PreviewWaveformWidget(QWidget):
   def __init__(self, parent):
@@ -370,8 +375,11 @@ class Gui(QWidget):
     self.players[player_number].setSpeed(c.bpm, c.pitch)
     self.players[player_number].setMaster("master" in c.state)
     self.players[player_number].beat_bar.setBeat(c.beat)
+    self.players[player_number].waveform.setPosition(c.position, c.actual_pitch)
     if len(c.fw) > 0:
       self.players[player_number].setPlayerInfo(c.model, c.ip_addr, c.fw)
+
+    # track changed -> reload metadata
     if self.players[player_number].track_id != c.track_id and c.track_id != 0:
       logging.info("Gui: track id of player %d changed to %d, requesting metadata", player_number, player_number)
       self.players[player_number].track_id = c.track_id # remember requested track id

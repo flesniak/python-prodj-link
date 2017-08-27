@@ -47,6 +47,6 @@ class Vcdj(Thread):
       "ip_addr": self.ip_addr,
       "mac_addr": self.mac_addr
     }
-    logging.debug("send keepalive data: "+str(data))
+    #logging.debug("send keepalive data: %s", str(data))
     raw = packets.KeepAlivePacket.build(data)
     self.prodj.keepalive_sock.sendto(raw, (self.broadcast_addr, self.prodj.keepalive_port))

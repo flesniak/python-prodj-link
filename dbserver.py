@@ -260,10 +260,11 @@ class DBClient(Thread):
     self.socks[player_number] = (sock[0], 30, sock[2])
 
   def gc(self):
-    for player_number, sock in self.socks.items():
+    for player_number in list(self.socks):
+      sock = self.socks[player_number]
       if sock[1] <= 0:
         logging.info("Closing DB socket of player %d", player_number)
-        self.closeSocket()
+        self.closeSocket(player_number)
       else:
         self.socks[player_number] = (sock[0], sock[1]-1, sock[2])
 
@@ -291,7 +292,7 @@ class DBClient(Thread):
 
   def closeSocket(self, player_number):
     if player_number in self.socks:
-      self.socks[player_number].close()
+      self.socks[player_number][0].close()
       del self.socks[player_number]
     else:
       logging.warning("Requested to delete unexistant socket for player %d", player_number)
@@ -339,8 +340,11 @@ class DBClient(Thread):
       reply = self.query_blob(player_number, slot, item_id, "preview_waveform_request")
     elif request == "beatgrid":
       reply = self.query_blob(player_number, slot, item_id, "beatgrid_request")
-      with open("beatgrid.bin", "wb") as f:
-        f.write(reply)
+      try: # pre-parse beatgrid data (like metadata) for easier access
+        reply = packets.Beatgrid.parse(reply)
+      except (RangeError, FieldError) as e:
+        logging.error("DBServer: failed to parse beatgrid data: %s", e)
+        reply = None
     else:
       logging.error("DBServer: invalid request type %s", request)
       return

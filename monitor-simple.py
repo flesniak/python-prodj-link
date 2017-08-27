@@ -6,7 +6,7 @@ import time
 from prodj import ProDj
 
 default_loglevel=0
-#default_loglevel=logging.DEBUG
+default_loglevel=logging.DEBUG
 #default_loglevel=logging.INFO
 #default_loglevel=logging.WARNING
 
@@ -15,8 +15,8 @@ logging.basicConfig(level=default_loglevel, format='%(levelname)s: %(message)s')
 def print_clients(cl, player_number):
   for c in cl.clients:
     if c.player_number == player_number:
-      logging.info("Player {}: {} {} BPM Pitch {:.2f}% Beat {}".format(
-        c.player_number, c.model, c.bpm, (c.pitch-1)*100, c.beat))
+      logging.info("Player {}: {} {} BPM Pitch {:.2f}% Beat {} Beatcnt {}".format(
+        c.player_number, c.model, c.bpm, (c.pitch-1)*100, c.beat, c.beat_count))
 
 def print_metadata(player_number, md):
   logging.info("Player {} playing {} - {} ({}) {}:{} {} BPM".format(player_number,
