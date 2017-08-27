@@ -44,12 +44,29 @@ class ClientList:
     if c is None: # packet from unknown client
       return
     c.updateTtl()
-    if not c.status_packet_received:
-      c.pitch = beat_packet["pitch"]
-      c.bpm = beat_packet["bpm"]
-      c.beat = beat_packet["beat"]
-      if self.client_change_callback:
-        self.client_change_callback(self, c.player_number)
+    #if not c.status_packet_received:
+    client_changed = False;
+    new_pitch = beat_packet["pitch"]
+    if c.pitch != new_pitch:
+      c.pitch = new_pitch
+      client_changed = True
+    logging.info("BEAT PACKET PITCH %f", new_pitch)
+    new_bpm = beat_packet["bpm"]
+    if c.bpm != new_bpm:
+      c.bpm = new_bpm
+      client_changed = True
+    new_beat = beat_packet["beat"]
+    if c.beat != new_beat:
+      c.beat = new_beat
+      client_changed = True
+    if self.client_change_callback and client_changed:
+      self.client_change_callback(self, c.player_number)
+    # position tracking
+    identifier = (c.player_number, c.slot, c.track_id)
+    if identifier in self.prodj.dsb.beatgrid_store:
+      beatgrid = self.prodj.dsb.beatgrid_store[identifier]
+    else:
+      c.position = None
 
   # update all known player information
   def eatStatus(self, status_packet):
@@ -97,7 +114,6 @@ class ClientList:
         client_changed = True
       c.usb_state = status_packet["usb_state"]
       c.sd_state = status_packet["sd_state"]
-      c.player_slot = status_packet["loaded_slot"]
       c.track_number = status_packet["track_number"]
       c.loaded_player_number = status_packet["loaded_player_number"]
       c.loaded_slot = status_packet["loaded_slot"]
@@ -155,12 +171,12 @@ class Client:
     self.play_state = "no_track"
     self.usb_state = "not_loaded"
     self.sd_state = "not_loaded"
-    self.player_slot = "empty"
-    self.state = []
-    self.track_number = None
     self.loaded_player_number = 0
     self.loaded_slot = "empty"
+    self.state = []
+    self.track_number = None
     self.track_id = None
+    self.position = None # position in track in seconds, 0 if not determinable
     # internal use
     self.metadata = None
     self.status_packet_received = False # ignore play state from beat packets

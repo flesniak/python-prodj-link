@@ -25,7 +25,8 @@ def print_metadata(player_number, md):
 p = ProDj()
 p.set_client_keepalive_callback(print_clients)
 p.set_client_change_callback(print_clients)
-p.set_metadata_change_callback(print_metadata)
+# TODO replace with call to dbclient
+#p.set_metadata_change_callback(print_metadata)
 
 try:
   p.start()
