@@ -189,7 +189,7 @@ class PlayerWidget(QFrame):
 
   def setPlayerNumber(self, player_number):
     self.player_number = player_number
-    self.labels["player_number"].setText(str(self.player_number))
+    self.labels["player_number"].setText("Player {}".format(self.player_number))
 
   def setMaster(self, master):
     if master:
@@ -242,17 +242,26 @@ class Gui(QWidget):
 
     self.players = {}
     self.layout = QGridLayout(self)
-    self.create_player(1)
+    self.create_player(0)
 
     self.show()
 
   def create_player(self, player_number):
     if player_number in self.players:
       return
-    self.players[player_number] = PlayerWidget("Player {}".format(player_number), self)
-    self.layout.addWidget(self.players[player_number], (player_number-1)//2, (player_number-1)%2)
+    if len(self.players) == 1 and 0 in self.players:
+      logging.debug("Gui: reassigning default player 0 to player %d", player_number)
+      self.players[0].setPlayerNumber(player_number)
+      self.layout.removeWidget(self.players[0])
+      self.players = {player_number: self.players[0]}
+    else:
+      logging.info("Gui: Creating player {}".format(player_number))
+      self.players[player_number] = PlayerWidget(player_number, self)
     self.players[player_number].show()
-    logging.info("Gui: Created player {}".format(player_number))
+    if player_number == 0:
+      self.layout.addWidget(self.players[0], 0, 0)
+    else:
+      self.layout.addWidget(self.players[player_number], (player_number-1)//2, (player_number-1)%2)
 
   def remove_player(self, player_number):
     if not player_number in self.players:
