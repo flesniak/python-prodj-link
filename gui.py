@@ -5,112 +5,8 @@ from PyQt5.QtCore import pyqtSignal, Qt, QSize
 import sys
 import math
 
-class WaveformWidget(QWidget):
-  def __init__(self, parent):
-    super().__init__(parent)
-    self.waveform_height = 75
-    self.waveform_center = self.waveform_height//2
-    self.waveform_px_per_s = 150
-    self.setMinimumSize(3*self.waveform_px_per_s, self.waveform_height)
-    self.waveform_data = None
-    self.beatgrid_data = None
-    self.pixmap = None
-    self.offset = 0 # frames = pixels of waveform
-    self.pitch = 0
-    self.position_marker = 0.5
-    self.setFrameCount(self.waveform_px_per_s*10)
-    #self.setPositionMarkerOffset(0.5)
-    self.update_interval = 0.04
-    self.startTimer(self.update_interval*1000)
-
-  def setData(self, data):
-    self.pixmap = None
-    self.waveform_data = data[20:]
-    self.renderWaveformPixmap()
-    self.update()
-
-  def setBeatgridData(self, beatgrid_data):
-    self.beatgrid_data = beatgrid_data
-    if self.waveform_data:
-      self.renderWaveformPixmap()
-      self.update()
-
-  def setFrameCount(self, frames): # frames-to-show -> 150*10 = 10 seconds
-    self.frames = frames
-    self.setPositionMarkerOffset(self.position_marker)
-
-  def setPositionMarkerOffset(self, relative): # relative location of position marker
-    self.position_marker = relative
-    self.position_marker_offset = int(relative*self.frames)
-
-  def setPosition(self, position, pitch=1):
-    logging.debug("Gui: setPosition {} pitch {}".format(position, pitch))
-    if position is not None and pitch is not None:
-      self.offset = int(self.waveform_px_per_s*position)
-      self.pitch = pitch
-    else:
-      self.offset = 0
-      self.pitch = 0
-
-  def paintEvent(self, e):
-    #logging.info("paintEvent {}".format(e.rect()))
-    painter = QPainter()
-    painter.begin(self)
-    if self.pixmap:
-      pixmap = self.pixmap.copy(self.offset, 0, self.frames, self.waveform_height)
-      self.drawPositionMarker(pixmap)
-      scaled_pixmap = pixmap.scaled(self.size(), Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
-      painter.drawPixmap(0, 0, scaled_pixmap)
-    painter.end()
-
-  # draw position marker into unscaled pixmap
-  def drawPositionMarker(self, pixmap):
-    pixmap_painter = QPainter()
-    pixmap_painter.begin(pixmap)
-    pixmap_painter.fillRect(self.position_marker_offset, 0, 4, self.waveform_height, Qt.red)
-    pixmap_painter.end()
-
-  # draw position marker into scaled pixmap
-  def drawPositionMarkerScaled(self, painter):
-    painter.fillRect(self.position_marker*self.size().width(), 0, 4, self.size().height(), Qt.red)
-
-  def renderWaveformPixmap(self):
-    logging.info("rendering waveform")
-    self.pixmap = QPixmap(self.position_marker_offset+len(self.waveform_data), self.waveform_height)
-    # background
-    self.pixmap.fill(Qt.black)
-    painter = QPainter()
-    painter.begin(self.pixmap)
-    painter.setBrush(Qt.SolidPattern)
-    # vertical orientation line
-    painter.setPen(Qt.white)
-    painter.drawLine(0, self.waveform_center, self.pixmap.width(), self.waveform_center)
-    # waveform data
-    if self.waveform_data:
-      for data_x in range(0, len(self.waveform_data)):
-        draw_x = data_x + self.position_marker_offset
-        height = self.waveform_data[data_x] & 0x1f
-        whiteness = self.waveform_data[data_x] >> 5
-        painter.setPen(QColor(36*whiteness, 36*whiteness, 255))
-        painter.drawLine(draw_x, self.waveform_center-height, draw_x, self.waveform_center+height)
-      if self.beatgrid_data:
-        for beat in self.beatgrid_data["beats"]:
-          if beat["beat"] == 1:
-            brush = Qt.red
-            length = 8
-          else:
-            brush = Qt.white
-            length = 5
-          draw_x = beat["time"]*self.waveform_px_per_s//1000 + self.position_marker_offset
-          painter.fillRect(draw_x-1, 0, 4, length, brush)
-          painter.fillRect(draw_x-1, self.waveform_height-length, 4, length, brush)
-    painter.end()
-    logging.info("rendering waveform done")
-
-  def timerEvent(self, event):
-    if self.pitch > 0:
-      self.offset += int(self.waveform_px_per_s*self.pitch*self.update_interval)
-      self.update()
+from waveform_gl import GLWaveformWidget
+from waveform_qt import WaveformWidget
 
 class PreviewWaveformWidget(QWidget):
   def __init__(self, parent):
@@ -234,7 +130,7 @@ class PlayerWidget(QFrame):
     time_layout.setStretch(1, 2)
 
     # waveform widgets
-    self.waveform = WaveformWidget(self)
+    self.waveform = GLWaveformWidget(self)
     #self.waveform.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
     self.preview_waveform = PreviewWaveformWidget(self)
     #self.preview_waveform.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
@@ -287,7 +183,7 @@ class PlayerWidget(QFrame):
     self.labels["artist"].setText("")
     self.labels["album"].setText("")
     self.labels["info"].setText("No player connected")
-    self.time.display("--:--")
+    self.setTime(None)
     self.setSpeed("")
     self.setMaster(False)
 
@@ -322,6 +218,12 @@ class PlayerWidget(QFrame):
     p = QPixmap()
     p.loadFromData(data)
     self.labels["artwork"].setPixmap(p)
+
+  def setTime(self, seconds):
+    if seconds is not None:
+      self.time.display("{:02d}:{:02d}".format(int(seconds//60), int(seconds)%60))
+    else:
+      self.time.display("--:--")
 
 class Gui(QWidget):
   keepalive_signal = pyqtSignal(int)
@@ -375,7 +277,8 @@ class Gui(QWidget):
     self.players[player_number].setSpeed(c.bpm, c.pitch)
     self.players[player_number].setMaster("master" in c.state)
     self.players[player_number].beat_bar.setBeat(c.beat)
-    self.players[player_number].waveform.setPosition(c.position, c.actual_pitch)
+    self.players[player_number].waveform.setPosition(c.position, c.actual_pitch, c.play_state)
+    self.players[player_number].setTime(c.position)
     if len(c.fw) > 0:
       self.players[player_number].setPlayerInfo(c.model, c.ip_addr, c.fw)
 
@@ -396,7 +299,7 @@ class Gui(QWidget):
     if request == "metadata":
       self.players[player_number].setMetadata(reply["title"], reply["artist"], reply["album"])
       if "artwork_id" in reply and reply["artwork_id"] != 0:
-        self.prodj.dbs.get_artwork(player_number, loaded_slot, reply["artwork_id"], self.dbserver_callback)
+        self.prodj.dbs.get_artwork(player_number, slot, reply["artwork_id"], self.dbserver_callback)
     elif request == "artwork":
       self.players[player_number].setArtwork(reply)
     elif request == "waveform":

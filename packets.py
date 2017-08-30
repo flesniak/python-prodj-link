@@ -195,6 +195,10 @@ PlayState = Enum(Int32ub,
   end_of_track = 0x11,
   emergency = 0x12 # emergency mode when losing connection
 )
+PlayStateStopped = [
+  "cued", "paused",
+  "cannot_play_track", "end_of_track", "emergency"
+]
 
 BpmState = Enum(Int16ub,
   unknown = 0x7fff, # no track or not analyzed
@@ -259,7 +263,7 @@ StatusPacket = Struct(
       Const(Int32ub, 0x7fffffff),
       "actual_pitch" / Pitch, # the actual pitch the player is currently playing
       "play_state3" / Int16ub, # 0=empty, 1=paused/reverse/vinyl grab, 9=playing, 0xd=jog
-      "u10" / Int8ub, # 1 for rekordbox analyzed tracks, 2 for unanalyzed mp3
+      "u10" / Default(Int8ub, 1), # 1 for rekordbox analyzed tracks, 2 for unanalyzed mp3
       Const(Int8ub, 0xff),
       "beat_count" / Default(Int32ub, 0),
       "cue_distance" / Default(Int16ub, 0x1ff), # 0x1ff when no next cue, 0x100 for 64 bars (=256 beats)
@@ -386,7 +390,7 @@ Beatgrid = Struct(
   "u3" / Int16ul,
   "beats" / Array(this.beat_count, Struct(
     "beat" / Int16ul, # beat in measure 1..4
-    "u1" / Const(Int16ul, 0x3168),
+    "u1" / Int16ul, # different on every track
     "time" / Int32ul, # time in ms from start
     Padding(8) # 8 times 0xff
   ))

@@ -16,21 +16,23 @@ class ClientList:
   def getClient(self, player_number):
     return next((p for p in self.clients if p.player_number == player_number), None)
 
-  def updatePositionByBeat(self, player_number, current_beat):
+  def updatePositionByBeat(self, player_number, new_beat_count, new_play_state):
     c = self.getClient(player_number)
     identifier = (c.player_number, c.loaded_slot, c.track_id)
     if identifier in self.prodj.dbs.beatgrid_store:
-      if current_beat > 0:
-        if c.play_state != "cued":
-          current_beat -= 1
+      if new_beat_count > 0:
+        if (c.play_state == "cued" and new_play_state == "cueing") or (c.play_state == "playing" and new_play_state == "paused") or (c.play_state == "paused" and new_play_state == "playing"):
+          return # ignore absolute position when switching from cued to cueing
+        if new_play_state != "cued": # when releasing cue scratch, the beat count is still +1
+          new_beat_count -= 1
         beatgrid = self.prodj.dbs.beatgrid_store[identifier]
-        c.position = beatgrid["beats"][current_beat]["time"] / 1000
+        c.position = beatgrid["beats"][new_beat_count]["time"] / 1000
       else:
         c.position = 0
-      c.position_timestamp = time.time()
-      #logging.debug("Track position abs %f", c.position)
+      #logging.debug("Track position abs %f actual_pitch %.6f play_state %s beat %d", c.position, c.actual_pitch, new_play_state, new_beat_count)
     else:
       c.position = None
+    c.position_timestamp = time.time()
 
   # adds client if it is not known yet, in any case it resets the ttl
   def eatKeepalive(self, keepalive_packet):
@@ -91,51 +93,61 @@ class ClientList:
     if c.bpm != new_bpm:
       c.bpm = new_bpm
       client_changed = True
+
     new_pitch = status_packet["physical_pitch"]
     if c.pitch != new_pitch:
       c.pitch = new_pitch
       client_changed = True
+
     new_beat = status_packet["beat"] if status_packet["beat"] != 0xffffffff else 0
     if c.beat != new_beat:
       c.beat = new_beat
       client_changed = True
+
     new_state = [x for x in ["on_air","sync","master","play"] if status_packet["state"][x]==True]
     if c.state != new_state:
       c.state = new_state
       client_changed = True
 
     if c.type == "cdj":
+      new_beat_count = status_packet["beat_count"] if status_packet["beat_count"] != 0xffffffff else "-"
+      new_play_state = status_packet["play_state"]
+      if new_beat_count != c.beat_count or new_play_state != c.play_state:
+        self.updatePositionByBeat(c.player_number, new_beat_count, new_play_state) # position tracking, set new absolute grid value
+      else: # otherwise, increment by pitch
+        c.updatePositionByPitch()
+
+      if c.beat_count != new_beat_count:
+        c.beat_count = new_beat_count
+        client_changed = True
+
+      if c.play_state != new_play_state:
+        c.play_state = new_play_state
+        client_changed = True
+
       c.fw = status_packet["firmware"]
+
       new_actual_pitch = status_packet["actual_pitch"]
       if c.actual_pitch != new_actual_pitch:
         c.actual_pitch = new_actual_pitch
         client_changed = True
-      new_beat_count = status_packet["beat_count"] if status_packet["beat_count"] != 0xffffffff else "-"
-      if c.beat_count != new_beat_count:
-        c.beat_count = new_beat_count
-        client_changed = True
-        # position tracking, set new absolute grid value
-        self.updatePositionByBeat(c.player_number, new_beat_count)
-      else: # otherwise, increment by bpm
-        c.updatePositionByBpm()
+
       new_cue_distance = status_packet["cue_distance"] if status_packet["cue_distance"] != 511 else "-"
       if c.cue_distance != new_cue_distance:
         c.cue_distance = new_cue_distance
         client_changed = True
-      new_play_state = status_packet["play_state"]
-      if c.play_state != new_play_state:
-        c.play_state = new_play_state
-        client_changed = True
+
       c.usb_state = status_packet["usb_state"]
       c.sd_state = status_packet["sd_state"]
       c.track_number = status_packet["track_number"]
       c.loaded_player_number = status_packet["loaded_player_number"]
       c.loaded_slot = status_packet["loaded_slot"]
+
       new_track_id = status_packet["track_id"]
       if c.track_id != new_track_id:
         c.track_id = new_track_id
         client_changed = True
-        if self.auto_request_beatgrid:
+        if self.auto_request_beatgrid and c.track_id != 0:
           self.prodj.dbs.get_beatgrid(c.player_number, c.loaded_slot, c.track_id)
 
     c.updateTtl()
@@ -200,13 +212,16 @@ class Client:
     self.ttl = time.time()
 
   # calculate the current position by linear interpolation
-  def updatePositionByBpm(self):
+  def updatePositionByPitch(self):
     if not self.position or self.actual_pitch == 0:
       return
+    pitch = self.actual_pitch
+    if self.play_state in ["cued"]:
+      pitch = 0
     now = time.time()
-    self.position += self.actual_pitch*(now-self.position_timestamp)
+    self.position += pitch*(now-self.position_timestamp)
     self.position_timestamp = now
-    #logging.debug("Track position inc %f", self.position)
+    #logging.debug("Track position inc %f actual_pitch %.6f play_state %s beat %d", self.position, self.actual_pitch, self.play_state, self.beat_count)
     return self.position
 
   def updateTtl(self):

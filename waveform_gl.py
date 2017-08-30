@@ -1,0 +1,231 @@
+#!/usr/bin/python3
+
+import sys
+import logging
+
+from PyQt5.QtCore import pyqtSignal, QSize, Qt
+from PyQt5.QtWidgets import QApplication, QHBoxLayout, QOpenGLWidget, QSlider, QWidget
+from PyQt5.QtGui import QSurfaceFormat
+
+from packets import Beatgrid
+import OpenGL.GL as gl
+
+from packets import PlayStateStopped
+
+class GLWaveformWidget(QOpenGLWidget):
+  def __init__(self, parent=None):
+    super().__init__(parent)
+    fmt = QSurfaceFormat(self.format())
+    fmt.setSamples(4)
+    self.setFormat(fmt)
+
+    self.lists = None
+    self.waveform_data = None # if not none, it will be rendered and deleted (to None)
+    self.beatgrid_data = None # if not none, it will be rendered and deleted (to None)
+    self.time_offset = 0
+    self.zoom_seconds = 4
+    self.pitch = 1 # affects animation speed
+
+    self.viewport = (50, 40) # viewport +- x, y
+    self.waveform_lines_per_x = 150
+    self.baseline_height = 0.2
+    self.position_marker_width = 0.3
+
+    self.update_interval = 0.04
+    self.startTimer(self.update_interval*1000)
+
+  def minimumSizeHint(self):
+    return QSize(400, 75)
+
+  def sizeHint(self):
+    return QSize(600, 200)
+
+  def setData(self, waveform_data):
+    self.waveform_data = waveform_data[20:]
+    self.update()
+
+  def setBeatgridData(self, beatgrid_data):
+    self.beatgrid_data = beatgrid_data
+    self.update()
+
+  # current time in seconds at position marker
+  def setPosition(self, position, pitch=1, state="playing"):
+    logging.debug("Gui: setPosition {} pitch {} state {}".format(position, pitch, state))
+    if position is not None and pitch is not None:
+      if state in PlayStateStopped:
+        pitch = 0
+      self.pitch = pitch
+      if self.time_offset != position:
+        #logging.debug("Gui: time offset diff %.6f", position-self.time_offset)
+        offset = abs(position - self.time_offset)
+        if state in ["playing", "cueing"] and offset < 0.05: # ignore negligible offset
+          return
+        if state in ["playing", "cueing"] and offset < 0.1: # small enough to compensate by temporary pitch modification
+          if position > self.time_offset:
+            #logging.debug("Gui: increasing pitch to catch up")
+            self.pitch += 0.01
+          else:
+            #logging.debug("Gui: decreasing pitch to fall behind")
+            self.pitch -= 0.01
+        else: # too large to compensate or non-monotonous -> direct assignment
+          #logging.debug("Gui: offset %.6f, direct assignment", offset)
+          self.time_offset = position
+          self.update()
+    else:
+      self.offset = 0
+      self.pitch = 0
+
+  # how many seconds to show left and right of the position marker
+  def setZoom(self, seconds):
+    if seconds != self.zoom_seconds:
+      self.zoom_seconds = seconds
+      self.update()
+
+  def timerEvent(self, event):
+    if self.pitch != 0:
+      self.time_offset += self.pitch*self.update_interval
+      self.update()
+
+  def initializeGL(self):
+    logging.debug("Renderer \"{}\" OpenGL \"{}\"".format(
+      gl.glGetString(gl.GL_RENDERER).decode("ascii"),
+      gl.glGetString(gl.GL_VERSION).decode("ascii")))
+    gl.glClearColor(0,0,0,0)
+    gl.glShadeModel(gl.GL_FLAT)
+    gl.glEnable(gl.GL_DEPTH_TEST)
+    gl.glEnable(gl.GL_CULL_FACE)
+    gl.glEnable(gl.GL_MULTISAMPLE)
+    self.lists = gl.glGenLists(3)
+    gl.glLineWidth(1)
+    self.renderCrosshair()
+
+  def updateViewport(self):
+    gl.glMatrixMode(gl.GL_PROJECTION)
+    gl.glLoadIdentity()
+    gl.glOrtho(-1*self.viewport[0], self.viewport[0], -1*self.viewport[1], self.viewport[1], -2, 2)
+    gl.glMatrixMode(gl.GL_MODELVIEW)
+
+  def paintGL(self):
+    self.updateViewport()
+    gl.glClear(gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT)
+    gl.glLoadIdentity()
+    gl.glCallList(self.lists)
+
+    gl.glScalef(self.viewport[0]/self.zoom_seconds, 1, 1)
+    gl.glTranslatef(-1*self.time_offset, 0, 0)
+    self.renderWaveform()
+    self.renderBeatgrid()
+    gl.glCallList(self.lists+1)
+    gl.glCallList(self.lists+2)
+
+  def resizeGL(self, width, height):
+    gl.glViewport(0, 0, width, height)
+
+  def wheelEvent(self, event):
+    if event.angleDelta().y() > 0 and self.zoom_seconds > 2:
+      self.setZoom(self.zoom_seconds-1)
+    elif event.angleDelta().y() < 0 and self.zoom_seconds < 15:
+      self.setZoom(self.zoom_seconds+1)
+
+  def renderCrosshair(self):
+    gl.glNewList(self.lists, gl.GL_COMPILE)
+    gl.glBegin(gl.GL_LINES)
+    # white baseline
+    gl.glColor3f(1, 1, 1)
+    gl.glVertex3f(-1*self.viewport[0], 0, -1)
+    gl.glVertex3f(self.viewport[0], 0, -1)
+    ## red position marker
+    gl.glColor3f(1, 0, 0)
+    gl.glVertex3f(0, -1*self.viewport[1], 1)
+    gl.glVertex3f(0, self.viewport[1], 1)
+    gl.glEnd()
+    gl.glEndList()
+
+  def renderWaveform(self):
+    if self.waveform_data is None:
+      return
+
+    gl.glNewList(self.lists+1, gl.GL_COMPILE)
+    #gl.glLineWidth(1/self.waveform_lines_per_x)
+    gl.glEnable(gl.GL_LINE_SMOOTH)
+    gl.glBegin(gl.GL_LINES)
+
+    for x in range(0, len(self.waveform_data)):
+      height = self.waveform_data[x] & 0x1f
+      whiteness = self.waveform_data[x] >> 5
+
+      gl.glColor3f(whiteness/8, whiteness/8, 1)
+      gl.glVertex3f(x/self.waveform_lines_per_x, height, 0)
+      gl.glVertex3f(x/self.waveform_lines_per_x, -height, 0)
+
+    gl.glEnd()
+    gl.glEndList()
+    self.waveform_data = None # delete data after rendering
+
+  def renderBeatgrid(self):
+    if self.beatgrid_data is None:
+      return
+
+    gl.glNewList(self.lists+2, gl.GL_COMPILE)
+    #gl.glLineWidth(1/self.waveform_lines_per_x)
+    gl.glEnable(gl.GL_LINE_SMOOTH)
+    gl.glBegin(gl.GL_LINES)
+
+    for beat in self.beatgrid_data["beats"]:
+      if beat["beat"] == 1:
+        gl.glColor3f(1, 0, 0)
+        height = 8
+      else:
+        gl.glColor3f(1, 1, 1)
+        height = 5
+      x = beat["time"]/1000
+
+      gl.glVertex3f(x, self.viewport[1]-height, 0)
+      gl.glVertex3f(x, self.viewport[1], 0)
+      gl.glVertex3f(x, -1*self.viewport[1], 0)
+      gl.glVertex3f(x, -1*self.viewport[1]+height, 0)
+
+    gl.glEnd()
+    gl.glEndList()
+    self.beatgrid_data = None # delete data after rendering
+
+class Window(QWidget):
+  def __init__(self):
+    super(Window, self).__init__()
+
+    self.setWindowTitle("GL Waveform Test")
+    self.glWidget = GLWaveformWidget()
+
+    self.timeSlider = QSlider(Qt.Vertical)
+    self.timeSlider.setRange(0, 300)
+    self.timeSlider.setSingleStep(1)
+    self.timeSlider.setTickInterval(10)
+    self.timeSlider.setTickPosition(QSlider.TicksRight)
+    self.zoomSlider = QSlider(Qt.Vertical)
+    self.zoomSlider.setRange(2, 10)
+    self.zoomSlider.setSingleStep(1)
+    self.zoomSlider.setTickInterval(1)
+    self.zoomSlider.setTickPosition(QSlider.TicksRight)
+
+    self.timeSlider.valueChanged.connect(self.glWidget.setPosition)
+    self.zoomSlider.valueChanged.connect(self.glWidget.setZoom)
+
+    mainLayout = QHBoxLayout()
+    mainLayout.addWidget(self.glWidget)
+    mainLayout.addWidget(self.timeSlider)
+    mainLayout.addWidget(self.zoomSlider)
+    self.setLayout(mainLayout)
+
+    self.timeSlider.setValue(0)
+    self.zoomSlider.setValue(4)
+
+if __name__ == '__main__':
+    app = QApplication([])
+    window = Window()
+    with open("stuff/waveform.bin", "rb") as f:
+      window.glWidget.setData(f.read()[20:])
+    with open("stuff/beatgrid.bin", "rb") as f:
+      beatgrid = Beatgrid.parse(f.read())
+      window.glWidget.setBeatgridData(beatgrid)
+    window.show()
+    app.exec_()

@@ -13,10 +13,12 @@ default_loglevel=logging.DEBUG
 logging.basicConfig(level=default_loglevel, format='%(levelname)s: %(message)s')
 
 def print_clients(cl, player_number):
+  return
   for c in cl.clients:
     if c.player_number == player_number:
-      logging.info("Player {}: {} {} BPM Pitch {:.2f}% Beat {} Beatcnt {}".format(
-        c.player_number, c.model, c.bpm, (c.pitch-1)*100, c.beat, c.beat_count))
+      logging.info("Player {}: {} {} BPM Pitch {:.2f}% ({:.2f}%) Beat {} Beatcnt {} pos {:.6f}".format(
+        c.player_number, c.model, c.bpm, (c.pitch-1)*100, (c.actual_pitch-1)*100, c.beat, c.beat_count,
+        c.position if c.position is not None else 0))
 
 def print_metadata(player_number, md):
   logging.info("Player {} playing {} - {} ({}) {}:{} {} BPM".format(player_number,
