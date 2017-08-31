@@ -33,9 +33,9 @@ class ClientList:
 
   def storeMetadataByLoadedTrack(self, loaded_player_number, loaded_slot, track_id, metadata):
     for p in self.clients:
-      if p.loaded_player_number == loaded_player_number and
+      if (p.loaded_player_number == loaded_player_number and
           p.loaded_slot == loaded_slot and
-          p.track_id == track_id:
+          p.track_id == track_id):
         #logging.debug("DBServer: storing metadata of player %d track %d to client %d", loaded_player_number, track_id, p.player_number)
         p.metadata = reply
 
@@ -171,8 +171,8 @@ class ClientList:
       if c.track_id != new_track_id:
         c.track_id = new_track_id
         client_changed = True
-	c.metadata = None
-	c.position = None
+        c.metadata = None
+        c.position = None
         if self.auto_request_beatgrid and c.track_id != 0:
           self.prodj.dbs.get_beatgrid(c.loaded_player_number, c.loaded_slot, c.track_id)
 
