@@ -212,9 +212,12 @@ class PlayerWidget(QFrame):
     self.labels["album"].setText(album)
 
   def setArtwork(self, data):
-    p = QPixmap()
-    p.loadFromData(data)
-    self.labels["artwork"].setPixmap(p)
+    if data is None:
+      self.labels["artwork"].setPixmap(self.pixmap_empty)
+    else:
+      p = QPixmap()
+      p.loadFromData(data)
+      self.labels["artwork"].setPixmap(p)
 
   def setTime(self, seconds):
     if seconds is not None:
@@ -315,6 +318,8 @@ class Gui(QWidget):
       self.players[player_number].setMetadata(reply["title"], reply["artist"], reply["album"])
       if "artwork_id" in reply and reply["artwork_id"] != 0:
         self.prodj.dbs.get_artwork(source_player_number, slot, reply["artwork_id"], self.dbserver_callback)
+      else:
+        self.players[player_number].setArtwork(None)
     elif request == "artwork":
       self.players[player_number].setArtwork(reply)
     elif request == "waveform":
