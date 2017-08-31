@@ -2,6 +2,7 @@ import logging
 from PyQt5.QtWidgets import QFrame, QGridLayout, QLabel, QLCDNumber, QPushButton, QSizePolicy, QHBoxLayout, QVBoxLayout, QWidget
 from PyQt5.QtGui import QColor, QPainter, QPixmap
 from PyQt5.QtCore import pyqtSignal, Qt, QSize
+
 import sys
 import math
 from threading import Lock
@@ -130,9 +131,13 @@ class PlayerWidget(QFrame):
     self.browse_button.setFlat(True)
     self.browse_button.setStyleSheet("QPushButton { color: white; font: 10px; background-color: black; padding: 1px; border-style: outset; border-radius: 2px; border-width: 1px; border-color: gray; }")
 
+    self.labels["play_state"] = QLabel(self)
+    self.labels["play_state"].setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
+
     buttons_layout = QHBoxLayout()
     buttons_layout.addWidget(self.browse_button)
-    buttons_layout.addStretch(1)
+    buttons_layout.addWidget(self.labels["play_state"])
+    buttons_layout.setStretch(1, 1)
 
     self.browse_button.clicked.connect(self.openBrowseDialog)
 
@@ -189,14 +194,27 @@ class PlayerWidget(QFrame):
     layout = QGridLayout(self)
     layout.addWidget(self.labels["player_number"], 0, 0)
     layout.addWidget(self.labels["artwork"], 1, 0, 3, 1)
-    layout.addWidget(self.labels["title"], 0, 1)
-    layout.addWidget(self.labels["artist"], 1, 1)
+    layout.addWidget(self.labels["title"], 0, 1, 1, 2)
+    layout.addWidget(self.labels["artist"], 1, 1, 1, 2)
     layout.addWidget(self.labels["album"], 2, 1)
     layout.addWidget(self.labels["info"], 3, 1)
-    layout.addLayout(time_layout, 0, 2, 4, 1)
-    layout.addWidget(bpm_box, 0, 3, 4, 1)
-    layout.addWidget(self.waveform, 4, 0, 1, 4)
-    layout.addWidget(self.preview_waveform, 5, 0, 1, 4)
+    layout.addWidget(self.play_state, 2, 2, 2, 1)
+    layout.addLayout(time_layout, 0, 3, 4, 1)
+    layout.addWidget(bpm_box, 0, 4, 4, 1)
+    layout.addWidget(self.waveform, 4, 0, 1, 5)
+    layout.addWidget(self.preview_waveform, 5, 0, 1, 5)
+
+    # layout.addWidget(self.labels["player_number"], 0, 0)
+    # layout.addWidget(self.labels["artwork"], 1, 0, 3, 1)
+    # layout.addWidget(self.labels["title"], 0, 1)
+    # layout.addWidget(self.labels["artist"], 1, 1)
+    # layout.addWidget(self.labels["album"], 2, 1)
+    # layout.addWidget(self.labels["info"], 3, 1)
+    # layout.addLayout(time_layout, 0, 2, 4, 1)
+    # layout.addWidget(bpm_box, 0, 3, 4, 1)
+    # layout.addWidget(self.waveform, 4, 0, 1, 4)
+    # layout.addWidget(self.preview_waveform, 5, 0, 1, 4)
+    #layout.addLayout(bottom_layout, 5, 0, 1, 4)
     layout.setColumnStretch(1, 2)
 
     self.reset()
