@@ -1,0 +1,5 @@
+- clear artwork if id=0
+- set metadata to client if already in store
+- maximum qlabel length
+- wasted space in layout
+- play/cued/looping widget
