@@ -99,9 +99,13 @@ class PlayerWidget(QFrame):
     # metadata and player info
     self.labels["title"] = QLabel(self)
     self.labels["title"].setStyleSheet("QLabel { color: white; font: bold 16pt; }")
+    self.labels["title"].setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
     self.labels["artist"] = QLabel(self)
+    self.labels["artist"].setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
     self.labels["album"] = QLabel(self)
+    self.labels["album"].setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
     self.labels["info"] = QLabel(self)
+    self.labels["info"].setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
 
     # artwork and player number
     self.labels["player_number"] = QLabel(self)
