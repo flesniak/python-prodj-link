@@ -16,9 +16,25 @@ class ClientList:
   def getClient(self, player_number):
     return next((p for p in self.clients if p.player_number == player_number), None)
 
+  def getClientByLoadedTrack(self, loaded_player_number, loaded_slot, track_id):
+    return next((p for p in self.clients if
+      p.loaded_player_number == loaded_player_number and
+      p.loaded_slot == loaded_slot and
+      p.track_id == track_id),
+      None)
+
+  def getClientByLoadedTrackArtwork(self, loaded_player_number, loaded_slot, artwork_id):
+    return next((p for p in self.clients if
+      p.loaded_player_number == loaded_player_number and
+      p.loaded_slot == loaded_slot and
+      p.metadata is not None and
+      p.metadata["artwork_id"] == artwork_id),
+      None)
+
   def updatePositionByBeat(self, player_number, new_beat_count, new_play_state):
     c = self.getClient(player_number)
-    identifier = (c.player_number, c.loaded_slot, c.track_id)
+    #logging.debug("Track position p %d abs %f actual_pitch %.6f play_state %s beat %d", player_number, c.position if c.position is not None else -1, c.actual_pitch, new_play_state, new_beat_count)
+    identifier = (c.loaded_player_number, c.loaded_slot, c.track_id)
     if identifier in self.prodj.dbs.beatgrid_store:
       if new_beat_count > 0:
         if (c.play_state == "cued" and new_play_state == "cueing") or (c.play_state == "playing" and new_play_state == "paused") or (c.play_state == "paused" and new_play_state == "playing"):
@@ -26,10 +42,11 @@ class ClientList:
         if new_play_state != "cued": # when releasing cue scratch, the beat count is still +1
           new_beat_count -= 1
         beatgrid = self.prodj.dbs.beatgrid_store[identifier]
-        c.position = beatgrid["beats"][new_beat_count]["time"] / 1000
+        if beatgrid is not None:
+          c.position = beatgrid["beats"][new_beat_count]["time"] / 1000
       else:
         c.position = 0
-      #logging.debug("Track position abs %f actual_pitch %.6f play_state %s beat %d", c.position, c.actual_pitch, new_play_state, new_beat_count)
+      logging.debug("Track position abs %f actual_pitch %.6f play_state %s beat %d", c.position, c.actual_pitch, new_play_state, new_beat_count)
     else:
       c.position = None
     c.position_timestamp = time.time()
@@ -148,21 +165,13 @@ class ClientList:
         c.track_id = new_track_id
         client_changed = True
         if self.auto_request_beatgrid and c.track_id != 0:
-          self.prodj.dbs.get_beatgrid(c.player_number, c.loaded_slot, c.track_id)
+          self.prodj.dbs.get_beatgrid(c.loaded_player_number, c.loaded_slot, c.track_id)
 
     c.updateTtl()
     if self.client_change_callback and client_changed:
       self.client_change_callback(self, c.player_number)
     if self.master_change_callback and "master" in c.state and client_changed:
       self.master_change_callback(self, c.player_number)
-
-  def setMetadata(self, request, player_number, slot, track_id, md):
-    c = self.getClient(player_number)
-    if c is None or request != "metadata": # metadata from unknown client
-      return
-    c.metadata = md
-    if self.client_change_callback:
-      self.client_change_callback(self, player_number)
 
   # checks ttl and clears expired clients
   def gc(self):

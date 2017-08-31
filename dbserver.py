@@ -149,6 +149,9 @@ class DBClient(Thread):
     logging.debug("DBServer: metadata_request query {}".format(query))
     sock.send(data)
     reply = self.receive_dbmessage(sock)
+    if reply["type"] == "invalid_request":
+      logging.error("DBServer: %s query failed on player %d (got %s)", query["type"], player_number, reply["type"])
+      return None
     entry_count = reply["args"][1]["value"]
     if entry_count == 0:
       logging.error("DBServer: not metadata for track {} available (0 entries)".format(track_id))
@@ -202,11 +205,11 @@ class DBClient(Thread):
     if reply is None:
       logging.error("Failed to receive %s blob (%d tries)", request_type, recv_tries)
       return None
-    if reply["args"][2]["value"] == 0:
-      logging.warning("DBServer: no {} blob for track {}".format(request_type, item_id))
+    if reply["type"] == "invalid_request" or reply["args"][2]["value"] == 0:
+      logging.error("DBServer: %s blob query failed on player %d (got %s)", query["type"], player_number, reply["type"])
       return None
     blob = reply["args"][3]["value"]
-    logging.debug("DBServer: got {} bytes of blob data".format(len(blob)))
+    logging.debug("DBServer: got %d bytes of blob data", len(blob))
     return blob
 
   def get_server_port(self, player_number):
@@ -331,8 +334,10 @@ class DBClient(Thread):
       request, player_number, slot, item_id)
     if request == "metadata":
       reply = self.query_metadata(player_number, slot, item_id)
-      # store metadata in client object
-      self.cl.setMetadata(request, player_number, slot, item_id, reply)
+      client = self.cl.getClientByLoadedTrack(player_number, slot, item_id)
+      if client is not None: # store metadata in client object if available
+        #logging.debug("DBServer: storing metadata of player %d track %d to client %d", player_number, item_id, client.player_number)
+        client.metadata = reply
     elif request == "artwork":
       reply = self.query_blob(player_number, slot, item_id, "artwork_request")
     elif request == "waveform":

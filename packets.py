@@ -363,6 +363,7 @@ DBRequestType = Enum(DBFieldFixed("int16"),
   success = 0x4000,
   menu_header = 0x4001,
   artwork = 0x4002,
+  invalid_request = 0x4003, # guessed?
   menu_item = 0x4101,
   menu_footer = 0x4201,
   preview_waveform = 0x4402,

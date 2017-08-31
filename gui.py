@@ -295,22 +295,28 @@ class Gui(QWidget):
 
     # track changed -> reload metadata
     if self.players[player_number].track_id != c.track_id and c.track_id != 0:
-      logging.info("Gui: track id of player %d changed to %d, requesting metadata", player_number, player_number)
+      logging.info("Gui: track id of player %d changed to %d, requesting metadata", player_number, c.track_id)
       self.players[player_number].track_id = c.track_id # remember requested track id
-      self.prodj.dbs.get_metadata(c.player_number, c.loaded_slot, c.track_id, self.dbserver_callback)
+      self.prodj.dbs.get_metadata(c.loaded_player_number, c.loaded_slot, c.track_id, self.dbserver_callback)
       # we do not get artwork yet because we need metadata to know the artwork_id
-      self.prodj.dbs.get_preview_waveform(c.player_number, c.loaded_slot, c.track_id, self.dbserver_callback)
-      self.prodj.dbs.get_beatgrid(c.player_number, c.loaded_slot, c.track_id, self.dbserver_callback)
-      self.prodj.dbs.get_waveform(c.player_number, c.loaded_slot, c.track_id, self.dbserver_callback)
+      self.prodj.dbs.get_preview_waveform(c.loaded_player_number, c.loaded_slot, c.track_id, self.dbserver_callback)
+      self.prodj.dbs.get_beatgrid(c.loaded_player_number, c.loaded_slot, c.track_id, self.dbserver_callback)
+      self.prodj.dbs.get_waveform(c.loaded_player_number, c.loaded_slot, c.track_id, self.dbserver_callback)
 
-  def dbserver_callback(self, request, player_number, slot, item_id, reply):
-    logging.debug("Gui: dbserver_callback %s %d", request, player_number)
-    if not player_number in self.players:
+  def dbserver_callback(self, request, source_player_number, slot, item_id, reply):
+    if request == "artwork":
+      client = self.prodj.cl.getClientByLoadedTrackArtwork(source_player_number, slot, item_id)
+    else:
+      client = self.prodj.cl.getClientByLoadedTrack(source_player_number, slot, item_id)
+    player_number = client.player_number if client is not None else None
+    logging.debug("Gui: dbserver_callback %s source player %d to widget player %d",
+      request, source_player_number, player_number)
+    if not player_number in self.players or reply is None:
       return
     if request == "metadata":
       self.players[player_number].setMetadata(reply["title"], reply["artist"], reply["album"])
       if "artwork_id" in reply and reply["artwork_id"] != 0:
-        self.prodj.dbs.get_artwork(player_number, slot, reply["artwork_id"], self.dbserver_callback)
+        self.prodj.dbs.get_artwork(source_player_number, slot, reply["artwork_id"], self.dbserver_callback)
     elif request == "artwork":
       self.players[player_number].setArtwork(reply)
     elif request == "waveform":
