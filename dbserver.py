@@ -327,6 +327,8 @@ class DBClient(Thread):
     if (player_number, slot, item_id) in store:
       logging.debug("DBServer: %s request for player %d slot %s item_id %d already known",
         request, player_number, slot, item_id)
+      if request == "metadata":
+        self.cl.storeMetadataByLoadedTrack(player_number, slot, item_id, store[player_number, slot, item_id])
       if callback:
         callback(request, player_number, slot, item_id, store[player_number, slot, item_id])
       return
@@ -334,10 +336,7 @@ class DBClient(Thread):
       request, player_number, slot, item_id)
     if request == "metadata":
       reply = self.query_metadata(player_number, slot, item_id)
-      client = self.cl.getClientByLoadedTrack(player_number, slot, item_id)
-      if client is not None: # store metadata in client object if available
-        #logging.debug("DBServer: storing metadata of player %d track %d to client %d", player_number, item_id, client.player_number)
-        client.metadata = reply
+      self.cl.storeMetadataByLoadedTrack(player_number, slot, item_id, reply)
     elif request == "artwork":
       reply = self.query_blob(player_number, slot, item_id, "artwork_request")
     elif request == "waveform":

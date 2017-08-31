@@ -31,6 +31,14 @@ class ClientList:
       p.metadata["artwork_id"] == artwork_id),
       None)
 
+  def storeMetadataByLoadedTrack(self, loaded_player_number, loaded_slot, track_id, metadata):
+    for p in self.clients:
+      if p.loaded_player_number == loaded_player_number and
+          p.loaded_slot == loaded_slot and
+          p.track_id == track_id:
+        #logging.debug("DBServer: storing metadata of player %d track %d to client %d", loaded_player_number, track_id, p.player_number)
+        p.metadata = reply
+
   def updatePositionByBeat(self, player_number, new_beat_count, new_play_state):
     c = self.getClient(player_number)
     #logging.debug("Track position p %d abs %f actual_pitch %.6f play_state %s beat %d", player_number, c.position if c.position is not None else -1, c.actual_pitch, new_play_state, new_beat_count)
@@ -163,6 +171,8 @@ class ClientList:
       if c.track_id != new_track_id:
         c.track_id = new_track_id
         client_changed = True
+	c.metadata = None
+	c.position = None
         if self.auto_request_beatgrid and c.track_id != 0:
           self.prodj.dbs.get_beatgrid(c.loaded_player_number, c.loaded_slot, c.track_id)
 
