@@ -10,11 +10,13 @@ from PyQt5.QtGui import QSurfaceFormat
 from packets import Beatgrid
 import OpenGL.GL as gl
 
-from packets import PlayStateStopped
+from packets import PlayStateStopped, PlayStatePlaying
 
 class GLWaveformWidget(QOpenGLWidget):
   def __init__(self, parent=None):
     super().__init__(parent)
+
+    # multisampling
     fmt = QSurfaceFormat(self.format())
     fmt.setSamples(4)
     self.setFormat(fmt)
@@ -38,7 +40,16 @@ class GLWaveformWidget(QOpenGLWidget):
     return QSize(400, 75)
 
   def sizeHint(self):
-    return QSize(600, 200)
+    return QSize(500, 100)
+
+  def clear(self):
+    self.waveform_data = None
+    self.beatgrid_data = None
+    if self.lists is not None:
+      gl.glNewList(self.lists+1, gl.GL_COMPILE)
+      gl.glEndList()
+      gl.glNewList(self.lists+2, gl.GL_COMPILE)
+      gl.glEndList()
 
   def setData(self, waveform_data):
     self.waveform_data = waveform_data[20:]
@@ -58,9 +69,9 @@ class GLWaveformWidget(QOpenGLWidget):
       if self.time_offset != position:
         #logging.debug("Gui: time offset diff %.6f", position-self.time_offset)
         offset = abs(position - self.time_offset)
-        if state in ["playing", "cueing", "looping"] and offset < 0.05: # ignore negligible offset
+        if state in PlayStatePlaying and offset < 0.05: # ignore negligible offset
           return
-        if state in ["playing", "cueing", "looping"] and offset < 0.1: # small enough to compensate by temporary pitch modification
+        if state in PlayStatePlaying and offset < 0.1: # small enough to compensate by temporary pitch modification
           if position > self.time_offset:
             #logging.debug("Gui: increasing pitch to catch up")
             self.pitch += 0.01
@@ -147,7 +158,7 @@ class GLWaveformWidget(QOpenGLWidget):
 
     gl.glNewList(self.lists+1, gl.GL_COMPILE)
     #gl.glLineWidth(1/self.waveform_lines_per_x)
-    gl.glEnable(gl.GL_LINE_SMOOTH)
+    #gl.glEnable(gl.GL_LINE_SMOOTH)
     gl.glBegin(gl.GL_LINES)
 
     for x in range(0, len(self.waveform_data)):
@@ -168,7 +179,7 @@ class GLWaveformWidget(QOpenGLWidget):
 
     gl.glNewList(self.lists+2, gl.GL_COMPILE)
     #gl.glLineWidth(1/self.waveform_lines_per_x)
-    gl.glEnable(gl.GL_LINE_SMOOTH)
+    #gl.glEnable(gl.GL_LINE_SMOOTH)
     gl.glBegin(gl.GL_LINES)
 
     for beat in self.beatgrid_data["beats"]:

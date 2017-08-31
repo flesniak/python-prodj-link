@@ -199,6 +199,9 @@ PlayStateStopped = [
   "cued", "paused",
   "cannot_play_track", "end_of_track", "emergency"
 ]
+PlayStatePlaying = [
+  "playing", "cueing", "looping"
+]
 
 BpmState = Enum(Int16ub,
   unknown = 0x7fff, # no track or not analyzed

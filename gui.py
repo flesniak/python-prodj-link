@@ -11,10 +11,15 @@ from waveform_qt import WaveformWidget
 class PreviewWaveformWidget(QWidget):
   def __init__(self, parent):
     super().__init__(parent)
-    self.setMinimumSize(400, 34)
+    self.pixmap_width = 400
+    self.pixmap_height = 34
+    self.setMinimumSize(self.pixmap_width, self.pixmap_height)
     self.data = None
     self.pixmap = None
     self.position = 0 # relative, between 0 and 1
+
+  def clear(self):
+    self.setData(None)
 
   def setData(self, data):
     self.data = data
@@ -22,11 +27,10 @@ class PreviewWaveformWidget(QWidget):
     self.update()
 
   def sizeHint(self):
-    return QSize(400, 34)
+    return QSize(self.pixmap_width, self.pixmap_height)
 
   def heightForWidth(self, width):
-    #logging.info("preview width {} height {}".format(width, int(width/400*34)))
-    return int(width/400*34)
+    return width*self.pixmap_height//self.pixmap_width
 
   def setPosition(self, relative):
     if relative != self.position:
@@ -34,29 +38,28 @@ class PreviewWaveformWidget(QWidget):
       self.update()
 
   def paintEvent(self, e):
-    #logging.info("preview size {}".format(self.size()))
     painter = QPainter()
     painter.begin(self)
     if self.pixmap is not None:
       scaled_pixmap = self.pixmap.scaled(self.size(), Qt.KeepAspectRatio)
-      painter.drawPixmap(0,0,scaled_pixmap)
+      painter.drawPixmap(0, 0, scaled_pixmap)
       painter.fillRect(self.position*scaled_pixmap.width(), 0, 2, scaled_pixmap.height(), Qt.red)
     painter.end()
 
   def drawPreviewWaveformPixmap(self):
     if self.data is None:
       return None
-    pixmap = QPixmap(400, 34)
+    pixmap = QPixmap(self.pixmap_width, self.pixmap_height)
     pixmap.fill(Qt.black)
     painter = QPainter()
     painter.begin(pixmap)
     painter.setBrush(Qt.SolidPattern)
-    if self.data and len(self.data) >= 400*2:
-      for x in range(0,400):
+    if self.data and len(self.data) >= self.pixmap_width*2:
+      for x in range(0, self.pixmap_width):
         height = self.data[2*x] # only seen from 2..23
         whiteness = self.data[2*x+1]+1 # only seen from 1..6
         painter.setPen(QColor(36*whiteness, 36*whiteness, 255))
-        painter.drawLine(x,31,x,31-height)
+        painter.drawLine(x, 31, x, 31-height)
     # base line
     painter.setPen(Qt.white)
     painter.drawLine(0,33,399,33)
@@ -109,7 +112,7 @@ class PlayerWidget(QFrame):
 
     # artwork and player number
     self.labels["player_number"] = QLabel(self)
-    self.labels["player_number"].setStyleSheet("QLabel { font: bold 14pt; qproperty-alignment: AlignCenter; background-color: white; color: black; }")
+    self.labels["player_number"].setStyleSheet("QLabel { font: bold 12pt; qproperty-alignment: AlignCenter; background-color: white; color: black; }")
     self.setPlayerNumber(player_number)
 
     self.labels["artwork"] = QLabel(self)
@@ -132,23 +135,26 @@ class PlayerWidget(QFrame):
 
     # waveform widgets
     self.waveform = GLWaveformWidget(self)
-    #self.waveform.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+    self.waveform.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
     self.preview_waveform = PreviewWaveformWidget(self)
-    #self.preview_waveform.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
-    #qsp = QSizePolicy(QSizePolicy.Preferred,QSizePolicy.Minimum)
-    #qsp.setHeightForWidth(True)
-    #self.preview_waveform.setSizePolicy(qsp)
+    qsp = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Minimum)
+    qsp.setHeightForWidth(True)
+    self.preview_waveform.setSizePolicy(qsp)
 
     # BPM / Pitch / Master display
     bpm_label = QLabel("BPM", self)
+    bpm_label.setContentsMargins(4,0,4,0)
     bpm_label.setStyleSheet("QLabel { color: white; font: bold 8pt; qproperty-alignment: AlignLeft; }")
     self.labels["bpm"] = QLabel(self)
+    self.labels["bpm"].setContentsMargins(4,0,4,0)
     self.labels["bpm"].setStyleSheet("QLabel { color: white; font: bold 16pt; qproperty-alignment: AlignRight; }")
-    self.labels["pitch"] = QLabel("+10.00%", self)
+    self.labels["pitch"] = QLabel("+80.00%", self)
+    self.labels["pitch"].setContentsMargins(4,0,4,0)
     self.labels["pitch"].setStyleSheet("QLabel { color: white; font: bold 14pt; qproperty-alignment: AlignRight; }")
     self.labels["pitch"].show() # makes the widget calculate its current size
-    self.labels["pitch"].setMinimumSize(self.labels["pitch"].size())
+    self.labels["pitch"].setMinimumSize(self.labels["pitch"].size()) # to prevent jumping in size when changing pitch
     self.labels["master"] = QLabel("MASTER", self) # stylesheet set by setMaster()
+    self.labels["sync"] = QLabel("SYNC", self) # stylesheet set by setSync()
 
     bpm_box = QFrame(self)
     bpm_box.setFrameStyle(QFrame.Box | QFrame.Plain)
@@ -157,8 +163,10 @@ class PlayerWidget(QFrame):
     speed_layout.addWidget(self.labels["bpm"])
     speed_layout.addWidget(self.labels["pitch"])
     speed_layout.addWidget(self.labels["master"])
-    speed_layout.addStretch(1)
+    speed_layout.addWidget(self.labels["sync"])
+    #speed_layout.addStretch(1)
     speed_layout.setSpacing(0)
+    speed_layout.setContentsMargins(0,0,0,0)
 
     # main layout
     layout = QGridLayout(self)
@@ -172,12 +180,10 @@ class PlayerWidget(QFrame):
     layout.addWidget(bpm_box, 0, 3, 4, 1)
     layout.addWidget(self.waveform, 4, 0, 1, 4)
     layout.addWidget(self.preview_waveform, 5, 0, 1, 4)
-    layout.setRowStretch(4, 2)
-    layout.setRowStretch(5, 2)
     layout.setColumnStretch(1, 2)
-    #layout.setColumnStretch(2, 1)
 
     self.reset()
+    self.resize(60,30)
 
   def reset(self):
     self.labels["title"].setText("Not loaded")
@@ -187,16 +193,26 @@ class PlayerWidget(QFrame):
     self.setTime(None)
     self.setSpeed("")
     self.setMaster(False)
+    self.setSync(False)
+    self.beat_bar.setBeat(0)
+    self.waveform.clear()
+    self.preview_waveform.clear()
 
   def setPlayerNumber(self, player_number):
     self.player_number = player_number
-    self.labels["player_number"].setText("Player {}".format(self.player_number))
+    self.labels["player_number"].setText("PLAYER {}".format(self.player_number))
 
   def setMaster(self, master):
     if master:
       self.labels["master"].setStyleSheet("QLabel { font: bold; qproperty-alignment: AlignCenter; background-color: green; color: black; }")
     else:
       self.labels["master"].setStyleSheet("QLabel { font: bold; qproperty-alignment: AlignCenter; background-color: gray; color: black; }")
+
+  def setSync(self, sync):
+    if sync:
+      self.labels["sync"].setStyleSheet("QLabel { font: bold; qproperty-alignment: AlignCenter; background-color: cornflowerblue; color: black; }")
+    else:
+      self.labels["sync"].setStyleSheet("QLabel { font: bold; qproperty-alignment: AlignCenter; background-color: gray; color: black; }")
 
   def setPlayerInfo(self, model, ip_addr, fw=""):
     self.labels["info"].setText("{} {} {}".format(model, fw, ip_addr))
