@@ -12,10 +12,6 @@ class PreviewWaveformWidget(QWidget):
   def __init__(self, parent):
     super().__init__(parent)
     self.setMinimumSize(400, 34)
-    p = self.palette()
-    self.setAutoFillBackground(True)
-    p.setColor(self.backgroundRole(), Qt.black)
-    self.setPalette(p)
     self.data = None
     self.pixmap = None
     self.position = 0
@@ -103,17 +99,14 @@ class PlayerWidget(QFrame):
 
     # metadata and player info
     self.labels["title"] = QLabel(self)
-    self.labels["title"].setStyleSheet("QLabel { font: bold 16pt; }")
+    self.labels["title"].setStyleSheet("QLabel { color: white; font: bold 16pt; }")
     self.labels["artist"] = QLabel(self)
     self.labels["album"] = QLabel(self)
     self.labels["info"] = QLabel(self)
-    font = self.labels["title"].font()
-    font.setBold(1)
-    font.setPointSize(16)
 
     # artwork and player number
     self.labels["player_number"] = QLabel(self)
-    self.labels["player_number"].setStyleSheet("QLabel { font: bold 14pt; qproperty-alignment: AlignCenter; background-color : white; color : black; }")
+    self.labels["player_number"].setStyleSheet("QLabel { font: bold 14pt; qproperty-alignment: AlignCenter; background-color: white; color: black; }")
     self.setPlayerNumber(player_number)
 
     self.labels["artwork"] = QLabel(self)
@@ -145,11 +138,11 @@ class PlayerWidget(QFrame):
 
     # BPM / Pitch / Master display
     bpm_label = QLabel("BPM", self)
-    bpm_label.setStyleSheet("QLabel { font: bold 8pt; qproperty-alignment: AlignLeft; }")
+    bpm_label.setStyleSheet("QLabel { color: white; font: bold 8pt; qproperty-alignment: AlignLeft; }")
     self.labels["bpm"] = QLabel(self)
-    self.labels["bpm"].setStyleSheet("QLabel { font: bold 16pt; qproperty-alignment: AlignRight; }")
+    self.labels["bpm"].setStyleSheet("QLabel { color: white; font: bold 16pt; qproperty-alignment: AlignRight; }")
     self.labels["pitch"] = QLabel("+10.00%", self)
-    self.labels["pitch"].setStyleSheet("QLabel { font: bold 14pt; qproperty-alignment: AlignRight; }")
+    self.labels["pitch"].setStyleSheet("QLabel { color: white; font: bold 14pt; qproperty-alignment: AlignRight; }")
     self.labels["pitch"].show() # makes the widget calculate its current size
     self.labels["pitch"].setMinimumSize(self.labels["pitch"].size())
     self.labels["master"] = QLabel("MASTER", self) # stylesheet set by setMaster()
@@ -198,9 +191,9 @@ class PlayerWidget(QFrame):
 
   def setMaster(self, master):
     if master:
-      self.labels["master"].setStyleSheet("QLabel { font: bold; qproperty-alignment: AlignCenter; background-color : green; color : black; }")
+      self.labels["master"].setStyleSheet("QLabel { font: bold; qproperty-alignment: AlignCenter; background-color: green; color: black; }")
     else:
-      self.labels["master"].setStyleSheet("QLabel { font: bold; qproperty-alignment: AlignCenter; background-color : green; color : black; }")
+      self.labels["master"].setStyleSheet("QLabel { font: bold; qproperty-alignment: AlignCenter; background-color: green; color: black; }")
 
   def setPlayerInfo(self, model, ip_addr, fw=""):
     self.labels["info"].setText("{} {} {}".format(model, fw, ip_addr))
@@ -238,9 +231,11 @@ class Gui(QWidget):
     self.prodj = prodj
     #self.resize(800, 600)
     self.setWindowTitle('Pioneer ProDJ Link Monitor')
-    p = self.palette()
-    p.setColor(self.backgroundRole(), Qt.black)
-    self.setPalette(p)
+
+    pal = self.palette()
+    pal.setColor(self.foregroundRole(), Qt.white)
+    pal.setColor(self.backgroundRole(), Qt.black)
+    self.setPalette(pal)
     self.setAutoFillBackground(True)
 
     self.keepalive_signal.connect(self.keepalive_slot)

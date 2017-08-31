@@ -264,7 +264,7 @@ StatusPacket = Struct(
       "actual_pitch" / Pitch, # the actual pitch the player is currently playing
       "play_state3" / Int16ub, # 0=empty, 1=paused/reverse/vinyl grab, 9=playing, 0xd=jog
       "u10" / Default(Int8ub, 1), # 1 for rekordbox analyzed tracks, 2 for unanalyzed mp3
-      Const(Int8ub, 0xff),
+      Default(Int8ub, 0xff), # often 0xff, sometimes player_number of another player
       "beat_count" / Default(Int32ub, 0),
       "cue_distance" / Default(Int16ub, 0x1ff), # 0x1ff when no next cue, 0x100 for 64 bars (=256 beats)
       "beat" / Default(Int8ub, 1), # 1..4

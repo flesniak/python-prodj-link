@@ -50,7 +50,7 @@ class GLWaveformWidget(QOpenGLWidget):
 
   # current time in seconds at position marker
   def setPosition(self, position, pitch=1, state="playing"):
-    logging.debug("Gui: setPosition {} pitch {} state {}".format(position, pitch, state))
+    #logging.debug("Gui: setPosition {} pitch {} state {}".format(position, pitch, state))
     if position is not None and pitch is not None:
       if state in PlayStateStopped:
         pitch = 0
