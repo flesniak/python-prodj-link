@@ -58,9 +58,9 @@ class GLWaveformWidget(QOpenGLWidget):
       if self.time_offset != position:
         #logging.debug("Gui: time offset diff %.6f", position-self.time_offset)
         offset = abs(position - self.time_offset)
-        if state in ["playing", "cueing"] and offset < 0.05: # ignore negligible offset
+        if state in ["playing", "cueing", "looping"] and offset < 0.05: # ignore negligible offset
           return
-        if state in ["playing", "cueing"] and offset < 0.1: # small enough to compensate by temporary pitch modification
+        if state in ["playing", "cueing", "looping"] and offset < 0.1: # small enough to compensate by temporary pitch modification
           if position > self.time_offset:
             #logging.debug("Gui: increasing pitch to catch up")
             self.pitch += 0.01

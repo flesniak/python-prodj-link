@@ -17,10 +17,12 @@ class PreviewWaveformWidget(QWidget):
     p.setColor(self.backgroundRole(), Qt.black)
     self.setPalette(p)
     self.data = None
+    self.pixmap = None
     self.position = 0
 
   def setData(self, data):
     self.data = data
+    self.pixmap = self.drawPreviewWaveformPixmap()
     self.update()
 
   def sizeHint(self):
@@ -30,7 +32,7 @@ class PreviewWaveformWidget(QWidget):
     #logging.info("preview width {} height {}".format(width, int(width/400*34)))
     return int(width/400*34)
 
-  def setProgress(self, relative):
+  def setPosition(self, relative):
     new_position = int(400*relative)
     if new_position != self.position:
       self.position = new_position
@@ -40,13 +42,15 @@ class PreviewWaveformWidget(QWidget):
     #logging.info("preview size {}".format(self.size()))
     painter = QPainter()
     painter.begin(self)
-    pixmap = self.drawPreviewWaveformPixmap()
-    if pixmap:
-      scaled_pixmap = pixmap.scaled(self.size(), Qt.KeepAspectRatio)
+    if self.pixmap is not None:
+      scaled_pixmap = self.pixmap.scaled(self.size(), Qt.KeepAspectRatio)
       painter.drawPixmap(0,0,scaled_pixmap)
+      painter.fillRect(self.position, 0, 2, scaled_pixmap.height(), Qt.red)
     painter.end()
 
   def drawPreviewWaveformPixmap(self):
+    if self.data is None:
+      return None
     pixmap = QPixmap(400, 34)
     pixmap.fill(Qt.black)
     painter = QPainter()
@@ -58,6 +62,7 @@ class PreviewWaveformWidget(QWidget):
         whiteness = self.data[2*x+1]+1 # only seen from 1..6
         painter.setPen(QColor(36*whiteness, 36*whiteness, 255))
         painter.drawLine(x,31,x,31-height)
+    # base line
     painter.setPen(Qt.white)
     painter.drawLine(0,33,399,33)
     painter.end()
@@ -288,6 +293,8 @@ class Gui(QWidget):
     self.players[player_number].beat_bar.setBeat(c.beat)
     self.players[player_number].waveform.setPosition(c.position, c.actual_pitch, c.play_state)
     self.players[player_number].setTime(c.position)
+    if c.metadata is not None and "duration" in c.metadata and c.position is not None:
+      self.players[player_number].preview_waveform.setPosition(c.position/c.metadata["duration"])
     if len(c.fw) > 0:
       self.players[player_number].setPlayerInfo(c.model, c.ip_addr, c.fw)
 

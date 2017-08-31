@@ -5,7 +5,6 @@ import time
 from threading import Thread
 from queue import Empty, Queue
 from construct import FieldError, RangeError, byte2int
-#from select import select
 
 metadata_type = {
   0x0001: "folder",
@@ -115,7 +114,7 @@ class DBClient(Thread):
 
       # store metadata
       md[md_name] = md_value
-      logging.debug("DBServer: parse_metadata {} = {}".format(md_name, md_string1))
+      logging.debug("DBServer: parse_metadata {} = {}".format(md_name, md_value))
       if len(md_string2) > 0:
         logging.warning("DBServer: parse_metadata string2: {}".format(md_string2))
     if data[-1]["type"] != "menu_footer":
@@ -332,6 +331,8 @@ class DBClient(Thread):
       request, player_number, slot, item_id)
     if request == "metadata":
       reply = self.query_metadata(player_number, slot, item_id)
+      # store metadata in client object
+      self.cl.setMetadata(request, player_number, slot, item_id, reply)
     elif request == "artwork":
       reply = self.query_blob(player_number, slot, item_id, "artwork_request")
     elif request == "waveform":
