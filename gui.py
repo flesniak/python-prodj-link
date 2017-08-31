@@ -6,7 +6,6 @@ import sys
 import math
 
 from waveform_gl import GLWaveformWidget
-from waveform_qt import WaveformWidget
 
 class PreviewWaveformWidget(QWidget):
   def __init__(self, parent):
@@ -183,7 +182,6 @@ class PlayerWidget(QFrame):
     layout.setColumnStretch(1, 2)
 
     self.reset()
-    self.resize(60,30)
 
   def reset(self):
     self.labels["title"].setText("Not loaded")
@@ -251,7 +249,6 @@ class Gui(QWidget):
   def __init__(self, prodj):
     super().__init__()
     self.prodj = prodj
-    #self.resize(800, 600)
     self.setWindowTitle('Pioneer ProDJ Link Monitor')
 
     pal = self.palette()
