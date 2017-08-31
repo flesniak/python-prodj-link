@@ -14,7 +14,7 @@ class PreviewWaveformWidget(QWidget):
     self.setMinimumSize(400, 34)
     self.data = None
     self.pixmap = None
-    self.position = 0
+    self.position = 0 # relative, between 0 and 1
 
   def setData(self, data):
     self.data = data
@@ -29,9 +29,8 @@ class PreviewWaveformWidget(QWidget):
     return int(width/400*34)
 
   def setPosition(self, relative):
-    new_position = int(400*relative)
-    if new_position != self.position:
-      self.position = new_position
+    if relative != self.position:
+      self.position = relative
       self.update()
 
   def paintEvent(self, e):
@@ -41,7 +40,7 @@ class PreviewWaveformWidget(QWidget):
     if self.pixmap is not None:
       scaled_pixmap = self.pixmap.scaled(self.size(), Qt.KeepAspectRatio)
       painter.drawPixmap(0,0,scaled_pixmap)
-      painter.fillRect(self.position, 0, 2, scaled_pixmap.height(), Qt.red)
+      painter.fillRect(self.position*scaled_pixmap.width(), 0, 2, scaled_pixmap.height(), Qt.red)
     painter.end()
 
   def drawPreviewWaveformPixmap(self):
@@ -309,10 +308,9 @@ class Gui(QWidget):
     else:
       client = self.prodj.cl.getClientByLoadedTrack(source_player_number, slot, item_id)
     player_number = client.player_number if client is not None else None
-    logging.debug("Gui: dbserver_callback %s source player %d to widget player %d",
-      request, source_player_number, player_number)
     if not player_number in self.players or reply is None:
       return
+    logging.debug("Gui: dbserver_callback %s source player %d to widget player %d", request, source_player_number, player_number)
     if request == "metadata":
       self.players[player_number].setMetadata(reply["title"], reply["artist"], reply["album"])
       if "artwork_id" in reply and reply["artwork_id"] != 0:
