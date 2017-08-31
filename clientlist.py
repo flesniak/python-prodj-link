@@ -46,7 +46,6 @@ class ClientList:
           c.position = beatgrid["beats"][new_beat_count]["time"] / 1000
       else:
         c.position = 0
-      logging.debug("Track position abs %f actual_pitch %.6f play_state %s beat %d", c.position, c.actual_pitch, new_play_state, new_beat_count)
     else:
       c.position = None
     c.position_timestamp = time.time()

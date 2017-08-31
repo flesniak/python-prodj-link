@@ -193,7 +193,7 @@ class PlayerWidget(QFrame):
     if master:
       self.labels["master"].setStyleSheet("QLabel { font: bold; qproperty-alignment: AlignCenter; background-color: green; color: black; }")
     else:
-      self.labels["master"].setStyleSheet("QLabel { font: bold; qproperty-alignment: AlignCenter; background-color: green; color: black; }")
+      self.labels["master"].setStyleSheet("QLabel { font: bold; qproperty-alignment: AlignCenter; background-color: gray; color: black; }")
 
   def setPlayerInfo(self, model, ip_addr, fw=""):
     self.labels["info"].setText("{} {} {}".format(model, fw, ip_addr))
