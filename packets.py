@@ -246,7 +246,7 @@ StatusPacket = Struct(
       Padding(4), # always zero
       "u8" / Default(Int32ub, 0), # 0 on start, 4 after loading track, 1 on unanalyzed track
       Padding(32), # a lot of zero fields
-      Const(Int16ub, 0x100),
+      Default(Int16ub, 0x100), # 0x100 for xdj1000, 0x300 for cdj2000nxs
       "usb_active" / Default(ActivityIndicator, "inactive"),
       "sd_active" / Default(ActivityIndicator, "inactive"),
       "usb_state" / Default(StorageIndicator, "not_loaded"), # having "loaded" makes them try to mount nfs
