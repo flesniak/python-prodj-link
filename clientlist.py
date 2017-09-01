@@ -37,7 +37,7 @@ class ClientList:
           p.loaded_slot == loaded_slot and
           p.track_id == track_id):
         #logging.debug("DBServer: storing metadata of player %d track %d to client %d", loaded_player_number, track_id, p.player_number)
-        p.metadata = reply
+        p.metadata = metadata
 
   def updatePositionByBeat(self, player_number, new_beat_count, new_play_state):
     c = self.getClient(player_number)
@@ -134,7 +134,7 @@ class ClientList:
       client_changed = True
 
     if c.type == "cdj":
-      new_beat_count = status_packet["beat_count"] if status_packet["beat_count"] != 0xffffffff else "-"
+      new_beat_count = status_packet["beat_count"] if status_packet["beat_count"] != 0xffffffff else 0
       new_play_state = status_packet["play_state"]
       if new_beat_count != c.beat_count or new_play_state != c.play_state:
         self.updatePositionByBeat(c.player_number, new_beat_count, new_play_state) # position tracking, set new absolute grid value
