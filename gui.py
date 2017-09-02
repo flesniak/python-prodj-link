@@ -333,6 +333,8 @@ class Gui(QWidget):
     logging.debug("Gui: dbserver_callback %s source player %d to widget player %d", request, source_player_number, player_number)
     if request == "metadata":
       self.players[player_number].setMetadata(reply["title"], reply["artist"], reply["album"])
+      with open("tracks.log", "a") as f:
+        f.write("{} - {} ({})\n".format(reply["artist"], reply["title"], reply["album"]))
       if "artwork_id" in reply and reply["artwork_id"] != 0:
         self.prodj.dbs.get_artwork(source_player_number, slot, reply["artwork_id"], self.dbserver_callback)
       else:
