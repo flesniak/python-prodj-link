@@ -19,6 +19,7 @@ class GLWaveformWidget(QOpenGLWidget):
     # multisampling
     fmt = QSurfaceFormat(self.format())
     fmt.setSamples(4)
+    fmt.setSwapBehavior(QSurfaceFormat.DoubleBuffer)
     self.setFormat(fmt)
 
     self.lists = None
@@ -105,9 +106,8 @@ class GLWaveformWidget(QOpenGLWidget):
     gl.glShadeModel(gl.GL_FLAT)
     gl.glEnable(gl.GL_DEPTH_TEST)
     gl.glEnable(gl.GL_CULL_FACE)
-    gl.glEnable(gl.GL_MULTISAMPLE)
     self.lists = gl.glGenLists(3)
-    gl.glLineWidth(1)
+    gl.glLineWidth(1.5)
     self.renderCrosshair()
 
   def updateViewport(self):
@@ -145,7 +145,7 @@ class GLWaveformWidget(QOpenGLWidget):
     gl.glColor3f(1, 1, 1)
     gl.glVertex3f(-1*self.viewport[0], 0, -1)
     gl.glVertex3f(self.viewport[0], 0, -1)
-    ## red position marker
+    # red position marker
     gl.glColor3f(1, 0, 0)
     gl.glVertex3f(0, -1*self.viewport[1], 1)
     gl.glVertex3f(0, self.viewport[1], 1)
@@ -157,8 +157,7 @@ class GLWaveformWidget(QOpenGLWidget):
       return
 
     gl.glNewList(self.lists+1, gl.GL_COMPILE)
-    #gl.glLineWidth(1/self.waveform_lines_per_x)
-    #gl.glEnable(gl.GL_LINE_SMOOTH)
+    gl.glEnable(gl.GL_MULTISAMPLE)
     gl.glBegin(gl.GL_LINES)
 
     for x in range(0, len(self.waveform_data)):
@@ -178,8 +177,7 @@ class GLWaveformWidget(QOpenGLWidget):
       return
 
     gl.glNewList(self.lists+2, gl.GL_COMPILE)
-    #gl.glLineWidth(1/self.waveform_lines_per_x)
-    #gl.glEnable(gl.GL_LINE_SMOOTH)
+    gl.glDisable(gl.GL_MULTISAMPLE)
     gl.glBegin(gl.GL_LINES)
 
     for beat in self.beatgrid_data["beats"]:
