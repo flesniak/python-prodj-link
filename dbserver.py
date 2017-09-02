@@ -201,7 +201,11 @@ class DBClient(Thread):
     logging.debug("DBServer: {} query {}".format(request_type, query))
     data = packets.DBMessage.build(query)
     sock.send(data)
-    reply = self.receive_dbmessage(sock)
+    try:
+      reply = self.receive_dbmessage(sock)
+    except (RangeError, FieldError) as e:
+      logging.error("DBServer: %s query parse error: %s", request_type, str(e))
+      return None
     if reply is None:
       logging.error("Failed to receive %s blob (%d tries)", request_type, recv_tries)
       return None
