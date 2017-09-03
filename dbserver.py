@@ -4,7 +4,7 @@ import logging
 import time
 from threading import Thread
 from queue import Empty, Queue
-from construct import FieldError, RangeError, byte2int
+from construct import FieldError, RangeError, MappingError, byte2int
 
 metadata_type = {
   0x0001: "folder",
@@ -203,7 +203,7 @@ class DBClient(Thread):
     sock.send(data)
     try:
       reply = self.receive_dbmessage(sock)
-    except (RangeError, FieldError) as e:
+    except (RangeError, FieldError, MappingError, KeyError) as e:
       logging.error("DBServer: %s query parse error: %s", request_type, str(e))
       return None
     if reply is None:

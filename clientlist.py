@@ -50,7 +50,7 @@ class ClientList:
         if new_play_state != "cued": # when releasing cue scratch, the beat count is still +1
           new_beat_count -= 1
         beatgrid = self.prodj.dbs.beatgrid_store[identifier]
-        if beatgrid is not None and len(beatgrid["beats"]) >= new_beat_count:
+        if beatgrid is not None and len(beatgrid["beats"]) > new_beat_count:
           c.position = beatgrid["beats"][new_beat_count]["time"] / 1000
       else:
         c.position = 0
