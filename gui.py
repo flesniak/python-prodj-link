@@ -152,8 +152,10 @@ class PlayerWidget(QFrame):
     self.labels["pitch"].setStyleSheet("QLabel { color: white; font: bold 14pt; qproperty-alignment: AlignRight; }")
     self.labels["pitch"].show() # makes the widget calculate its current size
     self.labels["pitch"].setMinimumSize(self.labels["pitch"].size()) # to prevent jumping in size when changing pitch
-    self.labels["master"] = QLabel("MASTER", self) # stylesheet set by setMaster()
-    self.labels["sync"] = QLabel("SYNC", self) # stylesheet set by setSync()
+    self.labels["master"] = QLabel("MASTER", self)
+    self.labels["master"].setStyleSheet("QLabel { font: bold; qproperty-alignment: AlignCenter; background-color: green; color: black; } QLabel:disabled { background-color: gray; }")
+    self.labels["sync"] = QLabel("SYNC", self)
+    self.labels["sync"].setStyleSheet("QLabel { font: bold; qproperty-alignment: AlignCenter; background-color: blue; color: black; } QLabel:disabled { background-color: gray; }")
 
     bpm_box = QFrame(self)
     bpm_box.setFrameStyle(QFrame.Box | QFrame.Plain)
@@ -163,7 +165,6 @@ class PlayerWidget(QFrame):
     speed_layout.addWidget(self.labels["pitch"])
     speed_layout.addWidget(self.labels["master"])
     speed_layout.addWidget(self.labels["sync"])
-    #speed_layout.addStretch(1)
     speed_layout.setSpacing(0)
     speed_layout.setContentsMargins(0,0,0,0)
 
@@ -201,17 +202,10 @@ class PlayerWidget(QFrame):
     self.labels["player_number"].setText("PLAYER {}".format(self.player_number))
 
   def setMaster(self, master):
-    if master:
-      self.labels["master"].setStyleSheet("QLabel { font: bold; qproperty-alignment: AlignCenter; background-color: green; color: black; }")
-    else:
-      self.labels["master"].setStyleSheet("QLabel { font: bold; qproperty-alignment: AlignCenter; background-color: gray; color: black; }")
-    self.labels["master"].update()
+    self.labels["master"].setEnabled(master)
 
   def setSync(self, sync):
-    if sync:
-      self.labels["sync"].setStyleSheet("QLabel { font: bold; qproperty-alignment: AlignCenter; background-color: cornflowerblue; color: black; }")
-    else:
-      self.labels["sync"].setStyleSheet("QLabel { font: bold; qproperty-alignment: AlignCenter; background-color: gray; color: black; }")
+    self.labels["sync"].setEnabled(sync)
 
   def setPlayerInfo(self, model, ip_addr, fw=""):
     self.labels["info"].setText("{} {} {}".format(model, fw, ip_addr))
@@ -310,6 +304,7 @@ class Gui(QWidget):
       return
     self.players[player_number].setSpeed(c.bpm, c.pitch)
     self.players[player_number].setMaster("master" in c.state)
+    self.players[player_number].setSync("sync" in c.state)
     self.players[player_number].beat_bar.setBeat(c.beat)
     self.players[player_number].waveform.setPosition(c.position, c.actual_pitch, c.play_state)
     self.players[player_number].setTime(c.position)
