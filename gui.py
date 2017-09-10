@@ -303,6 +303,9 @@ class Gui(QWidget):
     if not player_number in self.players:
       return
     c = clientlist.getClient(player_number)
+    if c is None:
+      self.remove_player(player_number)
+      return
     self.players[player_number].setSpeed(c.bpm, c.pitch)
     self.players[player_number].setMaster("master" in c.state)
     self.players[player_number].beat_bar.setBeat(c.beat)
