@@ -1,4 +1,3 @@
 - play/cued/looping widget
 - mutex on waveform/preview_waveform data
 - same track loaded on multiple decks
-- master display not working

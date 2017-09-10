@@ -205,6 +205,7 @@ class PlayerWidget(QFrame):
       self.labels["master"].setStyleSheet("QLabel { font: bold; qproperty-alignment: AlignCenter; background-color: green; color: black; }")
     else:
       self.labels["master"].setStyleSheet("QLabel { font: bold; qproperty-alignment: AlignCenter; background-color: gray; color: black; }")
+    self.labels["master"].update()
 
   def setSync(self, sync):
     if sync:
