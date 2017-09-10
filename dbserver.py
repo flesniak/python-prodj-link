@@ -172,11 +172,23 @@ class DBClient(Thread):
     data = packets.DBMessage.build(query)
     logging.debug("DBServer: render query {}".format(query))
     sock.send(data)
-    data = sock.recv(1500)
-    try:
-      reply = packets.ManyDBMessages.parse(data)
-    except (RangeError, FieldError):
-      logging.error("DBServer: failed to parse metadata reply, data: {}".format(data))
+    recv_tries = 0
+    data = b""
+    while recv_tries < 10:
+      data += sock.recv(4096)
+      try:
+        reply = packets.ManyDBMessages.parse(data)
+      except (RangeError, FieldError):
+        logging.warning("DBServer: failed to parse metadata reply (%d bytes), trying to receive more", len(data))
+        recv_tries += 1
+      else:
+        if reply[-1]["type"] != "menu_footer":
+          logging.warning("DBServer: received %d bytes of metadata reply but does not end with menu_footer yet, trying to receive more", len(data))
+          recv_tries += 1
+        else:
+          break
+    if recv_tries >= 10:
+      logging.error("DBServer: Failed to receive metadata reply after %d tries", recv_tries)
       return None
     metadata = self.parse_metadata(reply)
     return metadata
