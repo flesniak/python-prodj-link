@@ -287,6 +287,8 @@ class Gui(QWidget):
     if not player_number in self.players:
       return
     self.layout.removeWidget(self.players[player_number])
+    self.players[player_number].hide()
+    self.players[player_number].deleteLater()
     del self.players[player_number]
     logging.info("Gui: Removed player {}".format(player_number))
 
