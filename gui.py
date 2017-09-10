@@ -330,28 +330,29 @@ class Gui(QWidget):
 
   def dbserver_callback(self, request, source_player_number, slot, item_id, reply):
     if request == "artwork":
-      client = self.prodj.cl.getClientByLoadedTrackArtwork(source_player_number, slot, item_id)
+      iterator = self.prodj.cl.clientsByLoadedTrackArtwork
     else:
-      client = self.prodj.cl.getClientByLoadedTrack(source_player_number, slot, item_id)
-    player_number = client.player_number if client is not None else None
-    if not player_number in self.players or reply is None:
-      return
-    logging.debug("Gui: dbserver_callback %s source player %d to widget player %d", request, source_player_number, player_number)
-    if request == "metadata":
-      self.players[player_number].setMetadata(reply["title"], reply["artist"], reply["album"])
-      with open("tracks.log", "a") as f:
-        f.write("{} - {} ({})\n".format(reply["artist"], reply["title"], reply["album"]))
-      if "artwork_id" in reply and reply["artwork_id"] != 0:
-        self.prodj.dbs.get_artwork(source_player_number, slot, reply["artwork_id"], self.dbserver_callback)
+      iterator = self.prodj.cl.clientsByLoadedTrack
+    for client in iterator(source_player_number, slot, item_id):
+      player_number = client.player_number if client is not None else None
+      if not player_number in self.players or reply is None:
+        continue
+      logging.debug("Gui: dbserver_callback %s source player %d to widget player %d", request, source_player_number, player_number)
+      if request == "metadata":
+        self.players[player_number].setMetadata(reply["title"], reply["artist"], reply["album"])
+        with open("tracks.log", "a") as f:
+          f.write("{} - {} ({})\n".format(reply["artist"], reply["title"], reply["album"]))
+        if "artwork_id" in reply and reply["artwork_id"] != 0:
+          self.prodj.dbs.get_artwork(source_player_number, slot, reply["artwork_id"], self.dbserver_callback)
+        else:
+          self.players[player_number].setArtwork(None)
+      elif request == "artwork":
+        self.players[player_number].setArtwork(reply)
+      elif request == "waveform":
+        self.players[player_number].waveform.setData(reply)
+      elif request == "preview_waveform":
+        self.players[player_number].preview_waveform.setData(reply)
+      elif request == "beatgrid":
+        self.players[player_number].waveform.setBeatgridData(reply)
       else:
-        self.players[player_number].setArtwork(None)
-    elif request == "artwork":
-      self.players[player_number].setArtwork(reply)
-    elif request == "waveform":
-      self.players[player_number].waveform.setData(reply)
-    elif request == "preview_waveform":
-      self.players[player_number].preview_waveform.setData(reply)
-    elif request == "beatgrid":
-      self.players[player_number].waveform.setBeatgridData(reply)
-    else:
-      logging.warning("Gui: unhandled dbserver callback %s", request)
+        logging.warning("Gui: unhandled dbserver callback %s", request)

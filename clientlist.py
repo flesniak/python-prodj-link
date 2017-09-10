@@ -16,20 +16,20 @@ class ClientList:
   def getClient(self, player_number):
     return next((p for p in self.clients if p.player_number == player_number), None)
 
-  def getClientByLoadedTrack(self, loaded_player_number, loaded_slot, track_id):
-    return next((p for p in self.clients if
-      p.loaded_player_number == loaded_player_number and
-      p.loaded_slot == loaded_slot and
-      p.track_id == track_id),
-      None)
+  def clientsByLoadedTrack(self, loaded_player_number, loaded_slot, track_id):
+    for p in self.clients:
+      if (p.loaded_player_number == loaded_player_number and
+          p.loaded_slot == loaded_slot and
+          p.track_id == track_id):
+        yield p
 
-  def getClientByLoadedTrackArtwork(self, loaded_player_number, loaded_slot, artwork_id):
-    return next((p for p in self.clients if
-      p.loaded_player_number == loaded_player_number and
-      p.loaded_slot == loaded_slot and
-      p.metadata is not None and
-      p.metadata["artwork_id"] == artwork_id),
-      None)
+  def clientsByLoadedTrackArtwork(self, loaded_player_number, loaded_slot, artwork_id):
+    for p in self.clients:
+      if (p.loaded_player_number == loaded_player_number and
+          p.loaded_slot == loaded_slot and
+          p.metadata is not None and
+          p.metadata["artwork_id"] == artwork_id):
+        yield p
 
   def storeMetadataByLoadedTrack(self, loaded_player_number, loaded_slot, track_id, metadata):
     for p in self.clients:
