@@ -148,13 +148,18 @@ class DBClient(Thread):
     data = packets.DBMessage.build(query)
     logging.debug("DBServer: metadata_request query {}".format(query))
     sock.send(data)
-    reply = self.receive_dbmessage(sock)
-    if reply["type"] == "invalid_request":
+    try:
+      reply = self.receive_dbmessage(sock)
+    except (RangeError, FieldError, MappingError, KeyError) as e:
+      logging.error("DBServer: parsing %s query failed on player %d failed: %s", query["type"], player_number, str(e))
+      return None
+    if reply["type"] != "success":
       logging.error("DBServer: %s query failed on player %d (got %s)", query["type"], player_number, reply["type"])
       return None
     entry_count = reply["args"][1]["value"]
     if entry_count == 0:
-      logging.error("DBServer: not metadata for track {} available (0 entries)".format(track_id))
+      logging.error("DBServer: no metadata for track {} available (0 entries)".format(track_id))
+      return None
     logging.debug("DBServer: metadata request: {} entries available".format(entry_count))
 
     query = {
