@@ -4,6 +4,7 @@ from PyQt5.QtGui import QColor, QPainter, QPixmap
 from PyQt5.QtCore import pyqtSignal, Qt, QSize
 import sys
 import math
+from threading import Lock
 
 from waveform_gl import GLWaveformWidget
 
@@ -15,6 +16,7 @@ class PreviewWaveformWidget(QWidget):
     self.setMinimumSize(self.pixmap_width, self.pixmap_height)
     self.data = None
     self.pixmap = None
+    self.pixmap_lock = Lock()
     self.position = 0 # relative, between 0 and 1
 
   def clear(self):
@@ -22,7 +24,8 @@ class PreviewWaveformWidget(QWidget):
 
   def setData(self, data):
     self.data = data
-    self.pixmap = self.drawPreviewWaveformPixmap()
+    with self.pixmap_lock:
+      self.pixmap = self.drawPreviewWaveformPixmap()
     self.update()
 
   def sizeHint(self):
@@ -39,10 +42,11 @@ class PreviewWaveformWidget(QWidget):
   def paintEvent(self, e):
     painter = QPainter()
     painter.begin(self)
-    if self.pixmap is not None:
-      scaled_pixmap = self.pixmap.scaled(self.size(), Qt.KeepAspectRatio)
-      painter.drawPixmap(0, 0, scaled_pixmap)
-      painter.fillRect(self.position*scaled_pixmap.width(), 0, 2, scaled_pixmap.height(), Qt.red)
+    with self.pixmap_lock:
+      if self.pixmap is not None:
+        scaled_pixmap = self.pixmap.scaled(self.size(), Qt.KeepAspectRatio)
+        painter.drawPixmap(0, 0, scaled_pixmap)
+        painter.fillRect(self.position*scaled_pixmap.width(), 0, 2, scaled_pixmap.height(), Qt.red)
     painter.end()
 
   def drawPreviewWaveformPixmap(self):
