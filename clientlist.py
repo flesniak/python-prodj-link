@@ -36,7 +36,6 @@ class ClientList:
       if (p.loaded_player_number == loaded_player_number and
           p.loaded_slot == loaded_slot and
           p.track_id == track_id):
-        #logging.debug("DBServer: storing metadata of player %d track %d to client %d", loaded_player_number, track_id, p.player_number)
         p.metadata = metadata
 
   def updatePositionByBeat(self, player_number, new_beat_count, new_play_state):

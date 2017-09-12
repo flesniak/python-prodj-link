@@ -77,13 +77,13 @@ class DBClient(Thread):
     for packet in data:
       # check packet types
       if packet["type"] == "menu_header":
-        logging.debug("DBServer: parse_metadata menu_header")
+        logging.debug("DBClient: parse_metadata menu_header")
         continue
       if packet["type"] == "menu_footer":
-        logging.debug("DBServer: parse_metadata menu_footer")
+        logging.debug("DBClient: parse_metadata menu_footer")
         break
       if packet["type"] != "menu_item":
-        logging.warning("DBServer: parse_metadata item not menu_item: {}".format(packet))
+        logging.warning("DBClient: parse_metadata item not menu_item: {}".format(packet))
         continue
 
       # extract metadata from packet
@@ -92,7 +92,7 @@ class DBClient(Thread):
       md_string1 = packet["args"][3]["value"]
       md_string2 = packet["args"][5]["value"]
       if md_type not in metadata_type:
-        logging.warning("DBServer: metadata type {} unknown".format(md_type))
+        logging.warning("DBClient: metadata type {} unknown".format(md_type))
         continue
       md_name = metadata_type[md_type]
 
@@ -108,17 +108,17 @@ class DBClient(Thread):
         md_value = md_name[6:]
         md_name = "color"
         md["color_text"] = md_string1
-        logging.debug("DBServer: color {} color_text {}".format(md_value, md_string1))
+        logging.debug("DBClient: color {} color_text {}".format(md_value, md_string1))
       else:
         md_value = md_string1
 
       # store metadata
       md[md_name] = md_value
-      logging.debug("DBServer: parse_metadata {} = {}".format(md_name, md_value))
+      logging.debug("DBClient: parse_metadata {} = {}".format(md_name, md_value))
       if len(md_string2) > 0:
-        logging.warning("DBServer: parse_metadata string2: {}".format(md_string2))
+        logging.warning("DBClient: parse_metadata string2: {}".format(md_string2))
     if data[-1]["type"] != "menu_footer":
-      logging.warning("DBServer: metadata packet not ending with menu_footer, buffer too small?")
+      logging.warning("DBClient: metadata packet not ending with menu_footer, buffer too small?")
     return md
 
   def receive_dbmessage(self, sock):
@@ -130,7 +130,7 @@ class DBClient(Thread):
         reply = packets.DBMessage.parse(data)
         return reply
       except RangeError as e:
-        logging.debug("DBServer: Received %d bytes but parsing failed, trying to receive more", len(data))
+        logging.debug("DBClient: Received %d bytes but parsing failed, trying to receive more", len(data))
         recv_tries += 1
     return None
 
@@ -146,21 +146,21 @@ class DBClient(Thread):
       ]
     }
     data = packets.DBMessage.build(query)
-    logging.debug("DBServer: metadata_request query {}".format(query))
+    logging.debug("DBClient: metadata_request query {}".format(query))
     sock.send(data)
     try:
       reply = self.receive_dbmessage(sock)
     except (RangeError, FieldError, MappingError, KeyError) as e:
-      logging.error("DBServer: parsing %s query failed on player %d failed: %s", query["type"], player_number, str(e))
+      logging.error("DBClient: parsing %s query failed on player %d failed: %s", query["type"], player_number, str(e))
       return None
     if reply["type"] != "success":
-      logging.error("DBServer: %s query failed on player %d (got %s)", query["type"], player_number, reply["type"])
+      logging.error("DBClient: %s query failed on player %d (got %s)", query["type"], player_number, reply["type"])
       return None
     entry_count = reply["args"][1]["value"]
     if entry_count == 0:
-      logging.error("DBServer: no metadata for track {} available (0 entries)".format(track_id))
+      logging.error("DBClient: no metadata for track {} available (0 entries)".format(track_id))
       return None
-    logging.debug("DBServer: metadata request: {} entries available".format(entry_count))
+    logging.debug("DBClient: metadata request: {} entries available".format(entry_count))
 
     query = {
       "transaction_id": self.getTransactionId(player_number),
@@ -175,7 +175,7 @@ class DBClient(Thread):
       ]
     }
     data = packets.DBMessage.build(query)
-    logging.debug("DBServer: render query {}".format(query))
+    logging.debug("DBClient: render query {}".format(query))
     sock.send(data)
     recv_tries = 0
     data = b""
@@ -184,16 +184,16 @@ class DBClient(Thread):
       try:
         reply = packets.ManyDBMessages.parse(data)
       except (RangeError, FieldError):
-        logging.warning("DBServer: failed to parse metadata reply (%d bytes), trying to receive more", len(data))
+        logging.warning("DBClient: failed to parse metadata reply (%d bytes), trying to receive more", len(data))
         recv_tries += 1
       else:
         if reply[-1]["type"] != "menu_footer":
-          logging.warning("DBServer: received %d bytes of metadata reply but does not end with menu_footer yet, trying to receive more", len(data))
+          logging.warning("DBClient: received %d bytes of metadata reply but does not end with menu_footer yet, trying to receive more", len(data))
           recv_tries += 1
         else:
           break
     if recv_tries >= 10:
-      logging.error("DBServer: Failed to receive metadata reply after %d tries", recv_tries)
+      logging.error("DBClient: Failed to receive metadata reply after %d tries", recv_tries)
       return None
     metadata = self.parse_metadata(reply)
     return metadata
@@ -215,22 +215,22 @@ class DBClient(Thread):
     elif request_type == "preview_waveform_request":
       query["args"].insert(1, {"type": "int32", "value": 4})
       query["args"].append({"type": "int32", "value": 0})
-    logging.debug("DBServer: {} query {}".format(request_type, query))
+    logging.debug("DBClient: {} query {}".format(request_type, query))
     data = packets.DBMessage.build(query)
     sock.send(data)
     try:
       reply = self.receive_dbmessage(sock)
     except (RangeError, FieldError, MappingError, KeyError) as e:
-      logging.error("DBServer: %s query parse error: %s", request_type, str(e))
+      logging.error("DBClient: %s query parse error: %s", request_type, str(e))
       return None
     if reply is None:
       logging.error("Failed to receive %s blob (%d tries)", request_type, recv_tries)
       return None
     if reply["type"] == "invalid_request" or reply["args"][2]["value"] == 0:
-      logging.error("DBServer: %s blob query failed on player %d (got %s)", query["type"], player_number, reply["type"])
+      logging.error("DBClient: %s blob query failed on player %d (got %s)", query["type"], player_number, reply["type"])
       return None
     blob = reply["args"][3]["value"]
-    logging.debug("DBServer: got %d bytes of blob data", len(blob))
+    logging.debug("DBClient: got %d bytes of blob data", len(blob))
     return blob
 
   def get_server_port(self, player_number):
@@ -246,7 +246,7 @@ class DBClient(Thread):
       sock.close()
       port = packets.DBServerReply.parse(data)
       self.remote_ports[player_number] = (client.ip_addr, port)
-      logging.info("DBServer port of player {}: {}".format(player_number, port))
+      logging.info("DBClient port of player {}: {}".format(player_number, port))
     return self.remote_ports[player_number]
 
   def send_initial_packet(self, sock):
@@ -255,9 +255,9 @@ class DBClient(Thread):
     data = sock.recv(16)
     try:
       reply = init_packet.parse(data)
-      logging.debug("DBServer: initial packet reply %d", reply)
+      logging.debug("DBClient: initial packet reply %d", reply)
     except:
-      logging.warning("DBServer: failed to parse initial packet reply, ignoring")
+      logging.warning("DBClient: failed to parse initial packet reply, ignoring")
 
   def send_setup_packet(self, sock, player_number):
     query = {
@@ -271,7 +271,7 @@ class DBClient(Thread):
       logging.error("Failed to connect to player {}".format(player_number))
       return
     reply = packets.DBMessage.parse(data)
-    logging.info("DBServer: connected to player {}".format(reply["args"][1]["value"]))
+    logging.info("DBClient: connected to player {}".format(reply["args"][1]["value"]))
 
   def getTransactionId(self, player_number):
     sock_info = self.socks[player_number]
@@ -338,22 +338,22 @@ class DBClient(Thread):
 
   def _enqueue_request(self, request, store, player_number, slot, item_id, callback):
     if player_number == 0 or player_number > 4 or item_id == 0:
-      logging.warning("DBServer: invalid %s request parameters", request)
+      logging.warning("DBClient: invalid %s request parameters", request)
       return
-    logging.debug("DBServer: enqueueing %s request for player %d slot %s item_id %d",
+    logging.debug("DBClient: enqueueing %s request for player %d slot %s item_id %d",
       request, player_number, slot, item_id)
     self.queue.put((request, store, player_number, slot, item_id, callback))
 
   def _handle_request(self, request, store, player_number, slot, item_id, callback):
     if (player_number, slot, item_id) in store:
-      logging.debug("DBServer: %s request for player %d slot %s item_id %d already known",
+      logging.debug("DBClient: %s request for player %d slot %s item_id %d already known",
         request, player_number, slot, item_id)
       if request == "metadata":
         self.cl.storeMetadataByLoadedTrack(player_number, slot, item_id, store[player_number, slot, item_id])
       if callback:
         callback(request, player_number, slot, item_id, store[player_number, slot, item_id])
       return
-    logging.debug("DBServer: handling %s request for player %d slot %s id %d",
+    logging.debug("DBClient: handling %s request for player %d slot %s id %d",
       request, player_number, slot, item_id)
     if request == "metadata":
       reply = self.query_metadata(player_number, slot, item_id)
@@ -369,10 +369,10 @@ class DBClient(Thread):
       try: # pre-parse beatgrid data (like metadata) for easier access
         reply = packets.Beatgrid.parse(reply)
       except (RangeError, FieldError) as e:
-        logging.error("DBServer: failed to parse beatgrid data: %s", e)
+        logging.error("DBClient: failed to parse beatgrid data: %s", e)
         reply = None
     else:
-      logging.error("DBServer: invalid request type %s", request)
+      logging.error("DBClient: invalid request type %s", request)
       return
     store[player_number, slot, item_id] = reply
     if callback:

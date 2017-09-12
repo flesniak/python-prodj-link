@@ -7,7 +7,7 @@ import logging
 from enum import Enum
 
 from clientlist import ClientList
-from dbserver import DBClient
+from dbclient import DBClient
 from vcdj import Vcdj
 from ip import guess_own_iface
 
