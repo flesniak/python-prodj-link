@@ -356,7 +356,11 @@ ArgumentTypesField = ArgumentTypes(DBFieldFixed("binary"))
 DBRequestType = Enum(DBFieldFixed("int16"),
   setup = 0,
   invalid = 1,
+  # list requests
   root_menu = 0x1000,
+  track_request = 0x1004,
+  playlist_request = 0x1105,
+  # track specific requests
   metadata_request = 0x2002,
   artwork_request = 0x2003,
   preview_waveform_request = 0x2004,

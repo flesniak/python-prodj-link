@@ -134,20 +134,27 @@ class DBClient(Thread):
         recv_tries += 1
     return None
 
-  def query_metadata(self, player_number, slot, track_id):
+  def query_metadata(self, player_number, slot, track_id, request_type):
     sock = self.getSocket(player_number)
     slot_id = byte2int(packets.PlayerSlot.build(slot))
     query = {
       "transaction_id": self.getTransactionId(player_number),
-      "type": "metadata_request",
+      "type": request_type,
       "args": [
         {"type": "int32", "value": self.own_player_number<<24 | 1<<16 | slot_id<<8 | 1},
         {"type": "int32", "value": track_id}
       ]
     }
+    # request-specifig argument agumentations
+    if request_type == "waveform_request":
+      query["args"].append({"type": "int32", "value": 0})
+    elif request_type == "preview_waveform_request":
+      query["args"].insert(1, {"type": "int32", "value": 4})
+      query["args"].append({"type": "int32", "value": 0})
     data = packets.DBMessage.build(query)
     logging.debug("DBClient: metadata_request query {}".format(query))
     sock.send(data)
+
     try:
       reply = self.receive_dbmessage(sock)
     except (RangeError, FieldError, MappingError, KeyError) as e:
@@ -356,7 +363,7 @@ class DBClient(Thread):
     logging.debug("DBClient: handling %s request for player %d slot %s id %d",
       request, player_number, slot, item_id)
     if request == "metadata":
-      reply = self.query_metadata(player_number, slot, item_id)
+      reply = self.query_metadata(player_number, slot, item_id, "metadata_request")
       self.cl.storeMetadataByLoadedTrack(player_number, slot, item_id, reply)
     elif request == "artwork":
       reply = self.query_blob(player_number, slot, item_id, "artwork_request")
