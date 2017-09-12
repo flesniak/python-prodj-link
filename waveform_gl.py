@@ -2,15 +2,14 @@
 
 import sys
 import logging
+from threading import Lock
 
 from PyQt5.QtCore import pyqtSignal, QSize, Qt
 from PyQt5.QtWidgets import QApplication, QHBoxLayout, QOpenGLWidget, QSlider, QWidget
 from PyQt5.QtGui import QSurfaceFormat
-
-from packets import Beatgrid
 import OpenGL.GL as gl
 
-from packets import PlayStateStopped, PlayStatePlaying
+from packets import Beatgrid, PlayStatePlaying, PlayStateStopped
 
 class GLWaveformWidget(QOpenGLWidget):
   def __init__(self, parent=None):
@@ -26,6 +25,7 @@ class GLWaveformWidget(QOpenGLWidget):
     self.clearLists = False
     self.waveform_data = None # if not none, it will be rendered and deleted (to None)
     self.beatgrid_data = None # if not none, it will be rendered and deleted (to None)
+    self.data_lock = Lock()
     self.time_offset = 0
     self.zoom_seconds = 4
     self.pitch = 1 # affects animation speed
@@ -45,19 +45,22 @@ class GLWaveformWidget(QOpenGLWidget):
     return QSize(500, 100)
 
   def clear(self):
-    self.waveform_data = None
-    self.beatgrid_data = None
-    if self.lists is not None:
-      self.clearLists = True
-      self.update()
+    with self.data_lock:
+      self.waveform_data = None
+      self.beatgrid_data = None
+      if self.lists is not None:
+        self.clearLists = True
+        self.update()
 
   def setData(self, waveform_data):
-    self.waveform_data = waveform_data[20:]
-    self.update()
+    with self.data_lock:
+      self.waveform_data = waveform_data[20:]
+      self.update()
 
   def setBeatgridData(self, beatgrid_data):
-    self.beatgrid_data = beatgrid_data
-    self.update()
+    with self.data_lock:
+      self.beatgrid_data = beatgrid_data
+      self.update()
 
   # current time in seconds at position marker
   def setPosition(self, position, pitch=1, state="playing"):
@@ -158,50 +161,52 @@ class GLWaveformWidget(QOpenGLWidget):
     gl.glEndList()
 
   def renderWaveform(self):
-    if self.waveform_data is None:
-      return
+    with self.data_lock:
+      if self.waveform_data is None:
+        return
 
-    gl.glNewList(self.lists+1, gl.GL_COMPILE)
-    gl.glEnable(gl.GL_MULTISAMPLE)
-    gl.glBegin(gl.GL_LINES)
+      gl.glNewList(self.lists+1, gl.GL_COMPILE)
+      gl.glEnable(gl.GL_MULTISAMPLE)
+      gl.glBegin(gl.GL_LINES)
 
-    for x in range(0, len(self.waveform_data)):
-      height = self.waveform_data[x] & 0x1f
-      whiteness = self.waveform_data[x] >> 5
+      for x in range(0, len(self.waveform_data)):
+        height = self.waveform_data[x] & 0x1f
+        whiteness = self.waveform_data[x] >> 5
 
-      gl.glColor3f(whiteness/8, whiteness/8, 1)
-      gl.glVertex3f(x/self.waveform_lines_per_x, height, 0)
-      gl.glVertex3f(x/self.waveform_lines_per_x, -height, 0)
+        gl.glColor3f(whiteness/8, whiteness/8, 1)
+        gl.glVertex3f(x/self.waveform_lines_per_x, height, 0)
+        gl.glVertex3f(x/self.waveform_lines_per_x, -height, 0)
 
-    gl.glEnd()
-    gl.glEndList()
-    self.waveform_data = None # delete data after rendering
+      gl.glEnd()
+      gl.glEndList()
+      self.waveform_data = None # delete data after rendering
 
   def renderBeatgrid(self):
-    if self.beatgrid_data is None:
-      return
+    with self.data_lock:
+      if self.beatgrid_data is None:
+        return
 
-    gl.glNewList(self.lists+2, gl.GL_COMPILE)
-    gl.glDisable(gl.GL_MULTISAMPLE)
-    gl.glBegin(gl.GL_LINES)
+      gl.glNewList(self.lists+2, gl.GL_COMPILE)
+      gl.glDisable(gl.GL_MULTISAMPLE)
+      gl.glBegin(gl.GL_LINES)
 
-    for beat in self.beatgrid_data["beats"]:
-      if beat["beat"] == 1:
-        gl.glColor3f(1, 0, 0)
-        height = 8
-      else:
-        gl.glColor3f(1, 1, 1)
-        height = 5
-      x = beat["time"]/1000
+      for beat in self.beatgrid_data["beats"]:
+        if beat["beat"] == 1:
+          gl.glColor3f(1, 0, 0)
+          height = 8
+        else:
+          gl.glColor3f(1, 1, 1)
+          height = 5
+        x = beat["time"]/1000
 
-      gl.glVertex3f(x, self.viewport[1]-height, 0)
-      gl.glVertex3f(x, self.viewport[1], 0)
-      gl.glVertex3f(x, -1*self.viewport[1], 0)
-      gl.glVertex3f(x, -1*self.viewport[1]+height, 0)
+        gl.glVertex3f(x, self.viewport[1]-height, 0)
+        gl.glVertex3f(x, self.viewport[1], 0)
+        gl.glVertex3f(x, -1*self.viewport[1], 0)
+        gl.glVertex3f(x, -1*self.viewport[1]+height, 0)
 
-    gl.glEnd()
-    gl.glEndList()
-    self.beatgrid_data = None # delete data after rendering
+      gl.glEnd()
+      gl.glEndList()
+      self.beatgrid_data = None # delete data after rendering
 
 class Window(QWidget):
   def __init__(self):
