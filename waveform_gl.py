@@ -23,6 +23,7 @@ class GLWaveformWidget(QOpenGLWidget):
     self.setFormat(fmt)
 
     self.lists = None
+    self.clearLists = False
     self.waveform_data = None # if not none, it will be rendered and deleted (to None)
     self.beatgrid_data = None # if not none, it will be rendered and deleted (to None)
     self.time_offset = 0
@@ -47,10 +48,8 @@ class GLWaveformWidget(QOpenGLWidget):
     self.waveform_data = None
     self.beatgrid_data = None
     if self.lists is not None:
-      gl.glNewList(self.lists+1, gl.GL_COMPILE)
-      gl.glEndList()
-      gl.glNewList(self.lists+2, gl.GL_COMPILE)
-      gl.glEndList()
+      self.clearLists = True
+      self.update()
 
   def setData(self, waveform_data):
     self.waveform_data = waveform_data[20:]
@@ -124,6 +123,12 @@ class GLWaveformWidget(QOpenGLWidget):
 
     gl.glScalef(self.viewport[0]/self.zoom_seconds, 1, 1)
     gl.glTranslatef(-1*self.time_offset, 0, 0)
+    if self.clearLists:
+      gl.glNewList(self.lists+1, gl.GL_COMPILE)
+      gl.glEndList()
+      gl.glNewList(self.lists+2, gl.GL_COMPILE)
+      gl.glEndList()
+      self.clearLists = False
     self.renderWaveform()
     self.renderBeatgrid()
     gl.glCallList(self.lists+1)

@@ -184,18 +184,20 @@ class PlayerWidget(QFrame):
 
     self.reset()
 
-  def reset(self):
-    self.labels["title"].setText("Not loaded")
-    self.labels["artist"].setText("")
-    self.labels["album"].setText("")
-    self.labels["info"].setText("No player connected")
+  def unload(self):
+    self.setMetadata("Not loaded", "", "")
+    self.setArtwork(None)
     self.setTime(None)
-    self.setSpeed("")
-    self.setMaster(False)
-    self.setSync(False)
     self.beat_bar.setBeat(0)
     self.waveform.clear()
     self.preview_waveform.clear()
+
+  def reset(self):
+    self.unload()
+    self.labels["info"].setText("No player connected")
+    self.setSpeed("")
+    self.setMaster(False)
+    self.setSync(False)
 
   def setPlayerNumber(self, player_number):
     self.player_number = player_number
@@ -210,14 +212,15 @@ class PlayerWidget(QFrame):
   def setPlayerInfo(self, model, ip_addr, fw=""):
     self.labels["info"].setText("{} {} {}".format(model, fw, ip_addr))
 
-  def setSpeed(self, bpm, pitch=0):
+  def setSpeed(self, bpm, pitch=None):
+    if pitch is None:
+      pitch = 1
+    self.labels["pitch"].setText("{:+.2f}%".format((pitch-1)*100))
     if isinstance(bpm, str):
       self.labels["bpm"].setText("--.--")
-      self.labels["pitch"].setText("{:+.2f}%".format(0))
     else:
       pitched_bpm = bpm*pitch
       self.labels["bpm"].setText("{:.2f}".format(pitched_bpm))
-      self.labels["pitch"].setText("{:+.2f}%".format((pitch-1)*100))
 
   def setMetadata(self, title, artist, album):
     self.labels["title"].setText(title)
@@ -314,14 +317,18 @@ class Gui(QWidget):
       self.players[player_number].setPlayerInfo(c.model, c.ip_addr, c.fw)
 
     # track changed -> reload metadata
-    if self.players[player_number].track_id != c.track_id and c.track_id != 0:
-      logging.info("Gui: track id of player %d changed to %d, requesting metadata", player_number, c.track_id)
+    if self.players[player_number].track_id != c.track_id:
       self.players[player_number].track_id = c.track_id # remember requested track id
-      self.prodj.dbs.get_metadata(c.loaded_player_number, c.loaded_slot, c.track_id, self.dbclient_callback)
-      # we do not get artwork yet because we need metadata to know the artwork_id
-      self.prodj.dbs.get_preview_waveform(c.loaded_player_number, c.loaded_slot, c.track_id, self.dbclient_callback)
-      self.prodj.dbs.get_beatgrid(c.loaded_player_number, c.loaded_slot, c.track_id, self.dbclient_callback)
-      self.prodj.dbs.get_waveform(c.loaded_player_number, c.loaded_slot, c.track_id, self.dbclient_callback)
+      if c.track_id != 0:
+        logging.info("Gui: track id of player %d changed to %d, requesting metadata", player_number, c.track_id)
+        self.prodj.dbs.get_metadata(c.loaded_player_number, c.loaded_slot, c.track_id, self.dbclient_callback)
+        # we do not get artwork yet because we need metadata to know the artwork_id
+        self.prodj.dbs.get_preview_waveform(c.loaded_player_number, c.loaded_slot, c.track_id, self.dbclient_callback)
+        self.prodj.dbs.get_beatgrid(c.loaded_player_number, c.loaded_slot, c.track_id, self.dbclient_callback)
+        self.prodj.dbs.get_waveform(c.loaded_player_number, c.loaded_slot, c.track_id, self.dbclient_callback)
+      else:
+        logging.info("Gui: track id of player %d changed to %d, unloading", player_number, c.track_id)
+        self.players[player_number].unload()
 
   def dbclient_callback(self, request, source_player_number, slot, item_id, reply):
     if request == "artwork":
