@@ -67,6 +67,7 @@ class ClientList:
       c.mac_addr = keepalive_packet["mac_addr"]
       c.player_number = keepalive_packet["player_number"]
       self.clients += [c]
+      logging.info("New Player %d: %s, %s, %s", c.player_number, c.model, c.ip_addr, c.mac_addr)
       if self.client_keepalive_callback:
         self.client_keepalive_callback(self, c.player_number)
     else:
@@ -110,6 +111,9 @@ class ClientList:
       return
     client_changed = False
     c.status_packet_received = True
+    if status_packet["type"] not in ["cdj", "djm"]:
+      logging.info("Received %s status packet, ignoring", status_packet["type"])
+      return
     c.type = status_packet["type"] # cdj or djm
 
     new_bpm = status_packet["bpm"] if status_packet["bpm"] != 655.35 else "-"

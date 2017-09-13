@@ -19,6 +19,8 @@ metadata_type = {
   0x000d: "bpm",
   0x000e: "label",
   0x000f: "key",
+  0x0010: "bitrate",
+  0x0011: "year",
   0x0013: "color_none",
   0x0014: "color_pink",
   0x0015: "color_red",
@@ -32,11 +34,31 @@ metadata_type = {
   0x0028: "original_artist",
   0x0029: "remixer",
   0x002e: "date_added",
+  0x0080: "root_genre",
+  0x0081: "root_artist",
+  0x0082: "root_album",
+  0x0083: "root_track",
+  0x0084: "root_playlist",
+  0x0085: "root_bpm",
+  0x0086: "root_rating",
+  0x0087: "root_time",
+  0x0088: "root_remixer",
+  0x0089: "root_label",
+  0x008a: "root_original_artist",
+  0x008b: "root_key",
+  0x008e: "root_color",
+  0x0090: "root_folder",
+  0x0091: "root_search",
+  0x0092: "root_time",
+  0x0093: "root_bitrate",
+  0x0094: "root_filename",
+  0x0095: "root_history",
+  0x0098: "root_hot_cue_bank",
   0x0204: "title_and_album",
   0x0604: "title_and_genre",
   0x0704: "title_and_artist",
   0x0a04: "title_and_rating",
-  0x0b04: "title_and_time",
+  0x0b04: "title_and_duration",
   0x0d04: "title_and_bpm",
   0x0e04: "title_and_label",
   0x0f04: "title_and_key",
@@ -47,6 +69,26 @@ metadata_type = {
   0x2904: "title_and_remixer",
   0x2a04: "title_and_dj_play_count",
   0x2e04: "title_and_date_added"
+}
+
+# columns depend on sort mode
+sort_types = {
+  "default": 0x00, # title | <depending on rekordbox configuration>
+  "title": 0x01, # title | artist
+  "artist": 0x02, # title | artist
+  "album": 0x03, # title | album (+id)
+  "bpm": 0x04, # title | bpm
+  "rating": 0x05, # title | rating
+  "genre": 0x06, # title | genre (+id)
+  "comment": 0x07, # title | comment (+id)
+  "duration": 0x08, # title | duration
+  "remixer": 0x09, # title | remixer (+id)
+  "label": 0x0a, # title | label (+id)
+  "original_artist": 0x0b, # title | original artist (+id)
+  "key": 0x0c, # title | key (+id)
+  "bitrate": 0x0d, # title | bitrate
+  "dj_play_count": 0x10, # title | dj_play_count
+  "label": 0x11, # title | label (+id)
 }
 
 class DBClient(Thread):
@@ -72,6 +114,92 @@ class DBClient(Thread):
     self.keep_running = False
     self.join()
 
+  def parse_metadata_payload(self, payload):
+    entry = {}
+
+    entry_id1 = payload[0]["value"]
+    entry_id2 = payload[1]["value"]
+    entry_string1 = payload[3]["value"]
+    entry_string2 = payload[5]["value"]
+    entry_type = payload[6]["value"]
+    entry_id3 = payload[8]["value"]
+    if entry_type not in metadata_type:
+      logging.warning("DBClient: metadata type %d unknown", entry_type)
+      logging.debug("DBClient: packet contents: %s", str(payload))
+      return None
+    entry_label = metadata_type[entry_type]
+
+    if entry_label in ["duration", "rating", "disc", "dj_play_count", "bitrate"]:
+      entry[entry_label] = entry_id2 # plain numbers
+    elif entry_label == "bpm":
+      entry[entry_label] = entry_id2/100
+    elif entry_label == "title":
+      entry[entry_label] = entry_string1
+      entry["artwork_id"] = entry_id3
+      entry["track_id"] = entry_id2
+      entry["artist_id"] = entry_id1
+    elif entry_label[:5] == "color":
+      entry["color"] = entry_label[6:]
+      entry["color_text"] = entry_string1
+    elif entry_label in ["artist", "album", "comment", "genre", "original_artist", "remixer", "key", "label"]:
+      entry[entry_label] = entry_string1
+      entry[entry_label+"_id"] = entry_id1
+    elif entry_label in ["date_added"]:
+      entry[entry_label] = entry_string1
+    elif entry_label == "playlist":
+      entry["name"] = entry_string1
+      entry["id"] = entry_id2
+      entry["parent_id"] = entry_id1
+    elif entry_label[:5] == "root_":
+      entry["name"] = entry_string1
+      entry["menu_id"] = entry_id2
+    elif entry_label[:10] == "title_and_":
+      entry_label1 = entry_label[:5] # "title"
+      entry_label2 = entry_label[10:]
+      entry[entry_label1] = entry_string1
+      entry["track_id"] = entry_id2
+      entry_type2 = next((k for k,v in metadata_type.items() if v==entry_label2), None)
+      if entry_type2 is None:
+        logging.warning("DBClient: second column %s of %s not parseable", entry_type2, entry_type)
+      else:
+        entry2 = self.parse_metadata_payload([
+          {"value": entry_id1}, {"value": entry_id1}, None, # duplicate entry1, as entry2 unused and swapped
+          {"value": entry_string2}, None,
+          {"value": ""}, {"value": entry_type2}, None,
+          {"value": entry_id3}])
+        if entry2 is not None:
+          entry = {**entry, **entry2}
+    else:
+      logging.warning("DBClient: unhandled metadata type %s", entry_label)
+      return None
+
+    logging.debug("DBClient: parse_metadata %s", str(entry))
+    return entry
+
+  def parse_list(self, data):
+    entries = [] # for list data
+    for packet in data:
+      # check packet types
+      if packet["type"] == "menu_header":
+        logging.debug("DBClient: parse_list menu_header")
+        continue
+      if packet["type"] == "menu_footer":
+        logging.debug("DBClient: parse_list menu_footer")
+        break
+      if packet["type"] != "menu_item":
+        logging.warning("DBClient: parse_list item not menu_item: {}".format(packet))
+        continue
+
+      # extract metadata from packet
+      entry = self.parse_metadata_payload(packet["args"])
+      if entry is None:
+        continue
+      entries += [entry]
+
+    if data[-1]["type"] != "menu_footer":
+      logging.warning("DBClient: list entries not ending with menu_footer")
+    return entries
+
   def parse_metadata(self, data):
     md = {}
     for packet in data:
@@ -87,36 +215,11 @@ class DBClient(Thread):
         continue
 
       # extract metadata from packet
-      md_type = packet["args"][6]["value"]
-      md_number = packet["args"][1]["value"]
-      md_string1 = packet["args"][3]["value"]
-      md_string2 = packet["args"][5]["value"]
-      if md_type not in metadata_type:
-        logging.warning("DBClient: metadata type {} unknown".format(md_type))
+      entry = self.parse_metadata_payload(packet["args"])
+      if entry is None:
         continue
-      md_name = metadata_type[md_type]
+      md = {**md, **entry}
 
-      # parse metadata depending on packet type name
-      if md_name in ["duration", "rating", "disc"]:
-        md_value = md_number # plain numbers
-      elif md_name == "bpm":
-        md_value = md_number/100
-      elif md_name == "title":
-        md["artwork_id"] = packet["args"][8]["value"]
-        md_value = md_string1
-      elif md_name[:5] == "color":
-        md_value = md_name[6:]
-        md_name = "color"
-        md["color_text"] = md_string1
-        logging.debug("DBClient: color {} color_text {}".format(md_value, md_string1))
-      else:
-        md_value = md_string1
-
-      # store metadata
-      md[md_name] = md_value
-      logging.debug("DBClient: parse_metadata {} = {}".format(md_name, md_value))
-      if len(md_string2) > 0:
-        logging.warning("DBClient: parse_metadata string2: {}".format(md_string2))
     if data[-1]["type"] != "menu_footer":
       logging.warning("DBClient: metadata packet not ending with menu_footer, buffer too small?")
     return md
@@ -134,25 +237,39 @@ class DBClient(Thread):
         recv_tries += 1
     return None
 
-  def query_metadata(self, player_number, slot, track_id, request_type):
+  def query_list(self, player_number, slot, id_list, sort_mode, request_type):
     sock = self.getSocket(player_number)
-    slot_id = byte2int(packets.PlayerSlot.build(slot))
+    slot_id = byte2int(packets.PlayerSlot.build(slot)) if slot is not None else 0
+    if sort_mode is None:
+      sort_id = 0 # 0 for root_menu, playlist folders
+    else:
+      if sort_mode not in sort_types:
+        logging.warning("DBClient: unknown sort mode %s", sort_mode)
+        return None
+      sort_id = sort_types[sort_mode]
     query = {
       "transaction_id": self.getTransactionId(player_number),
       "type": request_type,
       "args": [
-        {"type": "int32", "value": self.own_player_number<<24 | 1<<16 | slot_id<<8 | 1},
-        {"type": "int32", "value": track_id}
+        {"type": "int32", "value": self.own_player_number<<24 | 1<<16 | slot_id<<8 | 1}
       ]
     }
-    # request-specifig argument agumentations
-    if request_type == "waveform_request":
+    # request-specific argument agumentations
+    if request_type == "root_menu_request":
       query["args"].append({"type": "int32", "value": 0})
-    elif request_type == "preview_waveform_request":
-      query["args"].insert(1, {"type": "int32", "value": 4})
-      query["args"].append({"type": "int32", "value": 0})
+      query["args"].append({"type": "int32", "value": 0xffffff})
+    elif request_type == "metadata_request":
+      query["args"].append({"type": "int32", "value": id_list[0]})
+    elif request_type == "playlist_request":
+      query["args"].append({"type": "int32", "value": sort_id})
+      query["args"].append({"type": "int32", "value": id_list[1] if id_list[1]>0 else id_list[0]})
+      query["args"].append({"type": "int32", "value": 0 if id_list[1]>0 else 1}) # 1 -> get folder, 0 -> get playlist
+    else: # for any (non-playlist) "*_by_*_request"
+      query["args"].append({"type": "int32", "value": sort_id})
+      for item_id in id_list:
+        query["args"].append({"type": "int32", "value": item_id})
     data = packets.DBMessage.build(query)
-    logging.debug("DBClient: metadata_request query {}".format(query))
+    logging.debug("DBClient: query_list request: {}".format(query))
     sock.send(data)
 
     try:
@@ -161,14 +278,16 @@ class DBClient(Thread):
       logging.error("DBClient: parsing %s query failed on player %d failed: %s", query["type"], player_number, str(e))
       return None
     if reply["type"] != "success":
-      logging.error("DBClient: %s query failed on player %d (got %s)", query["type"], player_number, reply["type"])
+      logging.error("DBClient: %s failed on player %d (got %s)", query["type"], player_number, reply["type"])
       return None
     entry_count = reply["args"][1]["value"]
     if entry_count == 0:
-      logging.error("DBClient: no metadata for track {} available (0 entries)".format(track_id))
-      return None
-    logging.debug("DBClient: metadata request: {} entries available".format(entry_count))
+      logging.warning("DBClient: %s empty (0 entries)", request_type)
+      return []
+    logging.debug("DBClient: query_list %s: %d entries available", request_type, entry_count)
 
+    # i could successfully receive hundreds of entries at once on xdj 1000
+    # thus i do not fragment render requests here
     query = {
       "transaction_id": self.getTransactionId(player_number),
       "type": "render",
@@ -177,7 +296,7 @@ class DBClient(Thread):
         {"type": "int32", "value": 0}, # entry offset
         {"type": "int32", "value": entry_count}, # entry count
         {"type": "int32", "value": 0},
-        {"type": "int32", "value": entry_count}, # entry count again? (on root_menu 2 more than entry_count)
+        {"type": "int32", "value": entry_count}, # entry count
         {"type": "int32", "value": 0}
       ]
     }
@@ -186,24 +305,28 @@ class DBClient(Thread):
     sock.send(data)
     recv_tries = 0
     data = b""
-    while recv_tries < 10:
+    while recv_tries < 40:
       data += sock.recv(4096)
       try:
         reply = packets.ManyDBMessages.parse(data)
       except (RangeError, FieldError):
-        logging.warning("DBClient: failed to parse metadata reply (%d bytes), trying to receive more", len(data))
+        logging.debug("DBClient: failed to parse %s render reply (%d bytes), trying to receive more", request_type, len(data))
         recv_tries += 1
       else:
         if reply[-1]["type"] != "menu_footer":
-          logging.warning("DBClient: received %d bytes of metadata reply but does not end with menu_footer yet, trying to receive more", len(data))
+          logging.debug("DBClient: %s rendering without menu_footer @ %d bytes, trying to receive more", request_type, len(data))
           recv_tries += 1
         else:
           break
-    if recv_tries >= 10:
-      logging.error("DBClient: Failed to receive metadata reply after %d tries", recv_tries)
+    if recv_tries >= 40:
+      logging.error("DBClient: Failed to receive %s render reply after %d tries", request_type, recv_tries)
       return None
-    metadata = self.parse_metadata(reply)
-    return metadata
+
+    if request_type == "metadata_request":
+      parsed = self.parse_metadata(reply)
+    else:
+      parsed = self.parse_list(reply)
+    return parsed
 
   def query_blob(self, player_number, slot, item_id, request_type, location=8):
     sock = self.getSocket(player_number)
@@ -216,7 +339,7 @@ class DBClient(Thread):
         {"type": "int32", "value": item_id}
       ]
     }
-    # request-specifig argument agumentations
+    # request-specific argument agumentations
     if request_type == "waveform_request":
       query["args"].append({"type": "int32", "value": 0})
     elif request_type == "preview_waveform_request":
@@ -329,50 +452,86 @@ class DBClient(Thread):
 
   # called from outside, enqueues request
   def get_metadata(self, player_number, slot, track_id, callback=None):
-    self._enqueue_request("metadata", self.metadata_store, player_number, slot, track_id, callback)
+    self._enqueue_request("metadata", self.metadata_store, (player_number, slot, track_id), callback)
+
+  def get_root_menu(self, player_number, slot, callback=None):
+    self._enqueue_request("root_menu", None, (player_number, slot), callback)
+
+  def get_titles(self, player_number, slot, sort_mode="default", callback=None):
+    self._enqueue_request("title", None, (player_number, slot, [], sort_mode), callback)
+
+  def get_titles_by_album(self, player_number, slot, album_id, sort_mode="default", callback=None):
+    self._enqueue_request("title_by_album", None, (player_number, slot, [album_id], sort_mode), callback)
+
+  def get_artists(self, player_number, slot, sort_mode="default", callback=None):
+    self._enqueue_request("artist", None, (player_number, slot, [], sort_mode), callback)
+
+  def get_albums_by_artist(self, player_number, slot, artist_id, sort_mode="default", callback=None):
+    self._enqueue_request("album_by_artist", None, (player_number, slot, [artist_id], sort_mode), callback)
+
+  def get_titles_by_artist_album(self, player_number, slot, artist_id, album_id, sort_mode="default", callback=None):
+    self._enqueue_request("title_by_artist_album", None, (player_number, slot, [artist_id, album_id], sort_mode), callback)
+
+  def get_playlists(self, player_number, slot, folder_id=0, callback=None):
+    self._enqueue_request("playlist", None, (player_number, slot, [folder_id, 0], None), callback)
+
+  def get_playlist(self, player_number, slot, folder_id, playlist_id, sort_mode="default", callback=None):
+    self._enqueue_request("playlist", None, (player_number, slot, [folder_id, playlist_id], sort_mode), callback)
 
   def get_artwork(self, player_number, slot, artwork_id, callback=None):
-    self._enqueue_request("artwork", self.artwork_store, player_number, slot, artwork_id, callback)
+    self._enqueue_request("artwork", self.artwork_store, (player_number, slot, artwork_id), callback)
 
   def get_waveform(self, player_number, slot, track_id, callback=None):
-    self._enqueue_request("waveform", self.waveform_store, player_number, slot, track_id, callback)
+    self._enqueue_request("waveform", self.waveform_store, (player_number, slot, track_id), callback)
 
   def get_preview_waveform(self, player_number, slot, track_id, callback=None):
-    self._enqueue_request("preview_waveform", self.preview_waveform_store, player_number, slot, track_id, callback)
+    self._enqueue_request("preview_waveform", self.preview_waveform_store, (player_number, slot, track_id), callback)
 
   def get_beatgrid(self, player_number, slot, track_id, callback=None):
-    self._enqueue_request("beatgrid", self.beatgrid_store, player_number, slot, track_id, callback)
+    self._enqueue_request("beatgrid", self.beatgrid_store, (player_number, slot, track_id), callback)
 
-  def _enqueue_request(self, request, store, player_number, slot, item_id, callback):
-    if player_number == 0 or player_number > 4 or item_id == 0:
+  def _enqueue_request(self, request, store, params, callback):
+    player_number = params[0]
+    if player_number == 0 or player_number > 4:
       logging.warning("DBClient: invalid %s request parameters", request)
       return
-    logging.debug("DBClient: enqueueing %s request for player %d slot %s item_id %d",
-      request, player_number, slot, item_id)
-    self.queue.put((request, store, player_number, slot, item_id, callback))
+    logging.debug("DBClient: enqueueing %s request with params %s", request, str(params))
+    self.queue.put((request, store, params, callback))
 
-  def _handle_request(self, request, store, player_number, slot, item_id, callback):
-    if (player_number, slot, item_id) in store:
-      logging.debug("DBClient: %s request for player %d slot %s item_id %d already known",
-        request, player_number, slot, item_id)
+  def _handle_request(self, request, store, params, callback):
+    if store is not None and len(params) == 3 and params in store:
+      logging.debug("DBClient: %s request params %s already known", request, str(params))
       if request == "metadata":
-        self.cl.storeMetadataByLoadedTrack(player_number, slot, item_id, store[player_number, slot, item_id])
-      if callback:
-        callback(request, player_number, slot, item_id, store[player_number, slot, item_id])
+        self.cl.storeMetadataByLoadedTrack(*params, store[params])
+      if callback is not None:
+        callback(request, *params, store[params])
       return
-    logging.debug("DBClient: handling %s request for player %d slot %s id %d",
-      request, player_number, slot, item_id)
+    logging.debug("DBClient: handling %s request params %s", request, str(params))
     if request == "metadata":
-      reply = self.query_metadata(player_number, slot, item_id, "metadata_request")
-      self.cl.storeMetadataByLoadedTrack(player_number, slot, item_id, reply)
+      reply = self.query_list(*params[:2], [params[2]], None, "metadata_request")
+      self.cl.storeMetadataByLoadedTrack(*params, reply)
+    elif request == "root_menu":
+      reply = self.query_list(*params, None, None, "root_menu_request")
+    elif request == "title":
+      reply = self.query_list(*params, "title_request")
+    elif request == "title_by_album":
+      reply = self.query_list(*params, "title_by_album_request")
+    elif request == "artist":
+      reply = self.query_list(*params, "artist_request")
+    elif request == "album_by_artist":
+      reply = self.query_list(*params, "album_by_artist_request")
+    elif request == "title_by_artist_album":
+      reply = self.query_list(*params, "title_by_artist_album_request")
+    elif request == "playlist":
+      reply = self.query_list(*params, "playlist_request")
     elif request == "artwork":
-      reply = self.query_blob(player_number, slot, item_id, "artwork_request")
+      reply = self.query_blob(*params, "artwork_request")
     elif request == "waveform":
-      reply = self.query_blob(player_number, slot, item_id, "waveform_request", 1)
+      reply = self.query_blob(*params, "waveform_request", 1)
     elif request == "preview_waveform":
-      reply = self.query_blob(player_number, slot, item_id, "preview_waveform_request")
+      reply = self.query_blob(*params, "preview_waveform_request")
     elif request == "beatgrid":
-      reply = self.query_blob(player_number, slot, item_id, "beatgrid_request")
+      reply = self.query_blob(*params, "beatgrid_request")
       try: # pre-parse beatgrid data (like metadata) for easier access
         reply = packets.Beatgrid.parse(reply)
       except (RangeError, FieldError) as e:
@@ -381,9 +540,10 @@ class DBClient(Thread):
     else:
       logging.error("DBClient: invalid request type %s", request)
       return
-    store[player_number, slot, item_id] = reply
-    if callback:
-      callback(request, player_number, slot, item_id, reply)
+    if store is not None:
+      store[params] = reply
+    if callback is not None:
+      callback(request, *params, reply)
 
   def run(self):
     logging.debug("DBClient starting")
@@ -393,12 +553,15 @@ class DBClient(Thread):
       except Empty:
         self.gc()
         continue
-      client = self.cl.getClient(request[2])
-      if not client or client.play_state in ["no_track", "loading_track", "cannot_play_track", "emergency"]:
-        if client:
-          logging.debug("DBClient: delaying %s request due to play state: %s", request[0], client.play_state)
-        else:
-          logging.warning("DBClient: player %s not found in clientlist", request[2])
+      client = self.cl.getClient(request[2][0])
+      if not client:
+        logging.warning("DBClient: player %s not found in clientlist, discarding %s request", request[2], request[0])
+        self.queue.task_done()
+        continue
+      if (request[0] in ["metadata_request", "artwork_request", "preview_waveform_request", "beatgrid_request", "waveform_request"]
+          and client.play_state in ["no_track", "loading_track", "cannot_play_track", "emergency"]):
+        logging.debug("DBClient: delaying %s request due to play state: %s", request[0], client.play_state)
+        self.queue.task_done()
         self.queue.put(request)
         time.sleep(1)
         continue

@@ -151,7 +151,8 @@ BeatPacket = Struct(
 
 StatusPacketType = Enum(Int8ub,
   cdj = 0x0a,
-  djm = 0x29
+  djm = 0x29,
+  load_cmd = 0x19
 )
 
 PlayerSlot = Enum(Int8ub,
@@ -228,9 +229,10 @@ StatusPacket = Struct(
   "u1" / Const(Int8ub, 1),
   "u2" / Default(Int8ub, 4), # some kind of revision? 3 for cdj2000nx, 4 for xdj1000. 1 for djm/rekordbox
   "player_number" / Int8ub, # 0x11 for rekordbox
-  "u3" / Default(Int16ub, 0xf8), # 0xb0 cdj2000nxs, 0xf8 xdj1000, 0x14 djm, 0x38 rekordbox
+  "u3" / Default(Int16ub, 0xf8), # 0xb0 cdj2000nxs, 0xf8 xdj1000, 0x14 djm, 0x34/38 rekordbox
   "player_number2" / Int8ub, # equal to player_number
   "u4" / Default(Int8ub, 0), # 1 cdj2000nxs or 0 xdj1000, 0 for rekordbox
+  # 38 bytes until now
   Embedded(Switch(this.type, {
     "cdj": Struct(
       "activity" / Int16ub, # 0 when idle, 1 when playing, 0xc0 for rekordbox
@@ -281,11 +283,20 @@ StatusPacket = Struct(
       Padding(7)),
     "djm": Struct(
       "state" / StateMask,
-      "pitch" / Pitch,
+      "physical_pitch" / Pitch,
       "u5" / Default(Int16ub, 0x8000),
       "bpm" / Bpm,
       Padding(7),
       "beat" / Default(Int8ub, 1), # 1..4
+    ),
+    "load_cmd": Struct(
+      Padding(2),
+      "load_player_number" / Int8ub, # 0x11 for rekordbox
+      "load_slot" / PlayerSlot,
+      "u5" / Const(Int16ub, 0x100),
+      "load_track_id" / Int32ub,
+      "u6" / Default(Int32ub, 0x32),
+      Padding(36)
     )
   }))
 )
@@ -356,14 +367,52 @@ ArgumentTypesField = ArgumentTypes(DBFieldFixed("binary"))
 DBRequestType = Enum(DBFieldFixed("int16"),
   setup = 0,
   invalid = 1,
-  # list requests
-  root_menu = 0x1000,
-  track_request = 0x1004,
+  # list requests, cascading by appending id parameters
+  root_menu_request = 0x1000,
+  genre_request = 0x1001,
+  artist_request = 0x1002,
+  album_request = 0x1003,
+  title_request = 0x1004,
+  bpm_request = 0x1006,
+  rating_request = 0x1007,
+  century_request = 0x1008, # entries 2000, 1990, ...
+  label_request = 0x100a,
+  color_request = 0x100d,
+  duration_request = 0x1010, # entries in minutes
+  bitrate_request = 0x1011,
+  history_request = 0x1012,
+  filename_request = 0x1013,
+  artist_by_genre_request = 0x1101,
+  album_by_artist_request = 0x1102,
+  title_by_album_request = 0x1103,
   playlist_request = 0x1105,
+  year_by_century_request = 0x1108,
+  artist_by_label_request = 0x110a,
+  title_by_color_request = 0x110d,
+  title_by_duration_request = 0x1110, # parameter in minutes
+  title_by_bitrate_request = 0x1111,
+  title_by_history_request = 0x1112,
+  album_by_genre_artist_request = 0x1201,
+  title_by_artist_album_request = 0x1202,
+  title_by_bpm_request = 0x1206,
+  title_by_century_year_request = 0x1208,
+  album_by_label_artist_request = 0x120a,
+  title_by_genre_artist_album_request = 0x1301,
+  original_artist_request = 0x1302,
+  title_by_label_artist_album_request = 0x130a,
+  album_by_original_artist_request = 0x1402,
+  title_by_original_artist_album_request = 0x1502,
+  remixer_request = 0x1602,
+  album_by_remixer_request = 0x1702,
+  title_by_remixer_album_request = 0x1802,
   # track specific requests
+  hot_cue_bank_request = 0x2001,
   metadata_request = 0x2002,
   artwork_request = 0x2003,
   preview_waveform_request = 0x2004,
+  folder_request = 0x2006, # wtf, one list request here? params: 0, 0xffffffff, 0
+  track_data_request = 0x2102, # contains absolute storage path (nfs) among other data
+  track_info_request = 0x2202, # metadata of unanalyzed data (i.e. cd or folder view)
   beatgrid_request = 0x2204,
   waveform_request = 0x2904,
   render = 0x3000,

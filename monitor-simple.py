@@ -24,6 +24,19 @@ def print_metadata(player_number, md):
   logging.info("Player {} playing {} - {} ({}) {}:{} {} BPM".format(player_number,
     md["artist"], md["title"], md["album"], md["duration"]//60, md["duration"]%60, md["bpm"]))
 
+def print_menu(request, player_number, slot, reply):
+  logging.info("Root Menu:")
+  for entry in reply:
+    logging.info("  {}".format(entry))
+
+def print_list(request, player_number, slot, query_ids, sort_mode, reply):
+  logging.info("List entries:")
+  for track in reply:
+    s = ""
+    for label, content in track.items():
+      s += "{}: \"{}\" ".format(label, content)
+    logging.info("  {}".format(s))
+
 p = ProDj()
 p.set_client_keepalive_callback(print_clients)
 p.set_client_change_callback(print_clients)
@@ -32,8 +45,21 @@ p.set_client_change_callback(print_clients)
 
 try:
   p.start()
+  p.cl.auto_request_beatgrid = False # we do not need beatgrids, but usually this doesnt hurt
   p.vcdj_set_player_number(5)
   p.vcdj_enable()
+  time.sleep(5)
+  logging.debug("get_titles_by_album")
+  #p.dbs.get_root_menu(1, "usb", print_menu)
+  #p.dbs.get_titles(2, "usb", "album", print_list)
+  p.dbs.get_titles_by_album(2, "usb", 16, "bpm", print_list)
+  logging.debug("get_titles_by_album done")
+  #p.dbs.get_playlists(2, "usb", 0, print_list)
+  #p.dbs.get_playlist(2, "usb", 0, 12, "default", print_list)
+  #p.dbs.get_artists(2, "usb", "default", print_list)
+  #p.dbs.get_artists(2, "usb", "default", print_list)
+  p.command_load_track(1, 2, "usb", 650)
+  logging.debug("command_load_track")
   p.join()
 except KeyboardInterrupt:
   logging.info("Shutting down...")
