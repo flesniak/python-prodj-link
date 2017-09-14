@@ -157,7 +157,9 @@ class DBClient(Thread):
       entry_label1 = entry_label[:5] # "title"
       entry_label2 = entry_label[10:]
       entry[entry_label1] = entry_string1
+      entry["artwork_id"] = entry_id3
       entry["track_id"] = entry_id2
+      entry["artist_id"] = entry_id1
       entry_type2 = next((k for k,v in metadata_type.items() if v==entry_label2), None)
       if entry_type2 is None:
         logging.warning("DBClient: second column %s of %s not parseable", entry_type2, entry_type)

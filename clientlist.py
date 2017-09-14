@@ -111,8 +111,21 @@ class ClientList:
       return
     client_changed = False
     c.status_packet_received = True
-    if status_packet["type"] not in ["cdj", "djm"]:
+    if status_packet["type"] not in ["cdj", "djm", "link_reply"]:
       logging.info("Received %s status packet, ignoring", status_packet["type"])
+      return
+
+    if status_packet["type"] == "link_reply":
+      link_info = { key: status_packet[key] for key in ["name", "track_count", "playlist_count", "bytes_total", "bytes_free", "date"] }
+      if status_packet["slot"] == "usb":
+        c.usb_info = link_info
+      elif status_packet["slot"] == "sd":
+        c.sd_info = link_info
+      else:
+        logging.warning("Received link info for %s not implemented", status_packet["slot"])
+      logging.info("Player %d Link Info: %s \"%s\", %d tracks, %d playlists, %d/%dMB free",
+        c.player_number, status_packet["slot"], link_info["name"], link_info["track_count"], link_info["playlist_count"],
+        link_info["bytes_free"]//1024//1024, link_info["bytes_total"]//1024//1024)
       return
     c.type = status_packet["type"] # cdj or djm
 
@@ -164,8 +177,20 @@ class ClientList:
         c.cue_distance = new_cue_distance
         client_changed = True
 
-      c.usb_state = status_packet["usb_state"]
-      c.sd_state = status_packet["sd_state"]
+      new_usb_state = status_packet["usb_state"]
+      if c.usb_state != new_usb_state:
+        c.usb_state = new_usb_state
+        if new_usb_state != "loaded":
+          c.usb_info = {}
+        else:
+          self.prodj.vcdj.query_link_info(c.player_number, "usb")
+      new_sd_state = status_packet["sd_state"]
+      if c.sd_state != new_sd_state:
+        c.sd_state = new_sd_state
+        if new_sd_state != "loaded":
+          c.sd_info = {}
+        else:
+          self.prodj.vcdj.query_link_info(c.player_number, "sd")
       c.track_number = status_packet["track_number"]
       c.loaded_player_number = status_packet["loaded_player_number"]
       c.loaded_slot = status_packet["loaded_slot"]
@@ -219,7 +244,9 @@ class Client:
     self.cue_distance = None
     self.play_state = "no_track"
     self.usb_state = "not_loaded"
+    self.usb_info = {}
     self.sd_state = "not_loaded"
+    self.sd_info = {}
     self.loaded_player_number = 0
     self.loaded_slot = "empty"
     self.state = []

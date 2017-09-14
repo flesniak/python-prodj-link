@@ -1,6 +1,5 @@
 import socket
 import logging
-from construct import byte2int
 from threading import Thread
 from select import select
 from packets_dump import *
@@ -146,23 +145,3 @@ class ProDj(Thread):
   # arguments of cb: this clientlist object, player number of changed master
   def set_master_change_callback(self, cb=None):
     self.cl.master_change_callback = cb
-
-  def command_load_track(self, player_number, load_player_number, load_slot, load_track_id):
-    cl = self.cl.getClient(player_number)
-    if cl is None:
-      logging.warning("Failed to get player %d", player_number)
-      return
-    load_slot_id = byte2int(packets.PlayerSlot.build(load_slot))
-    cmd = {
-      "type": "load_cmd",
-      "model": "Virtual CDJ",
-      "player_number": self.vcdj.player_number, # our player number -> we receive confirmation packet
-      "player_number2": self.vcdj.player_number, # our player number -> we receive confirmation packet
-      "load_player_number": load_player_number,
-      "load_slot": load_slot_id,
-      "load_track_id": load_track_id
-    }
-    data = packets.StatusPacket.build(cmd)
-    logging.debug("send load packet to %s struct %s", cl.ip_addr, str(cmd))
-    logging.debug("send load packet data "+str(data))
-    self.status_sock.sendto(data, (cl.ip_addr, self.status_port))

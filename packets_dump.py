@@ -2,6 +2,8 @@ import logging
 
 # dump functions for debugging
 def dump_keepalive_packet(packet):
+  if logging.getLogger().getEffectiveLevel() > 5:
+    return
   if packet["subtype"] == "stype_status":
     logging.log(5, "keepalive {} model {} ({}) player {} ip {} mac {} devcnt {} u2 {} u3 {}".format(
       packet["subtype"], packet["model"], packet["device_type"], packet["player_number"], packet["ip_addr"],
@@ -30,6 +32,8 @@ def dump_keepalive_packet(packet):
     logging.warning("BUG: unhandled packet type {}".format(packet["subtype"]))
 
 def dump_beat_packet(packet):
+  if logging.getLogger().getEffectiveLevel() > 5:
+    return
   if packet["type"] == "type_beat":
       logging.log(5, "beat {} player {} pitch {:.3f} bpm {:.2f} beat {} player2 {} distances {}".format(
       packet["model"], packet["player_number"], packet["pitch"], packet["bpm"], packet["beat"],
@@ -37,6 +41,8 @@ def dump_beat_packet(packet):
     ))
 
 def dump_status_packet(packet):
+  if logging.getLogger().getEffectiveLevel() > 5 or packet["type"] not in ["djm", "cdj"]:
+    return
   logging.log(5, "type {} model \"{}\" pn {} u1 {} u2 {} u3 {} u4 {}".format(packet["type"], packet["model"],
     packet["player_number"], packet["u1"], packet["u2"], packet["u3"], packet["u4"]))
   logging.log(5, "state {} pitch {:.2f} bpm {} beat {} u5 {}".format(

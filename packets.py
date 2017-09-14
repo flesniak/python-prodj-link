@@ -2,7 +2,7 @@
 # https://github.com/brunchboy/dysentery
 # https://bitbucket.org/awwright/libpdjl
 
-from construct import Adapter, Array, Byte, Const, CString, Default, Embedded, Enum, ExprAdapter, FlagsEnum, FocusedSeq, GreedyBytes, GreedyRange, Int8ub, Int16ub, Int32ub, Int16ul, Int32ul, Padded, Padding, PascalString, Prefixed, Rebuild, String, Struct, Subconstruct, Switch, this, len_
+from construct import Adapter, Array, Byte, Const, CString, Default, Embedded, Enum, ExprAdapter, FlagsEnum, FocusedSeq, GreedyBytes, GreedyRange, Int8ub, Int16ub, Int32ub, Int64ub, Int16ul, Int32ul, Padded, Padding, PascalString, Prefixed, Rebuild, String, Struct, Subconstruct, Switch, this, len_
 
 MacAddr = Array(6, Byte)
 IpAddr = Array(4, Byte)
@@ -152,7 +152,9 @@ BeatPacket = Struct(
 StatusPacketType = Enum(Int8ub,
   cdj = 0x0a,
   djm = 0x29,
-  load_cmd = 0x19
+  load_cmd = 0x19,
+  link_query = 0x05,
+  link_reply = 0x06
 )
 
 PlayerSlot = Enum(Int8ub,
@@ -227,11 +229,18 @@ StatusPacket = Struct(
   "type" / StatusPacketType,
   "model" / Padded(20, CString(encoding="ascii")),
   "u1" / Const(Int8ub, 1),
-  "u2" / Default(Int8ub, 4), # some kind of revision? 3 for cdj2000nx, 4 for xdj1000. 1 for djm/rekordbox
+  "u2" / Default(Int8ub, 4), # some kind of revision? 3 for cdj2000nx, 4 for xdj1000. 1 for djm/rekordbox, 0 for link query
   "player_number" / Int8ub, # 0x11 for rekordbox
-  "u3" / Default(Int16ub, 0xf8), # 0xb0 cdj2000nxs, 0xf8 xdj1000, 0x14 djm, 0x34/38 rekordbox
-  "player_number2" / Int8ub, # equal to player_number
-  "u4" / Default(Int8ub, 0), # 1 cdj2000nxs or 0 xdj1000, 0 for rekordbox
+  Embedded(Switch(this.type, {
+    "link_query": Struct(
+      "u3" / Default(Int16ub, 0x0c),
+      "source_ip" / IpAddr),
+    "link_reply": Struct("payload_size" / Int16ub), # always 0x9c
+  }, default=Struct(
+    "u3" / Default(Int16ub, 0xf8), # b0 cdj2000nxs, f8 xdj1000, 14 djm, 34/38 rekordbox
+    "player_number2" / Int8ub, # equal to player_number
+    "u4" / Default(Int8ub, 0) # 1 cdj2000nxs or 0 xdj1000, 0 for rekordbox))
+  ))),
   # 38 bytes until now
   Embedded(Switch(this.type, {
     "cdj": Struct(
@@ -296,7 +305,32 @@ StatusPacket = Struct(
       "u5" / Const(Int16ub, 0x100),
       "load_track_id" / Int32ub,
       "u6" / Default(Int32ub, 0x32),
-      Padding(36)
+      Padding(16),
+      "u7" / Default(Int32ub, 0),
+      "u8" / Default(Int32ub, 0),
+      "u9" / Default(Int32ub, 0),
+      Padding(8)
+    ),
+    "link_query": Struct(
+      Padding(3),
+      "remote_player_number" / Int8ub,
+      Padding(3),
+      "slot" / PlayerSlot
+    ),
+    "link_reply": Struct(
+      Padding(3),
+      "source_player_number" / Int8ub,
+      Padding(3),
+      "slot" / PlayerSlot,
+      "name" / String(64, encoding="utf-16-be"),
+      "date" / String(24, encoding="utf-16-be"),
+      "u5" / String(32, encoding="utf-16-be"), # "1000" as string? model?
+      "track_count" / Int32ub,
+      "u6" / Default(Int16ub, 0), # also seen 0x200
+      "u7" / Default(Int16ub, 0x101),
+      "playlist_count" / Int32ub,
+      "bytes_total" / Int64ub,
+      "bytes_free" / Int64ub
     )
   }))
 )
