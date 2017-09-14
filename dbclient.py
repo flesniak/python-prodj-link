@@ -471,6 +471,9 @@ class DBClient(Thread):
   def get_albums_by_artist(self, player_number, slot, artist_id, sort_mode="default", callback=None):
     self._enqueue_request("album_by_artist", None, (player_number, slot, [artist_id], sort_mode), callback)
 
+  def get_albums(self, player_number, slot, sort_mode="default", callback=None):
+    self._enqueue_request("album", None, (player_number, slot, [], sort_mode), callback)
+
   def get_titles_by_artist_album(self, player_number, slot, artist_id, album_id, sort_mode="default", callback=None):
     self._enqueue_request("title_by_artist_album", None, (player_number, slot, [artist_id, album_id], sort_mode), callback)
 
@@ -522,6 +525,8 @@ class DBClient(Thread):
       reply = self.query_list(*params, "artist_request")
     elif request == "album_by_artist":
       reply = self.query_list(*params, "album_by_artist_request")
+    elif request == "album":
+      reply = self.query_list(*params, "album_request")
     elif request == "title_by_artist_album":
       reply = self.query_list(*params, "title_by_artist_album_request")
     elif request == "playlist":

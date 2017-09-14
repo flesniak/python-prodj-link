@@ -1,11 +1,12 @@
 import logging
-from PyQt5.QtWidgets import QFrame, QGridLayout, QLabel, QLCDNumber, QSizePolicy, QVBoxLayout, QWidget
+from PyQt5.QtWidgets import QFrame, QGridLayout, QLabel, QLCDNumber, QPushButton, QSizePolicy, QHBoxLayout, QVBoxLayout, QWidget
 from PyQt5.QtGui import QColor, QPainter, QPixmap
 from PyQt5.QtCore import pyqtSignal, Qt, QSize
 import sys
 import math
 from threading import Lock
 
+from gui_browser import Browser
 from waveform_gl import GLWaveformWidget
 
 class PreviewWaveformWidget(QWidget):
@@ -101,6 +102,7 @@ class PlayerWidget(QFrame):
     self.setFrameStyle(QFrame.Box | QFrame.Plain)
     self.labels = {}
     self.track_id = None # track id of displayed metadata, waveform etc from dbclient queries
+    self.browse_dialog = None
 
     # metadata and player info
     self.labels["title"] = QLabel(self)
@@ -123,6 +125,17 @@ class PlayerWidget(QFrame):
     self.pixmap_empty.fill(QColor(40,40,40))
     self.labels["artwork"].setPixmap(self.pixmap_empty)
 
+    # buttons below time/beat bar
+    self.browse_button = QPushButton("BROWSE", self)
+    self.browse_button.setFlat(True)
+    self.browse_button.setStyleSheet("QPushButton { font: 10px; background-color: black; padding: 1px; border-style: outset; border-radius: 2px; border-width: 1px; border-color: gray; }")
+
+    buttons_layout = QHBoxLayout()
+    buttons_layout.addWidget(self.browse_button)
+    buttons_layout.addStretch(1)
+
+    self.browse_button.clicked.connect(self.openBrowseDialog)
+
     # time and beat bar
     self.time = QLCDNumber(5, self)
     self.time.setSegmentStyle(QLCDNumber.Flat)
@@ -132,7 +145,7 @@ class PlayerWidget(QFrame):
     time_layout = QVBoxLayout()
     time_layout.addWidget(self.time)
     time_layout.addWidget(self.beat_bar)
-    #time_layout.addStretch(1)
+    time_layout.addLayout(buttons_layout)
     time_layout.setStretch(0, 10)
     time_layout.setStretch(1, 2)
 
@@ -244,6 +257,17 @@ class PlayerWidget(QFrame):
       self.time.display("{:02d}:{:02d}".format(int(seconds//60), int(seconds)%60))
     else:
       self.time.display("--:--")
+
+  def openBrowseDialog(self):
+    if self.browse_dialog is None:
+      self.browse_dialog = Browser(self.parent().prodj, self.player_number)
+    self.browse_dialog.show()
+
+  # make browser dialog close when player window disappears
+  def hideEvent(self, event):
+    if self.browse_dialog is not None:
+      self.browse_dialog.close()
+    event.accept()
 
 class Gui(QWidget):
   keepalive_signal = pyqtSignal(int)
@@ -362,3 +386,10 @@ class Gui(QWidget):
         self.players[player_number].waveform.setBeatgridData(reply)
       else:
         logging.warning("Gui: unhandled dbserver callback %s", request)
+
+  def media_callback(self, cl, player_number, slot):
+    if not player_number in self.players:
+      return
+    if self.players[player_number].browse_dialog is not None:
+      logging.debug("Gui: refresh media signal to player %d slot %s", player_number, slot)
+      self.players[player_number].browse_dialog.refreshMediaSignal.emit()
