@@ -68,7 +68,7 @@ class Browser(QWidget):
     self.view.verticalHeader().setSectionResizeMode(QHeaderView.Fixed);
     self.view.verticalHeader().setDefaultSectionSize(18); # TODO replace by text bounding height
     self.view.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch);
-    self.view.setStyleSheet("QTableView { background-color: black; } QTableView::item:focus { background-color: darkslategray; selection-background-color: black; }")
+    self.view.setStyleSheet("QTableView { background-color: black; } QTableView::item { color: white; } QTableView::item:focus { background-color: darkslategray; selection-background-color: black; }")
     self.view.clicked.connect(self.tableItemClicked)
 
     # metadata
@@ -173,7 +173,7 @@ class Browser(QWidget):
       self.model.appendRow(row)
 
   def metadata(self, slot, track_id):
-    self.prodj.dbs.get_metadata(self, self.player_number, slot, track_id, self.storeRequest)
+    self.prodj.dbs.get_metadata(self.player_number, slot, track_id, self.storeRequest)
 
   def renderMetadata(self, request, source_player_number, slot, track_id, metadata):
     md = ""
@@ -227,7 +227,7 @@ class Browser(QWidget):
 
   def updateButtons(self):
     for i in range(1,5):
-      self.load_buttons[i-1].setEnabled(i in self.prodj.gui.players)
+      self.load_buttons[i-1].setEnabled(self.prodj.cl.getClient(i) is not None)
 
   # special request handling to get into qt gui thread
   # storeRequest is called from outside (non-qt gui)
@@ -247,6 +247,8 @@ class Browser(QWidget):
       self.renderRootMenu(*self.request)
     elif self.request[0] in ["title", "artist", "album"]:
       self.renderList(*self.request)
+    elif self.request[0] == "metadata":
+      self.renderMetadata(*self.request)
     else:
       logging.warning("Browser: %s request not implemented", self.request[0])
     self.request = None

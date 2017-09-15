@@ -128,7 +128,7 @@ class PlayerWidget(QFrame):
     # buttons below time/beat bar
     self.browse_button = QPushButton("BROWSE", self)
     self.browse_button.setFlat(True)
-    self.browse_button.setStyleSheet("QPushButton { font: 10px; background-color: black; padding: 1px; border-style: outset; border-radius: 2px; border-width: 1px; border-color: gray; }")
+    self.browse_button.setStyleSheet("QPushButton { color: white; font: 10px; background-color: black; padding: 1px; border-style: outset; border-radius: 2px; border-width: 1px; border-color: gray; }")
 
     buttons_layout = QHBoxLayout()
     buttons_layout.addWidget(self.browse_button)
@@ -392,4 +392,4 @@ class Gui(QWidget):
       return
     if self.players[player_number].browse_dialog is not None:
       logging.debug("Gui: refresh media signal to player %d slot %s", player_number, slot)
-      self.players[player_number].browse_dialog.refreshMediaSignal.emit()
+      self.players[player_number].browse_dialog.refreshMediaSignal.emit(slot)

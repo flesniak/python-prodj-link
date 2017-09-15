@@ -109,7 +109,7 @@ class GLWaveformWidget(QOpenGLWidget):
     gl.glEnable(gl.GL_DEPTH_TEST)
     gl.glEnable(gl.GL_CULL_FACE)
     self.lists = gl.glGenLists(3)
-    gl.glLineWidth(1.5)
+    gl.glLineWidth(1.0)
     self.renderCrosshair()
 
   def updateViewport(self):
