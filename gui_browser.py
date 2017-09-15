@@ -26,22 +26,16 @@ class Browser(QWidget):
   def __init__(self, prodj, player_number):
     super().__init__()
     self.prodj = prodj
-    self.player_number = player_number
     self.slot = None # set after selecting slot in media menu
-    self.menu = None
+    self.menu = "media"
     self.sort = "default"
     self.track_id = None
-    self.setWindowTitle("Browse Player {}".format(self.player_number))
+    self.setPlayerNumber(player_number)
 
     self.request = None # requests are parsed on signaling handleRequestSignal
     self.handleRequestSignal.connect(self.handleRequest)
     self.refreshMediaSignal.connect(self.refreshMedia)
 
-    pal = self.palette()
-    pal.setColor(self.foregroundRole(), Qt.white)
-    pal.setColor(self.backgroundRole(), Qt.black)
-    pal.setColor(QPalette.Base, Qt.black)
-    self.setPalette(pal)
     self.setAutoFillBackground(True)
 
     # upper part
@@ -50,8 +44,10 @@ class Browser(QWidget):
     for sort in sort_types:
       self.sort_box.addItem(sort.title(), sort)
     self.sort_box.currentIndexChanged[int].connect(self.sortChanged)
+    self.sort_box.setStyleSheet("QComboBox { padding: 2px; border-style: outset; border-radius: 2px; border-width: 1px; border-color: gray; }")
     self.back_button = QPushButton("Back", self)
     self.back_button.clicked.connect(self.backButtonClicked)
+    self.back_button.setStyleSheet("QPushButton { padding: 2px; border-style: outset; border-radius: 2px; border-width: 1px; border-color: gray; }")
 
     top_layout = QHBoxLayout()
     top_layout.addWidget(self.path)
@@ -68,13 +64,14 @@ class Browser(QWidget):
     self.view.verticalHeader().setSectionResizeMode(QHeaderView.Fixed);
     self.view.verticalHeader().setDefaultSectionSize(18); # TODO replace by text bounding height
     self.view.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch);
-    self.view.setStyleSheet("QTableView { background-color: black; } QTableView::item { color: white; } QTableView::item:focus { background-color: darkslategray; selection-background-color: black; }")
+    self.view.setStyleSheet("QTableView { border-style: outset; border-radius: 2px; border-width: 1px; border-color: gray; background-color: black; } QTableView::item { color: white; } QTableView::item:focus { background-color: darkslategray; selection-background-color: black; }")
     self.view.clicked.connect(self.tableItemClicked)
 
     # metadata
     self.metadata_label = QLabel("Metadata:", self)
     self.metadata_edit = QTextEdit()
     self.metadata_edit.setReadOnly(True)
+    self.metadata_edit.setStyleSheet("QTextEdit { padding: 2px; border-style: outset; border-radius: 2px; border-width: 1px; border-color: gray; }")
 
     metadata_layout = QVBoxLayout()
     metadata_layout.addWidget(self.metadata_label)
@@ -88,10 +85,11 @@ class Browser(QWidget):
     buttons_layout = QHBoxLayout()
     self.load_buttons = []
     for i in range(1,5):
-      btn = QPushButton("Load Player {}".format(i))
+      btn = QPushButton("Load Player {}".format(i), self)
       btn.setFlat(True)
       btn.setEnabled(False)
-      btn.clicked.connect(lambda: self.loadIntoPlayer(i))
+      btn.setStyleSheet("QPushButton { border-style: outset; border-radius: 2px; border-width: 1px; border-color: gray; }")
+      btn.clicked.connect(lambda c,i=i: self.loadIntoPlayer(i))
       buttons_layout.addWidget(btn)
       self.load_buttons += [btn]
 
@@ -102,6 +100,10 @@ class Browser(QWidget):
 
     self.updateButtons()
     self.mediaMenu()
+
+  def setPlayerNumber(self, player_number):
+    self.player_number = player_number
+    self.setWindowTitle("Browse Player {}".format(player_number))
 
   def mediaMenu(self):
     c = self.prodj.cl.getClient(self.player_number)
@@ -221,6 +223,8 @@ class Browser(QWidget):
       self.titleMenu(self.slot, self.sort)
 
   def loadIntoPlayer(self, player_number):
+    if self.slot is None or self.track_id is None:
+      return
     logging.debug("Browser: loading track (pn %d slot %s tid %d) into player %d",
       self.player_number, self.slot, self.track_id, player_number)
     self.prodj.vcdj.command_load_track(player_number, self.player_number, self.slot, self.track_id)
@@ -254,7 +258,7 @@ class Browser(QWidget):
     self.request = None
 
   def refreshMedia(self, slot):
-    if self.slot == slot:
+    if self.slot == slot or self.menu == "media":
       logging.info("Browser: slot %s changed, going back to media overview")
       self.mediaMenu()
     else:

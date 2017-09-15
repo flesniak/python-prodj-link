@@ -153,6 +153,7 @@ StatusPacketType = Enum(Int8ub,
   cdj = 0x0a,
   djm = 0x29,
   load_cmd = 0x19,
+  load_cmd_reply = 0x1a,
   link_query = 0x05,
   link_reply = 0x06
 )
@@ -310,6 +311,9 @@ StatusPacket = Struct(
       "u8" / Default(Int32ub, 0),
       "u9" / Default(Int32ub, 0),
       Padding(8)
+    ),
+    "load_cmd_reply": Struct(
+      Padding(2)
     ),
     "link_query": Struct(
       Padding(3),

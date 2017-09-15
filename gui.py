@@ -219,6 +219,8 @@ class PlayerWidget(QFrame):
   def setPlayerNumber(self, player_number):
     self.player_number = player_number
     self.labels["player_number"].setText("PLAYER {}".format(self.player_number))
+    if self.browse_dialog is not None:
+      self.browse_dialog.setPlayerNumber(player_number)
 
   def setMaster(self, master):
     self.labels["master"].setEnabled(master)
@@ -277,10 +279,6 @@ class Gui(QWidget):
     self.prodj = prodj
     self.setWindowTitle('Pioneer ProDJ Link Monitor')
 
-    pal = self.palette()
-    pal.setColor(self.foregroundRole(), Qt.white)
-    pal.setColor(self.backgroundRole(), Qt.black)
-    self.setPalette(pal)
     self.setAutoFillBackground(True)
 
     self.keepalive_signal.connect(self.keepalive_slot)
