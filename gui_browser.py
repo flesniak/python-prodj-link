@@ -29,7 +29,11 @@ class Browser(QWidget):
     self.slot = None # set after selecting slot in media menu
     self.menu = "media"
     self.sort = "default"
+    self.artist_id = None
     self.track_id = None
+    self.genre_id = None
+    self.playlist_folder_id = None
+    self.playlist_id = None
     self.setPlayerNumber(player_number)
 
     self.request = None # requests are parsed on signaling handleRequestSignal
@@ -144,22 +148,47 @@ class Browser(QWidget):
     #self.view.update()
 
   def titleMenu(self):
-    self.prodj.dbs.get_titles(self.player_number, self.slot, self.sort_mode, self.storeRequest)
+    self.prodj.dbs.get_titles(self.player_number, self.slot, self.sort, self.storeRequest)
 
   def artistMenu(self):
-    self.prodj.dbs.get_artists(self.player_number, self.slot, self.sort_mode, self.storeRequest)
+    self.prodj.dbs.get_artists(self.player_number, self.slot, self.sort, self.storeRequest)
 
-  def albumArtistMenu(self, slot, sort_mode, artist_id):
-    self.prodj.dbs.get_albums_by_artist(self.player_number, slot, artist_id, sort_mode, self.storeRequest)
+  def albumArtistMenu(self, artist_id):
+    self.artist_id = artist_id
+    self.prodj.dbs.get_albums_by_artist(self.player_number, self.slot, artist_id, self.sort, self.storeRequest)
 
-  def titleAlbumArtistMenu(self, slot, sort_mode, artist_id, album_id):
-    self.prodj.dbs.get_albums_by_artist_album(self.player_number, slot, [artist_id, album_id], sort_mode, self.storeRequest)
+  def titleAlbumArtistMenu(self, album_id):
+    self.prodj.dbs.get_titles_by_artist_album(self.player_number, self.slot, self.artist_id, album_id, self.sort, self.storeRequest)
 
   def albumMenu(self):
-    self.prodj.dbs.get_albums(self.player_number, self.slot, self.sort_mode, self.storeRequest)
+    self.prodj.dbs.get_albums(self.player_number, self.slot, self.sort, self.storeRequest)
 
-  def titleAlbumMenu(self, slot, sort_mode, album_id):
-    self.prodj.dbs.get_albums(self.player_number, slot, album_id, sort_mode, self.storeRequest)
+  def titleAlbumMenu(self, album_id):
+    self.prodj.dbs.get_titles_by_album(self.player_number, self.slot, album_id, self.sort, self.storeRequest)
+
+  def genreMenu(self):
+    self.prodj.dbs.get_genres(self.player_number, self.slot, self.storeRequest)
+
+  def artistGenreMenu(self, genre_id):
+    self.genre_id = genre_id
+    self.prodj.dbs.get_artists_by_genre(self.player_number, self.slot, genre_id, self.storeRequest)
+
+  def albumArtistGenreMenu(self, artist_id):
+    self.artist_id = artist_id
+    self.prodj.dbs.get_albums_by_genre_artist(self.player_number, self.slot, self.genre_id, artist_id, self.storeRequest)
+
+  def titleAlbumArtistGenreMenu(self, album_id):
+    self.album_id = album_id
+    self.prodj.dbs.get_titles_by_genre_artist_album(self.player_number, self.slot, self.genre_id, self.artist_id, album_id, self.storeRequest)
+
+  def playlistMenu(self, folder_id=0):
+    self.playlist_folder_id = folder_id
+    self.playlist_id = 0
+    self.prodj.dbs.get_playlists(self.player_number, self.slot, folder_id, self.storeRequest)
+
+  def titlePlaylistMenu(self, playlist_id=0):
+    self.playlist_id = playlist_id
+    self.prodj.dbs.get_playlist(self.player_number, self.slot, playlist_id, self.sort, self.storeRequest)
 
   def renderList(self, request, player_number, slot, query_ids, sort_mode, reply):
     logging.debug("renderList %s %s", request, str(player_number))
@@ -177,14 +206,20 @@ class Browser(QWidget):
           columns += [key]
     self.model.setHorizontalHeaderLabels([x.title() for x in columns])
     for entry in reply:
-      data = {"type": request, **entry}
+      entry_type = request
+      if request == "playlist": # special playlist workarounds
+        if "parent_id" in entry:
+          self.playlist_folder_id = entry["parent_id"]
+        if "track_id" in entry:
+          entry_type = "title"
+      data = {"type": entry_type, **entry}
       row = []
       for column in columns:
         row += [makeItem(str(entry[column]), data)]
       self.model.appendRow(row)
 
-  def metadata(self, slot, track_id):
-    self.prodj.dbs.get_metadata(self.player_number, slot, track_id, self.storeRequest)
+  def metadata(self, track_id):
+    self.prodj.dbs.get_metadata(self.player_number, self.slot, track_id, self.storeRequest)
 
   def renderMetadata(self, request, source_player_number, slot, track_id, metadata):
     md = ""
@@ -194,8 +229,25 @@ class Browser(QWidget):
     self.track_id = track_id
 
   def backButtonClicked(self):
-    if self.menu in ["title", "artist", "album"]:
+    if self.menu in ["title", "artist", "album", "genre"]:
       self.rootMenu(self.slot)
+    elif self.menu == "title_by_artist_album":
+      self.albumArtistMenu(self.artist_id)
+    elif self.menu == "title_by_album":
+      self.albumMenu()
+    elif self.menu == "album_by_artist":
+      self.artistMenu()
+    elif self.menu == "artist_by_genre":
+      self.genreMenu()
+    elif self.menu == "album_by_genre_artist":
+      self.artistGenreMenu(self.genre_id)
+    elif self.menu == "title_by_genre_artist_album":
+      self.albumArtistGenreMenu(self.artist_id)
+    elif self.menu == "playlist":
+      if self.playlist_folder_id == 0 and self.playlist_id == 0:
+        self.rootMenu(self.slot)
+      else:
+        self.playlistMenu(self.playlist_folder_id)
     elif self.menu == "root":
       self.mediaMenu()
     elif  self.menu == "media":
@@ -217,16 +269,30 @@ class Browser(QWidget):
         self.artistMenu()
       elif data["name"] == "ALBUM":
         self.albumMenu()
+      elif data["name"] == "GENRE":
+        self.genreMenu()
+      elif data["name"] == "PLAYLIST":
+        self.playlistMenu()
       else:
         logging.warning("Browser: root menu type %s not implemented yet", data["name"])
     elif data["type"] == "album":
       self.titleAlbumMenu(data["album_id"])
     elif data["type"] == "artist":
-      self.albumArtistMenu(data["album_id"])
+      self.albumArtistMenu(data["artist_id"])
     elif data["type"] == "album_by_artist":
       self.titleAlbumArtistMenu(data["album_id"])
-    elif data["type"] in ["title", "title_by_album"]:
-      self.metadata(self.slot, data["track_id"])
+    elif data["type"] == "genre":
+      self.artistGenreMenu(data["genre_id"])
+    elif data["type"] == "artist_by_genre":
+      self.albumArtistGenreMenu(data["artist_id"])
+    elif data["type"] == "album_by_genre_artist":
+      self.titleAlbumArtistGenreMenu(data["album_id"])
+    elif data["type"] == "folder":
+      self.playlistMenu(data["folder_id"])
+    elif data["type"] == "playlist":
+      self.titlePlaylistMenu(data["playlist_id"])
+    elif data["type"] in ["title", "title_by_album", "title_by_artist_album", "title_by_genre_artist_album"]:
+      self.metadata(data["track_id"])
     else:
       logging.warning("Browser: unhandled click type %s", data["type"])
     self.updateButtons() # update buttons for convenience
@@ -264,7 +330,7 @@ class Browser(QWidget):
       return
     if self.request[0] == "root_menu":
       self.renderRootMenu(*self.request)
-    elif self.request[0] in ["title", "artist", "album_by_artist", "title_by_artist_album", "album", "title_by_album"]:
+    elif self.request[0] in ["title", "artist", "album_by_artist", "title_by_artist_album", "album", "title_by_album", "genre", "artist_by_genre", "album_by_genre_artist", "title_by_genre_artist_album", "playlist"]:
       self.renderList(*self.request)
     elif self.request[0] == "metadata":
       self.renderMetadata(*self.request)

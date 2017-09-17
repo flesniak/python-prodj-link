@@ -141,15 +141,15 @@ class DBClient(Thread):
     elif entry_label[:5] == "color":
       entry["color"] = entry_label[6:]
       entry["color_text"] = entry_string1
-    elif entry_label in ["artist", "album", "comment", "genre", "original_artist", "remixer", "key", "label"]:
+    elif entry_label in ["artist", "album", "comment", "genre", "original_artist", "remixer", "key", "label", "folder"]:
       entry[entry_label] = entry_string1
-      entry[entry_label+"_id"] = entry_id1
+      entry[entry_label+"_id"] = entry_id2
+    elif entry_label == "playlist": # merge with above? entry_id1 always seems to be some kind of parent id
+      entry["playlist"] = entry_string1
+      entry["playlist_id"] = entry_id2
+      entry["parent_id"] = entry_id1
     elif entry_label in ["date_added"]:
       entry[entry_label] = entry_string1
-    elif entry_label == "playlist":
-      entry["name"] = entry_string1
-      entry["id"] = entry_id2
-      entry["parent_id"] = entry_id1
     elif entry_label[:5] == "root_":
       entry["name"] = entry_string1
       entry["menu_id"] = entry_id2
@@ -477,11 +477,23 @@ class DBClient(Thread):
   def get_titles_by_artist_album(self, player_number, slot, artist_id, album_id, sort_mode="default", callback=None):
     self._enqueue_request("title_by_artist_album", None, (player_number, slot, [artist_id, album_id], sort_mode), callback)
 
+  def get_genres(self, player_number, slot, callback=None):
+    self._enqueue_request("genre", None, (player_number, slot, [], None), callback)
+
+  def get_artists_by_genre(self, player_number, slot, genre_id, callback=None):
+    self._enqueue_request("artist_by_genre", None, (player_number, slot, [genre_id], None), callback)
+
+  def get_albums_by_genre_artist(self, player_number, slot, genre_id, artist_id, callback=None):
+    self._enqueue_request("album_by_genre_artist", None, (player_number, slot, [genre_id, artist_id], None), callback)
+
+  def get_titles_by_genre_artist_album(self, player_number, slot, genre_id, artist_id, album_id, callback=None):
+    self._enqueue_request("title_by_genre_artist_album", None, (player_number, slot, [genre_id, artist_id, album_id], None), callback)
+
   def get_playlists(self, player_number, slot, folder_id=0, callback=None):
     self._enqueue_request("playlist", None, (player_number, slot, [folder_id, 0], None), callback)
 
-  def get_playlist(self, player_number, slot, folder_id, playlist_id, sort_mode="default", callback=None):
-    self._enqueue_request("playlist", None, (player_number, slot, [folder_id, playlist_id], sort_mode), callback)
+  def get_playlist(self, player_number, slot, playlist_id, sort_mode="default", callback=None):
+    self._enqueue_request("playlist", None, (player_number, slot, [0, playlist_id], sort_mode), callback)
 
   def get_artwork(self, player_number, slot, artwork_id, callback=None):
     self._enqueue_request("artwork", self.artwork_store, (player_number, slot, artwork_id), callback)
@@ -529,6 +541,14 @@ class DBClient(Thread):
       reply = self.query_list(*params, "album_request")
     elif request == "title_by_artist_album":
       reply = self.query_list(*params, "title_by_artist_album_request")
+    elif request == "genre":
+      reply = self.query_list(*params, "genre_request")
+    elif request == "artist_by_genre":
+      reply = self.query_list(*params, "artist_by_genre_request")
+    elif request == "album_by_genre_artist":
+      reply = self.query_list(*params, "album_by_genre_artist_request")
+    elif request == "title_by_genre_artist_album":
+      reply = self.query_list(*params, "title_by_genre_artist_album_request")
     elif request == "playlist":
       reply = self.query_list(*params, "playlist_request")
     elif request == "artwork":
