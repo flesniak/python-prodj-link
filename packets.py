@@ -156,7 +156,8 @@ StatusPacketType = Enum(Int8ub,
   load_cmd_reply = 0x1a,
   link_query = 0x05,
   link_reply = 0x06,
-  rekordbox_hello = 0x10 # sent by players to rekordbox
+  rekordbox_hello = 0x10, # sent by players to rekordbox
+  rekordbox_reply = 0x11 # sent by rekordbox in reply to rekordbox_hello
 )
 
 PlayerSlot = Enum(Int8ub,
@@ -233,7 +234,7 @@ StatusPacket = Struct(
   "u1" / Const(Int8ub, 1),
   "u2" / Default(Int8ub, 4), # some kind of revision? 3 for cdj2000nx, 4 for xdj1000. 1 for djm/rekordbox, 0 for link query
   "player_number" / Int8ub, # 0x11 for rekordbox
-  # 37 bytes until now
+  # 34 bytes until now
   Embedded(Switch(this.type, {
     "link_query": Struct(
       "u3" / Default(Int16ub, 0x0c),
@@ -241,10 +242,11 @@ StatusPacket = Struct(
     "rekordbox_hello": Struct("payload_size" / Int16ub), # always 0 till now
     "link_reply": Struct("payload_size" / Int16ub), # always 0x9c
   }, default=Struct(
-    "u3" / Default(Int16ub, 0xf8), # b0 cdj2000nxs, f8 xdj1000, 14 djm, 34/38 rekordbox
+    "u3" / Default(Int16ub, 0xf8), # b0 cdj2000nxs, f8 xdj1000, 14 djm, 34/38 rekordbox, 104 rdbx_reply
     "player_number2" / Int8ub, # equal to player_number
     "u4" / Default(Int8ub, 0) # 1 cdj2000nxs or 0 xdj1000, 0 for rekordbox))
   ))),
+  # default: 38 bytes until now
   Embedded(Switch(this.type, {
     "cdj": Struct(
       "activity" / Int16ub, # 0 when idle, 1 when playing, 0xc0 for rekordbox
@@ -338,7 +340,11 @@ StatusPacket = Struct(
       "bytes_total" / Int64ub,
       "bytes_free" / Int64ub
     ),
-    "rekordbox_hello": Pass
+    "rekordbox_hello": Pass,
+    "rekordbox_reply": Struct(
+      Padding(2),
+      "name" / String(256, encoding="utf-16-be")
+    ),
   }))
 )
 
