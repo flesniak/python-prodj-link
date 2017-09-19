@@ -465,14 +465,14 @@ class DBClient(Thread):
   def get_titles_by_album(self, player_number, slot, album_id, sort_mode="default", callback=None):
     self._enqueue_request("title_by_album", None, (player_number, slot, [album_id], sort_mode), callback)
 
-  def get_artists(self, player_number, slot, sort_mode="default", callback=None):
-    self._enqueue_request("artist", None, (player_number, slot, [], sort_mode), callback)
+  def get_artists(self, player_number, slot, callback=None):
+    self._enqueue_request("artist", None, (player_number, slot, [], None), callback)
 
-  def get_albums_by_artist(self, player_number, slot, artist_id, sort_mode="default", callback=None):
-    self._enqueue_request("album_by_artist", None, (player_number, slot, [artist_id], sort_mode), callback)
+  def get_albums_by_artist(self, player_number, slot, artist_id, callback=None):
+    self._enqueue_request("album_by_artist", None, (player_number, slot, [artist_id], None), callback)
 
-  def get_albums(self, player_number, slot, sort_mode="default", callback=None):
-    self._enqueue_request("album", None, (player_number, slot, [], sort_mode), callback)
+  def get_albums(self, player_number, slot, callback=None):
+    self._enqueue_request("album", None, (player_number, slot, [], None), callback)
 
   def get_titles_by_artist_album(self, player_number, slot, artist_id, album_id, sort_mode="default", callback=None):
     self._enqueue_request("title_by_artist_album", None, (player_number, slot, [artist_id, album_id], sort_mode), callback)
