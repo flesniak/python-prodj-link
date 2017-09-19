@@ -1,5 +1,5 @@
 import logging
-from PyQt5.QtWidgets import QComboBox, QHeaderView, QLabel, QPushButton, QTableView, QTextEdit, QHBoxLayout, QVBoxLayout, QWidget
+from PyQt5.QtWidgets import QComboBox, QHeaderView, QLabel, QPushButton, QSizePolicy, QTableView, QTextEdit, QHBoxLayout, QVBoxLayout, QWidget
 from PyQt5.QtGui import QPalette, QStandardItem, QStandardItemModel
 from PyQt5.QtCore import Qt, pyqtSignal
 
@@ -57,6 +57,7 @@ class Browser(QWidget):
 
     # upper part
     self.path = QLabel(self)
+    self.path.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
     self.sort_box = QComboBox(self)
     for sort in sort_types:
       self.sort_box.addItem(printableField(sort), sort)
