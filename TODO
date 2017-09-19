@@ -1,7 +1,6 @@
 - play/cued/looping widget
 - mutex on waveform/preview_waveform data
 - rename dbs to dbc
-- rename dj_play_count to play_count
 - clear stores on player media change / player disconnect/timeout
 - garbage collection in stores using ttl and check if track is still loaded anywhere
 - fix local interface mac address detection

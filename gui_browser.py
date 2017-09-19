@@ -25,6 +25,12 @@ def ratingString(rating):
   stars = ["\u9733", "\u2606"] # black star, white star
   return "".join(rating*stars[0]+(5-rating)*stars[1])
 
+def printableField(field):
+  if field == "bpm":
+    return field.upper()
+  else:
+    return field.replace("_", " ").title()
+
 class Browser(QWidget):
   handleRequestSignal = pyqtSignal()
   refreshMediaSignal = pyqtSignal(str)
@@ -53,7 +59,7 @@ class Browser(QWidget):
     self.path = QLabel(self)
     self.sort_box = QComboBox(self)
     for sort in sort_types:
-      self.sort_box.addItem(sort.title(), sort)
+      self.sort_box.addItem(printableField(sort), sort)
     self.sort_box.currentIndexChanged[int].connect(self.sortChanged)
     self.sort_box.setStyleSheet("QComboBox { padding: 2px; border-style: outset; border-radius: 2px; border-width: 1px; border-color: gray; }")
     self.back_button = QPushButton("Back", self)
@@ -218,7 +224,7 @@ class Browser(QWidget):
       for key in reply[0]:
         if key[-3:] != "_id":
           columns += [key]
-    self.model.setHorizontalHeaderLabels([x.title() for x in columns])
+    self.model.setHorizontalHeaderLabels([printableField(x) for x in columns])
     for entry in reply:
       data = {"type": request, **entry}
       row = []
@@ -238,7 +244,7 @@ class Browser(QWidget):
   def renderMetadata(self, request, source_player_number, slot, track_id, metadata):
     md = ""
     for key in [k for k in ["title", "artist", "album", "genre", "key", "bpm", "comment", "duration"] if k in metadata]:
-      md += "{}:\t{}\n".format(key.title(), metadata[key])
+      md += "{}:\t{}\n".format(printableField(key), metadata[key])
     if "rating" in metadata:
       md += "{}:\t{}\n".format("Rating", ratingString(metadata["rating"]))
     self.metadata_edit.setText(md)

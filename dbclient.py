@@ -33,6 +33,7 @@ metadata_type = {
   0x0023: "comment",
   0x0028: "original_artist",
   0x0029: "remixer",
+  0x002a: "play_count",
   0x002e: "date_added",
   0x0080: "root_genre",
   0x0081: "root_artist",
@@ -67,7 +68,7 @@ metadata_type = {
   0x2304: "title_and_comment",
   0x2804: "title_and_original_artist",
   0x2904: "title_and_remixer",
-  0x2a04: "title_and_dj_play_count",
+  0x2a04: "title_and_play_count",
   0x2e04: "title_and_date_added"
 }
 
@@ -87,7 +88,7 @@ sort_types = {
   "original_artist": 0x0b, # title | original artist (+id)
   "key": 0x0c, # title | key (+id)
   "bitrate": 0x0d, # title | bitrate
-  "dj_play_count": 0x10, # title | dj_play_count
+  "play_count": 0x10, # title | play_count
   "label": 0x11, # title | label (+id)
 }
 
@@ -129,7 +130,7 @@ class DBClient(Thread):
       return None
     entry_label = metadata_type[entry_type]
 
-    if entry_label in ["duration", "rating", "disc", "dj_play_count", "bitrate"]:
+    if entry_label in ["duration", "rating", "disc", "play_count", "bitrate"]:
       entry[entry_label] = entry_id2 # plain numbers
     elif entry_label == "bpm":
       entry[entry_label] = entry_id2/100
@@ -162,7 +163,7 @@ class DBClient(Thread):
       entry["artist_id"] = entry_id1
       entry_type2 = next((k for k,v in metadata_type.items() if v==entry_label2), None)
       if entry_type2 is None:
-        logging.warning("DBClient: second column %s of %s not parseable", entry_type2, entry_type)
+        logging.warning("DBClient: second column %s of %s not parseable", entry_label2, entry_type)
       else:
         entry2 = self.parse_metadata_payload([
           {"value": entry_id1}, {"value": entry_id1}, None, # duplicate entry1, as entry2 unused and swapped
