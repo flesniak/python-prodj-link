@@ -107,14 +107,14 @@ class ClientList:
 
   # update all known player information
   def eatStatus(self, status_packet):
+    if status_packet["type"] not in ["cdj", "djm", "link_reply"]:
+      logging.info("Received %s status packet from player %d, ignoring", status_packet["type"], status_packet["player_number"])
+      return
     c = self.getClient(status_packet["player_number"])
     if c is None: # packet from unknown client
       return
     client_changed = False
     c.status_packet_received = True
-    if status_packet["type"] not in ["cdj", "djm", "link_reply"]:
-      logging.info("Received %s status packet, ignoring", status_packet["type"])
-      return
 
     if status_packet["type"] == "link_reply":
       link_info = { key: status_packet[key] for key in ["name", "track_count", "playlist_count", "bytes_total", "bytes_free", "date"] }
