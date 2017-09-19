@@ -22,7 +22,7 @@ def makeItem(text, data=None):
 def ratingString(rating):
   if rating < 0 or rating > 5:
     return str(rating)
-  stars = ["\u9733", "\u2606"] # black star, white star
+  stars = ["\u2605", "\u2606"] # black star, white star
   return "".join(rating*stars[0]+(5-rating)*stars[1])
 
 def printableField(field):
