@@ -157,17 +157,17 @@ class Browser(QWidget):
     self.prodj.dbs.get_titles(self.player_number, self.slot, self.sort, self.storeRequest)
 
   def artistMenu(self):
-    self.prodj.dbs.get_artists(self.player_number, self.slot, self.sort, self.storeRequest)
+    self.prodj.dbs.get_artists(self.player_number, self.slot, self.storeRequest)
 
   def albumArtistMenu(self, artist_id):
     self.artist_id = artist_id
-    self.prodj.dbs.get_albums_by_artist(self.player_number, self.slot, artist_id, self.sort, self.storeRequest)
+    self.prodj.dbs.get_albums_by_artist(self.player_number, self.slot, artist_id, self.storeRequest)
 
   def titleAlbumArtistMenu(self, album_id):
     self.prodj.dbs.get_titles_by_artist_album(self.player_number, self.slot, self.artist_id, album_id, self.sort, self.storeRequest)
 
   def albumMenu(self):
-    self.prodj.dbs.get_albums(self.player_number, self.slot, self.sort, self.storeRequest)
+    self.prodj.dbs.get_albums(self.player_number, self.slot, self.storeRequest)
 
   def titleAlbumMenu(self, album_id):
     self.prodj.dbs.get_titles_by_album(self.player_number, self.slot, album_id, self.sort, self.storeRequest)
@@ -329,7 +329,7 @@ class Browser(QWidget):
 
   def sortChanged(self):
     self.sort = self.sort_box.currentData()
-    if self.menu in ["title"]:
+    if self.menu[:5] == "title" or self.menu == "playlist":
       logging.debug("sort changed to %s", self.sort)
       self.titleMenu()
 
