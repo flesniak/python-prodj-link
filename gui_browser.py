@@ -19,6 +19,12 @@ def makeItem(text, data=None):
   item.setData(data)
   return item
 
+def ratingString(rating):
+  if rating < 0 or rating > 5:
+    return str(rating)
+  stars = ["\u9733", "\u2606"] # black star, white star
+  return "".join(rating*stars[0]+(5-rating)*stars[1])
+
 class Browser(QWidget):
   handleRequestSignal = pyqtSignal()
   refreshMediaSignal = pyqtSignal(str)
@@ -219,7 +225,11 @@ class Browser(QWidget):
       for column in columns:
         if request == "playlist_folder" and column not in entry:
           column = "folder" if column == "playlist" else "playlist"
-        row += [makeItem(str(entry[column]), data)]
+        if column == "rating":
+          text = ratingString(entry[column])
+        else:
+          text = str(entry[column])
+        row += [makeItem(text, data)]
       self.model.appendRow(row)
 
   def metadata(self, track_id):
@@ -227,8 +237,10 @@ class Browser(QWidget):
 
   def renderMetadata(self, request, source_player_number, slot, track_id, metadata):
     md = ""
-    for key in [k for k in ["title", "artist", "album", "genre", "key", "bpm", "comment", "rating", "duration"] if k in metadata]:
+    for key in [k for k in ["title", "artist", "album", "genre", "key", "bpm", "comment", "duration"] if k in metadata]:
       md += "{}:\t{}\n".format(key.title(), metadata[key])
+    if "rating" in metadata:
+      md += "{}:\t{}\n".format("Rating", ratingString(metadata["rating"]))
     self.metadata_edit.setText(md)
     self.track_id = track_id
 
