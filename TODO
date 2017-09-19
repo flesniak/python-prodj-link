@@ -2,4 +2,3 @@
 - rename dbs to dbc
 - clear stores on player media change / player disconnect/timeout
 - garbage collection in stores using ttl and check if track is still loaded anywhere
-- fix local interface mac address detection

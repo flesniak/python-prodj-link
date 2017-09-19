@@ -26,7 +26,7 @@ def get_mac_linux(sock, interface):
       sock.fileno(),
       0x8927, # SIOCGIFHWADDR
       struct.pack('256s', interface.encode('ascii'))
-    )[20:26])
+    )[18:24])
 
 #https://stackoverflow.com/questions/819355/how-can-i-check-if-an-ip-is-in-a-network-in-python
 def address_is_in_network(ip, net_n_bits):
