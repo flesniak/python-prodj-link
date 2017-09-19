@@ -20,7 +20,7 @@ class ProDj(Thread):
   def __init__(self):
     super().__init__()
     self.cl = ClientList(self)
-    self.dbs = DBClient(self)
+    self.dbc = DBClient(self)
     self.vcdj = Vcdj(self)
     self.keepalive_ip = "0.0.0.0"
     self.keepalive_port = 50000
@@ -44,12 +44,12 @@ class ProDj(Thread):
     logging.info("Listening on {}:{} for status packets".format(self.status_ip, self.status_port))
     self.socks = [self.keepalive_sock, self.beat_sock, self.status_sock]
     self.keep_running = True
-    self.dbs.start()
+    self.dbc.start()
     super().start()
 
   def stop(self):
     self.keep_running = False
-    self.dbs.stop()
+    self.dbc.stop()
     if self.vcdj is not None:
       self.vcdj_disable()
     self.join()
@@ -59,7 +59,7 @@ class ProDj(Thread):
   def vcdj_set_player_number(self, vcdj_player_number=5):
     logging.info("Player number set to {}".format(vcdj_player_number))
     self.vcdj.player_number = vcdj_player_number
-    #self.dbs.own_player_number = vcdj_player_number
+    #self.dbc.own_player_number = vcdj_player_number
 
   def vcdj_enable(self):
     self.vcdj_set_iface()

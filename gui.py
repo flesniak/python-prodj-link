@@ -347,11 +347,11 @@ class Gui(QWidget):
       self.players[player_number].track_id = c.track_id # remember requested track id
       if c.track_id != 0:
         logging.info("Gui: track id of player %d changed to %d, requesting metadata", player_number, c.track_id)
-        self.prodj.dbs.get_metadata(c.loaded_player_number, c.loaded_slot, c.track_id, self.dbclient_callback)
+        self.prodj.dbc.get_metadata(c.loaded_player_number, c.loaded_slot, c.track_id, self.dbclient_callback)
         # we do not get artwork yet because we need metadata to know the artwork_id
-        self.prodj.dbs.get_preview_waveform(c.loaded_player_number, c.loaded_slot, c.track_id, self.dbclient_callback)
-        self.prodj.dbs.get_beatgrid(c.loaded_player_number, c.loaded_slot, c.track_id, self.dbclient_callback)
-        self.prodj.dbs.get_waveform(c.loaded_player_number, c.loaded_slot, c.track_id, self.dbclient_callback)
+        self.prodj.dbc.get_preview_waveform(c.loaded_player_number, c.loaded_slot, c.track_id, self.dbclient_callback)
+        self.prodj.dbc.get_beatgrid(c.loaded_player_number, c.loaded_slot, c.track_id, self.dbclient_callback)
+        self.prodj.dbc.get_waveform(c.loaded_player_number, c.loaded_slot, c.track_id, self.dbclient_callback)
       else:
         logging.info("Gui: track id of player %d changed to %d, unloading", player_number, c.track_id)
         self.players[player_number].unload()
@@ -371,7 +371,7 @@ class Gui(QWidget):
         with open("tracks.log", "a") as f:
           f.write("{} - {} ({})\n".format(reply["artist"], reply["title"], reply["album"]))
         if "artwork_id" in reply and reply["artwork_id"] != 0:
-          self.prodj.dbs.get_artwork(source_player_number, slot, reply["artwork_id"], self.dbclient_callback)
+          self.prodj.dbc.get_artwork(source_player_number, slot, reply["artwork_id"], self.dbclient_callback)
         else:
           self.players[player_number].setArtwork(None)
       elif request == "artwork":

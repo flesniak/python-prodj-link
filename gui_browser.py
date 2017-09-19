@@ -152,7 +152,7 @@ class Browser(QWidget):
       self.model.appendRow([makeItem("SD Card", data), makeItem(makeMediaInfo(c.sd_info), data)])
 
   def rootMenu(self, slot):
-    self.prodj.dbs.get_root_menu(self.player_number, slot, self.storeRequest)
+    self.prodj.dbc.get_root_menu(self.player_number, slot, self.storeRequest)
 
   def renderRootMenu(self, request, player_number, slot, reply):
     logging.debug("renderRootMenu %s %s", str(request), str(player_number))
@@ -167,38 +167,38 @@ class Browser(QWidget):
       self.model.appendRow(makeItem(data["name"], data))
 
   def titleMenu(self):
-    self.prodj.dbs.get_titles(self.player_number, self.slot, self.sort, self.storeRequest)
+    self.prodj.dbc.get_titles(self.player_number, self.slot, self.sort, self.storeRequest)
 
   def artistMenu(self):
-    self.prodj.dbs.get_artists(self.player_number, self.slot, self.storeRequest)
+    self.prodj.dbc.get_artists(self.player_number, self.slot, self.storeRequest)
 
   def albumArtistMenu(self, artist_id):
     self.artist_id = artist_id
-    self.prodj.dbs.get_albums_by_artist(self.player_number, self.slot, artist_id, self.storeRequest)
+    self.prodj.dbc.get_albums_by_artist(self.player_number, self.slot, artist_id, self.storeRequest)
 
   def titleAlbumArtistMenu(self, album_id):
-    self.prodj.dbs.get_titles_by_artist_album(self.player_number, self.slot, self.artist_id, album_id, self.sort, self.storeRequest)
+    self.prodj.dbc.get_titles_by_artist_album(self.player_number, self.slot, self.artist_id, album_id, self.sort, self.storeRequest)
 
   def albumMenu(self):
-    self.prodj.dbs.get_albums(self.player_number, self.slot, self.storeRequest)
+    self.prodj.dbc.get_albums(self.player_number, self.slot, self.storeRequest)
 
   def titleAlbumMenu(self, album_id):
-    self.prodj.dbs.get_titles_by_album(self.player_number, self.slot, album_id, self.sort, self.storeRequest)
+    self.prodj.dbc.get_titles_by_album(self.player_number, self.slot, album_id, self.sort, self.storeRequest)
 
   def genreMenu(self):
-    self.prodj.dbs.get_genres(self.player_number, self.slot, self.storeRequest)
+    self.prodj.dbc.get_genres(self.player_number, self.slot, self.storeRequest)
 
   def artistGenreMenu(self, genre_id):
     self.genre_id = genre_id
-    self.prodj.dbs.get_artists_by_genre(self.player_number, self.slot, genre_id, self.storeRequest)
+    self.prodj.dbc.get_artists_by_genre(self.player_number, self.slot, genre_id, self.storeRequest)
 
   def albumArtistGenreMenu(self, artist_id):
     self.artist_id = artist_id
-    self.prodj.dbs.get_albums_by_genre_artist(self.player_number, self.slot, self.genre_id, artist_id, self.storeRequest)
+    self.prodj.dbc.get_albums_by_genre_artist(self.player_number, self.slot, self.genre_id, artist_id, self.storeRequest)
 
   def titleAlbumArtistGenreMenu(self, album_id):
     self.album_id = album_id
-    self.prodj.dbs.get_titles_by_genre_artist_album(self.player_number, self.slot, self.genre_id, self.artist_id, album_id, self.storeRequest)
+    self.prodj.dbc.get_titles_by_genre_artist_album(self.player_number, self.slot, self.genre_id, self.artist_id, album_id, self.storeRequest)
 
   def folderPlaylistMenu(self, folder_id=0):
     if folder_id == 0:
@@ -206,11 +206,11 @@ class Browser(QWidget):
     else:
       self.playlist_folder_stack.append(folder_id)
     self.playlist_id = 0
-    self.prodj.dbs.get_playlist_folder(self.player_number, self.slot, folder_id, self.storeRequest)
+    self.prodj.dbc.get_playlist_folder(self.player_number, self.slot, folder_id, self.storeRequest)
 
   def titlePlaylistMenu(self, playlist_id=0):
     self.playlist_id = playlist_id
-    self.prodj.dbs.get_playlist(self.player_number, self.slot, playlist_id, self.sort, self.storeRequest)
+    self.prodj.dbc.get_playlist(self.player_number, self.slot, playlist_id, self.sort, self.storeRequest)
 
   def renderList(self, request, player_number, slot, query_ids, sort_mode, reply):
     logging.debug("renderList %s %s", request, str(player_number))
@@ -240,7 +240,7 @@ class Browser(QWidget):
       self.model.appendRow(row)
 
   def metadata(self, track_id):
-    self.prodj.dbs.get_metadata(self.player_number, self.slot, track_id, self.storeRequest)
+    self.prodj.dbc.get_metadata(self.player_number, self.slot, track_id, self.storeRequest)
 
   def renderMetadata(self, request, source_player_number, slot, track_id, metadata):
     md = ""

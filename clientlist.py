@@ -43,13 +43,13 @@ class ClientList:
     c = self.getClient(player_number)
     #logging.debug("Track position p %d abs %f actual_pitch %.6f play_state %s beat %d", player_number, c.position if c.position is not None else -1, c.actual_pitch, new_play_state, new_beat_count)
     identifier = (c.loaded_player_number, c.loaded_slot, c.track_id)
-    if identifier in self.prodj.dbs.beatgrid_store:
+    if identifier in self.prodj.dbc.beatgrid_store:
       if new_beat_count > 0:
         if (c.play_state == "cued" and new_play_state == "cueing") or (c.play_state == "playing" and new_play_state == "paused") or (c.play_state == "paused" and new_play_state == "playing"):
           return # ignore absolute position when switching from cued to cueing
         if new_play_state != "cued": # when releasing cue scratch, the beat count is still +1
           new_beat_count -= 1
-        beatgrid = self.prodj.dbs.beatgrid_store[identifier]
+        beatgrid = self.prodj.dbc.beatgrid_store[identifier]
         if beatgrid is not None and len(beatgrid["beats"]) > new_beat_count:
           c.position = beatgrid["beats"][new_beat_count]["time"] / 1000
       else:
@@ -209,7 +209,7 @@ class ClientList:
         c.metadata = None
         c.position = None
         if self.auto_request_beatgrid and c.track_id != 0:
-          self.prodj.dbs.get_beatgrid(c.loaded_player_number, c.loaded_slot, c.track_id)
+          self.prodj.dbc.get_beatgrid(c.loaded_player_number, c.loaded_slot, c.track_id)
 
     c.updateTtl()
     if self.client_change_callback and client_changed:
