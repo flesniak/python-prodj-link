@@ -489,8 +489,8 @@ class DBClient(Thread):
   def get_titles_by_genre_artist_album(self, player_number, slot, genre_id, artist_id, album_id, callback=None):
     self._enqueue_request("title_by_genre_artist_album", None, (player_number, slot, [genre_id, artist_id, album_id], None), callback)
 
-  def get_playlists(self, player_number, slot, folder_id=0, callback=None):
-    self._enqueue_request("playlist", None, (player_number, slot, [folder_id, 0], None), callback)
+  def get_playlist_folder(self, player_number, slot, folder_id=0, callback=None):
+    self._enqueue_request("playlist_folder", None, (player_number, slot, [folder_id, 0], None), callback)
 
   def get_playlist(self, player_number, slot, playlist_id, sort_mode="default", callback=None):
     self._enqueue_request("playlist", None, (player_number, slot, [0, playlist_id], sort_mode), callback)
@@ -549,7 +549,7 @@ class DBClient(Thread):
       reply = self.query_list(*params, "album_by_genre_artist_request")
     elif request == "title_by_genre_artist_album":
       reply = self.query_list(*params, "title_by_genre_artist_album_request")
-    elif request == "playlist":
+    elif request in ["playlist", "playlist_folder"]:
       reply = self.query_list(*params, "playlist_request")
     elif request == "artwork":
       reply = self.query_blob(*params, "artwork_request")
