@@ -2,6 +2,7 @@ import socket
 import packets
 import logging
 import time
+from select import select
 from threading import Thread
 from queue import Empty, Queue
 from construct import FieldError, RangeError, MappingError, byte2int
@@ -91,6 +92,14 @@ sort_types = {
   "play_count": 0x10, # title | play_count
   "label": 0x11, # title | label (+id)
 }
+
+def sockrcv(sock, length, timeout=1):
+  rdy = select([sock], [], [], timeout)
+  if rdy[0]:
+    return sock.recv(length)
+  else:
+    logging.warning("DBClient: socket receive timeout")
+    return b""
 
 class DBClient(Thread):
   def __init__(self, prodj):
@@ -231,7 +240,7 @@ class DBClient(Thread):
     recv_tries = 0
     data = b""
     while recv_tries < 30:
-      data += sock.recv(4096)
+      data += sockrcv(sock, 4096)
       try:
         reply = packets.DBMessage.parse(data)
         return reply
@@ -242,6 +251,8 @@ class DBClient(Thread):
 
   def query_list(self, player_number, slot, id_list, sort_mode, request_type):
     sock = self.getSocket(player_number)
+    if sock is None:
+      return
     slot_id = byte2int(packets.PlayerSlot.build(slot)) if slot is not None else 0
     if sort_mode is None:
       sort_id = 0 # 0 for root_menu, playlist folders
@@ -309,7 +320,7 @@ class DBClient(Thread):
     recv_tries = 0
     data = b""
     while recv_tries < 40:
-      data += sock.recv(4096)
+      data += sockrcv(sock, 4096)
       try:
         reply = packets.ManyDBMessages.parse(data)
       except (RangeError, FieldError):
@@ -333,6 +344,8 @@ class DBClient(Thread):
 
   def query_blob(self, player_number, slot, item_id, request_type, location=8):
     sock = self.getSocket(player_number)
+    if sock is None:
+      return
     slot_id = byte2int(packets.PlayerSlot.build(slot))
     query = {
       "transaction_id": self.getTransactionId(player_number),
@@ -375,7 +388,7 @@ class DBClient(Thread):
       sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
       sock.connect((client.ip_addr, packets.DBServerQueryPort))
       sock.send(packets.DBServerQuery.build({}))
-      data = sock.recv(2)
+      data = sockrcv(sock, 2)
       sock.close()
       port = packets.DBServerReply.parse(data)
       self.remote_ports[player_number] = (client.ip_addr, port)
@@ -385,7 +398,7 @@ class DBClient(Thread):
   def send_initial_packet(self, sock):
     init_packet = packets.DBFieldFixed("int32")
     sock.send(init_packet.build(1))
-    data = sock.recv(16)
+    data = sockrcv(sock, 16)
     try:
       reply = init_packet.parse(data)
       logging.debug("DBClient: initial packet reply %d", reply)
@@ -399,12 +412,13 @@ class DBClient(Thread):
       "args": [{"type": "int32", "value": self.own_player_number}]
     }
     sock.send(packets.DBMessage.build(query))
-    data = sock.recv(48)
+    data = sockrcv(sock, 48)
     if len(data) == 0:
       logging.error("Failed to connect to player {}".format(player_number))
-      return
+      return False
     reply = packets.DBMessage.parse(data)
     logging.info("DBClient: connected to player {}".format(reply["args"][1]["value"]))
+    return True
 
   def getTransactionId(self, player_number):
     sock_info = self.socks[player_number]
@@ -432,7 +446,7 @@ class DBClient(Thread):
     ip_port = self.get_server_port(player_number)
     if ip_port is None:
       logging.error("DBClient: failed to get remote port of player {}".format(player_number))
-      return
+      return None
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 65536)
@@ -442,7 +456,8 @@ class DBClient(Thread):
     # send connection initialization packet
     self.send_initial_packet(sock)
     # first query
-    self.send_setup_packet(sock, player_number)
+    if not self.send_setup_packet(sock, player_number):
+      return None
 
     return sock
 

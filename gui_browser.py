@@ -375,7 +375,7 @@ class Browser(QWidget):
   # handleRequest is called by handleRequestSignal, from inside the gui thread
   def handleRequest(self):
     #logging.debug("handleRequest %s", self.request[0])
-    if self.request is None:
+    if self.request is None or self.request[-1] is None:
       return
     if self.request[0] == "root_menu":
       self.renderRootMenu(*self.request)
