@@ -24,8 +24,8 @@ class PreviewWaveformWidget(QWidget):
     self.setData(None)
 
   def setData(self, data):
-    self.data = data
     with self.pixmap_lock:
+      self.data = data
       self.pixmap = self.drawPreviewWaveformPixmap()
     self.update()
 
