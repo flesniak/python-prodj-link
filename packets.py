@@ -279,7 +279,7 @@ StatusPacket = Struct(
       "physical_pitch" / Pitch, # the pitch slider position,
       "bpm_state" / Default(BpmState, "rekordbox"),
       "bpm" / Bpm,
-      Const(Int32ub, 0x7fffffff),
+      "u13" / Default(Int32ub, 0x7fffffff), # is default most of the time, but also seen 0x800043f8
       "actual_pitch" / Pitch, # the actual pitch the player is currently playing
       "play_state3" / Int16ub, # 0=empty, 1=paused/reverse/vinyl grab, 9=playing, 0xd=jog
       "u10" / Default(Int8ub, 1), # 1 for rekordbox analyzed tracks, 2 for unanalyzed mp3
