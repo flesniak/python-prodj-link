@@ -105,10 +105,14 @@ class DBClient(Thread):
   def __init__(self, prodj):
     super().__init__()
     self.cl = prodj.cl
-    self.own_player_number = 0 # db queries seem to work if we submit player number 0 everywhere
     self.remote_ports = {} # dict {player_number: (ip, port)}
     self.socks = {} # dict of player_number: (sock, ttl, transaction_id)
     self.queue = Queue()
+
+    # db queries seem to work if we submit player number 0 everywhere
+    # however, this messes up rendering on the players sometimes (i.e. when querying metadata and player has browser opened)
+    # alternatively, we can use a player number from 1 to 4 without rendering issues, but then only max. 3 real players can be used
+    self.own_player_number = 0
 
     self.metadata_store = {} # map of player_number,slot,track_id: metadata
     self.artwork_store = {} # map of player_number,slot,artwork_id: artwork_data
