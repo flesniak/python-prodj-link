@@ -6,7 +6,7 @@ import sys
 import math
 from threading import Lock
 
-from gui_browser import Browser
+from gui_browser import Browser, printableField
 from waveform_gl import GLWaveformWidget
 
 class PreviewWaveformWidget(QWidget):
@@ -130,9 +130,13 @@ class PlayerWidget(QFrame):
     self.browse_button.setFlat(True)
     self.browse_button.setStyleSheet("QPushButton { color: white; font: 10px; background-color: black; padding: 1px; border-style: outset; border-radius: 2px; border-width: 1px; border-color: gray; }")
 
+    self.labels["play_state"] = QLabel(self)
+    self.labels["play_state"].setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
+
     buttons_layout = QHBoxLayout()
     buttons_layout.addWidget(self.browse_button)
-    buttons_layout.addStretch(1)
+    buttons_layout.addWidget(self.labels["play_state"])
+    buttons_layout.setStretch(1, 1)
 
     self.browse_button.clicked.connect(self.openBrowseDialog)
 
@@ -260,6 +264,9 @@ class PlayerWidget(QFrame):
     else:
       self.time.display("--:--")
 
+  def setPlayState(self, state):
+    self.labels["play_state"].setText(printableField(state))
+
   def openBrowseDialog(self):
     if self.browse_dialog is None:
       self.browse_dialog = Browser(self.parent().prodj, self.player_number)
@@ -337,6 +344,7 @@ class Gui(QWidget):
     self.players[player_number].beat_bar.setBeat(c.beat)
     self.players[player_number].waveform.setPosition(c.position, c.actual_pitch, c.play_state)
     self.players[player_number].setTime(c.position)
+    self.players[player_number].setPlayState(c.play_state)
     if c.metadata is not None and "duration" in c.metadata and c.position is not None:
       self.players[player_number].preview_waveform.setPosition(c.position/c.metadata["duration"])
     if len(c.fw) > 0:
