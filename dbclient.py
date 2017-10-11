@@ -243,7 +243,7 @@ class DBClient(Thread):
   def receive_dbmessage(self, sock):
     recv_tries = 0
     data = b""
-    while recv_tries < 30:
+    while recv_tries < 40:
       data += sockrcv(sock, 4096)
       try:
         reply = packets.DBMessage.parse(data)
@@ -251,6 +251,7 @@ class DBClient(Thread):
       except RangeError as e:
         logging.debug("DBClient: Received %d bytes but parsing failed, trying to receive more", len(data))
         recv_tries += 1
+    logging.error("Failed to receive dbmessage after %d tries", recv_tries)
     return None
 
   def query_list(self, player_number, slot, id_list, sort_mode, request_type):
@@ -370,11 +371,10 @@ class DBClient(Thread):
     sock.send(data)
     try:
       reply = self.receive_dbmessage(sock)
-    except (RangeError, FieldError, MappingError, KeyError) as e:
+    except (RangeError, FieldError, MappingError, KeyError, TypeError) as e:
       logging.error("DBClient: %s query parse error: %s", request_type, str(e))
       return None
     if reply is None:
-      logging.error("Failed to receive %s blob (%d tries)", request_type, recv_tries)
       return None
     if reply["type"] == "invalid_request" or reply["args"][2]["value"] == 0:
       logging.error("DBClient: %s blob query failed on player %d (got %s)", query["type"], player_number, reply["type"])
