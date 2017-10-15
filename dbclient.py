@@ -241,17 +241,22 @@ class DBClient(Thread):
     return md
 
   def receive_dbmessage(self, sock):
-    recv_tries = 0
+    parse_errors = 0
+    receive_timeouts = 0
     data = b""
-    while recv_tries < 40:
-      data += sockrcv(sock, 4096)
+    while parse_errors < 40 and receive_timeouts < 3:
+      new_data = sockrcv(sock, 4096, 1)
+      if len(new_data) == 0:
+        receive_timeouts += 1
+        continue
+      data += new_data
       try:
         reply = packets.DBMessage.parse(data)
         return reply
       except RangeError as e:
         logging.debug("DBClient: Received %d bytes but parsing failed, trying to receive more", len(data))
-        recv_tries += 1
-    logging.error("Failed to receive dbmessage after %d tries", recv_tries)
+        parse_errors += 1
+    logging.error("Failed to receive dbmessage after %d tries", parse_errors)
     return None
 
   def query_list(self, player_number, slot, id_list, sort_mode, request_type):
@@ -322,23 +327,28 @@ class DBClient(Thread):
     data = packets.DBMessage.build(query)
     logging.debug("DBClient: render query {}".format(query))
     sock.send(data)
-    recv_tries = 0
+    parse_errors = 0
+    receive_timeouts = 0
     data = b""
-    while recv_tries < 40:
-      data += sockrcv(sock, 4096)
+    while parse_errors < 40 and receive_timeouts < 3:
+      new_data = sockrcv(sock, 4096, 1)
+      if len(new_data) == 0:
+        receive_timeouts += 1
+        continue
+      data += new_data
       try:
         reply = packets.ManyDBMessages.parse(data)
-      except (RangeError, FieldError):
+      except (RangeError, FieldError, MappingError, KeyError, TypeError) as e:
         logging.debug("DBClient: failed to parse %s render reply (%d bytes), trying to receive more", request_type, len(data))
-        recv_tries += 1
+        parse_errors += 1
       else:
         if reply[-1]["type"] != "menu_footer":
           logging.debug("DBClient: %s rendering without menu_footer @ %d bytes, trying to receive more", request_type, len(data))
-          recv_tries += 1
+          parse_errors += 1
         else:
           break
-    if recv_tries >= 40:
-      logging.error("DBClient: Failed to receive %s render reply after %d tries", request_type, recv_tries)
+    if parse_errors >= 40 or receive_timeouts >= 3:
+      logging.error("DBClient: Failed to receive %s render reply after %d timeouts, %d parse errors", request_type, receive_timeouts, parse_errors)
       return None
 
     if request_type == "metadata_request":
