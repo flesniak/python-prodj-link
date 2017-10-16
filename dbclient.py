@@ -589,6 +589,8 @@ class DBClient(Thread):
       reply = self.query_blob(*params, "preview_waveform_request")
     elif request == "beatgrid":
       reply = self.query_blob(*params, "beatgrid_request")
+      if reply is None:
+        return None
       try: # pre-parse beatgrid data (like metadata) for easier access
         reply = packets.Beatgrid.parse(reply)
       except (RangeError, FieldError) as e:
