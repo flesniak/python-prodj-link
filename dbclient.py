@@ -103,6 +103,12 @@ def sockrcv(sock, length, timeout=1):
     logging.warning("DBClient: socket receive timeout")
     return b""
 
+class TemporaryQueryError(Exception):
+  pass
+
+class FatalQueryError(Exception):
+  pass
+
 class DBClient(Thread):
   def __init__(self, prodj):
     super().__init__()
@@ -269,13 +275,10 @@ class DBClient(Thread):
       except RangeError as e:
         logging.debug("DBClient: Received %d bytes but parsing failed, trying to receive more", len(data))
         parse_errors += 1
-    logging.error("Failed to receive dbmessage after %d tries and %d timeouts", parse_errors, receive_timeouts)
-    return None
+    raise TemporaryQueryError("Failed to receive dbmessage after {} tries and {} timeouts".format(parse_errors, receive_timeouts))
 
   def query_list(self, player_number, slot, id_list, sort_mode, request_type):
     sock = self.getSocket(player_number)
-    if sock is None:
-      return
     slot_id = byte2int(packets.PlayerSlot.build(slot)) if slot is not None else 0
     if sort_mode is None:
       sort_id = 0 # 0 for root_menu, playlist folders
@@ -372,8 +375,6 @@ class DBClient(Thread):
 
   def query_blob(self, player_number, slot, item_id, request_type, location=8):
     sock = self.getSocket(player_number)
-    if sock is None:
-      return
     slot_id = byte2int(packets.PlayerSlot.build(slot))
     query = {
       "transaction_id": self.getTransactionId(player_number),
@@ -410,8 +411,7 @@ class DBClient(Thread):
     if player_number not in self.remote_ports:
       client = self.cl.getClient(player_number)
       if client is None:
-        logging.error("DBClient: client {} not found".format(player_number))
-        return
+        raise TemporaryQueryError("failed to get remote port, player {} unknown".format(player_number))
       sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
       sock.connect((client.ip_addr, packets.DBServerQueryPort))
       sock.send(packets.DBServerQuery.build({}))
@@ -441,11 +441,9 @@ class DBClient(Thread):
     sock.send(packets.DBMessage.build(query))
     data = sockrcv(sock, 48)
     if len(data) == 0:
-      logging.error("Failed to connect to player {}".format(player_number))
-      return False
+      raise TemporaryQueryError("Failed to connect to player {}".format(player_number))
     reply = packets.DBMessage.parse(data)
     logging.info("DBClient: connected to player {}".format(reply["args"][1]["value"]))
-    return True
 
   def getTransactionId(self, player_number):
     sock_info = self.socks[player_number]
@@ -471,9 +469,6 @@ class DBClient(Thread):
       return self.socks[player_number][0]
 
     ip_port = self.get_server_port(player_number)
-    if ip_port is None:
-      logging.error("DBClient: failed to get remote port of player {}".format(player_number))
-      return None
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 65536)
@@ -483,8 +478,7 @@ class DBClient(Thread):
     # send connection initialization packet
     self.send_initial_packet(sock)
     # first query
-    if not self.send_setup_packet(sock, player_number):
-      return None
+    self.send_setup_packet(sock, player_number)
 
     return sock
 
@@ -501,10 +495,10 @@ class DBClient(Thread):
     except BrokenPipeError as e:
       player_number = next((n for n, d in self.socks.items() if d[0] == sock), None)
       if player_number is None:
-        raise RuntimeError("socksnd failed with unknown sock")
+        raise FatalQueryError("socksnd failed with unknown sock")
       else:
         self.closeSocket(player_number)
-        raise RuntimeError("Connection to player %d lost".format(player_number))
+        raise TemporaryQueryError("Connection to player {} lost".format(player_number))
 
   # called from outside, enqueues request
   def get_metadata(self, player_number, slot, track_id, callback=None):
@@ -636,13 +630,11 @@ class DBClient(Thread):
   def _retry_request(self, request):
     self.queue.task_done()
     if request[-1] > 0:
-      logging.info("DBClient: retrying %d request", request[0])
-      self.queue.put((request[:-1], request[-1]-1))
+      logging.info("DBClient: retrying %s request", request[0])
+      self.queue.put((*request[:-1], request[-1]-1))
       time.sleep(1) # yes, this is dirty, but effective to work around timing problems on failed request
-      return True
     else:
-      logging.info("DBClient: %d request failed %d times, giving up", request[0], self.request_retry_count)
-      return False
+      logging.info("DBClient: %s request failed %d times, giving up", request[0], self.request_retry_count)
 
   def run(self):
     logging.debug("DBClient starting")
@@ -664,7 +656,11 @@ class DBClient(Thread):
         continue
       try:
         self._handle_request(*request[:-1])
-      except RuntimeError as e:
+        self.queue.task_done()
+      except TemporaryQueryError as e:
         logging.error("DBclient: %s request failed: %s", request[0], e)
         self._retry_request(request)
+      except FatalQueryError as e:
+        logging.error("DBclient: %s request failed: %s", request[0], e)
+        self.queue.task_done()
     logging.debug("DBClient shutting down")
