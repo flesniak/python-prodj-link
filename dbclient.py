@@ -143,7 +143,7 @@ class DBClient(Thread):
       return None
     entry_label = metadata_type[entry_type]
 
-    if entry_label in ["duration", "rating", "disc", "play_count", "bitrate"]:
+    if entry_label in ["duration", "rating", "disc", "play_count", "bitrate", "year"]:
       entry[entry_label] = entry_id2 # plain numbers
     elif entry_label == "bpm":
       entry[entry_label] = entry_id2/100
