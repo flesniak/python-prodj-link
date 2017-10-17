@@ -122,6 +122,8 @@ class DBClient(Thread):
     self.preview_waveform_store = {} # map of player_number,slot,artwork_id: preview_waveform_data
     self.beatgrid_store = {} # map of player_number,slot,artwork_id: beatgrid_data
 
+    self.request_retry_count = 3
+
   def start(self):
     self.keep_running = True
     super().start()
@@ -303,7 +305,7 @@ class DBClient(Thread):
         query["args"].append({"type": "int32", "value": item_id})
     data = packets.DBMessage.build(query)
     logging.debug("DBClient: query_list request: {}".format(query))
-    sock.send(data)
+    self.socksnd(sock, data)
 
     try:
       reply = self.receive_dbmessage(sock)
@@ -335,7 +337,7 @@ class DBClient(Thread):
     }
     data = packets.DBMessage.build(query)
     logging.debug("DBClient: render query {}".format(query))
-    sock.send(data)
+    self.socksnd(sock, data)
     parse_errors = 0
     receive_timeouts = 0
     data = b""
@@ -387,7 +389,7 @@ class DBClient(Thread):
       query["args"].append({"type": "int32", "value": 0})
     logging.debug("DBClient: {} query {}".format(request_type, query))
     data = packets.DBMessage.build(query)
-    sock.send(data)
+    self.socksnd(sock, data)
     try:
       reply = self.receive_dbmessage(sock)
     except (RangeError, FieldError, MappingError, KeyError, TypeError) as e:
@@ -491,6 +493,17 @@ class DBClient(Thread):
     else:
       logging.warning("Requested to delete unexistant socket for player %d", player_number)
 
+  def socksnd(self, sock, data):
+    try:
+      sock.send(data)
+    except BrokenPipeError as e:
+      player_number = next((n for n, d in self.socks.items() if d[0] == sock), None)
+      if player_number is None:
+        raise RuntimeError("socksnd failed with unknown sock")
+      else:
+        self.closeSocket(player_number)
+        raise RuntimeError("Connection to player %d lost".format(player_number))
+
   # called from outside, enqueues request
   def get_metadata(self, player_number, slot, track_id, callback=None):
     self._enqueue_request("metadata", self.metadata_store, (player_number, slot, track_id), callback)
@@ -555,7 +568,7 @@ class DBClient(Thread):
       logging.warning("DBClient: invalid %s request parameters", request)
       return
     logging.debug("DBClient: enqueueing %s request with params %s", request, str(params))
-    self.queue.put((request, store, params, callback))
+    self.queue.put((request, store, params, callback, self.request_retry_count))
 
   def _handle_request(self, request, store, params, callback):
     if store is not None and len(params) == 3 and params in store:
@@ -618,6 +631,17 @@ class DBClient(Thread):
     if callback is not None:
       callback(request, *params, reply)
 
+  def _retry_request(self, request):
+    self.queue.task_done()
+    if request[-1] > 0:
+      logging.info("DBClient: retrying %d request", request[0])
+      self.queue.put((request[:-1], request[-1]-1))
+      time.sleep(1) # yes, this is dirty, but effective to work around timing problems on failed request
+      return True
+    else:
+      logging.info("DBClient: %d request failed %d times, giving up", request[0], self.request_retry_count)
+      return False
+
   def run(self):
     logging.debug("DBClient starting")
     while self.keep_running:
@@ -628,16 +652,17 @@ class DBClient(Thread):
         continue
       client = self.cl.getClient(request[2][0])
       if not client:
-        logging.warning("DBClient: player %s not found in clientlist, discarding %s request", request[2], request[0])
-        self.queue.task_done()
+        logging.warning("DBClient: player %s not found in clientlist", request[2])
+        self._retry_request(request)
         continue
       if (request[0] in ["metadata_request", "artwork_request", "preview_waveform_request", "beatgrid_request", "waveform_request"]
           and client.play_state in ["no_track", "loading_track", "cannot_play_track", "emergency"]):
         logging.debug("DBClient: delaying %s request due to play state: %s", request[0], client.play_state)
-        self.queue.task_done()
-        self.queue.put(request)
-        time.sleep(1)
+        self._retry_request(request)
         continue
-      self._handle_request(*request)
-      self.queue.task_done()
+      try:
+        self._handle_request(*request[:-1])
+      except RuntimeError as e:
+        logging.error("DBclient: %s request failed: %s", request[0], e)
+        self._retry_request(request)
     logging.debug("DBClient shutting down")
