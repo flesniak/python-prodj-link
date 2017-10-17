@@ -414,6 +414,7 @@ ArgumentTypesField = ArgumentTypes(DBFieldFixed("binary"))
 DBRequestType = Enum(DBFieldFixed("int16"),
   setup = 0,
   invalid = 1,
+  invalid2 = 0x100, # sent by nxs2 players as reply to player_number=0 requests
   # list requests, cascading by appending id parameters
   root_menu_request = 0x1000,
   genre_request = 0x1001,
