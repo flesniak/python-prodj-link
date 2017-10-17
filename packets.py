@@ -460,10 +460,14 @@ DBRequestType = Enum(DBFieldFixed("int16"),
   preview_waveform_request = 0x2004,
   folder_request = 0x2006, # wtf, one list request here? params: 0, 0xffffffff, 0
   track_data_request = 0x2102, # contains absolute storage path (nfs) among other data
+  cues_request = 0x2104,
   track_info_request = 0x2202, # metadata of unanalyzed data (i.e. cd or folder view)
   beatgrid_request = 0x2204,
+  unknown1_request = 0x2504, # issued when loading track, reply 0x4502, contains lots of 0 and some data at end
   waveform_request = 0x2904,
+  unknown2_request = 0x2b04, # issued when loading track, reply 0x4e02, no render request
   render = 0x3000,
+  unknown3_request = 0x3100, # issued when loading track, reply 0x4000 with 0 items, never seen >0 items
   success = 0x4000,
   menu_header = 0x4001,
   artwork = 0x4002,
@@ -471,8 +475,11 @@ DBRequestType = Enum(DBFieldFixed("int16"),
   menu_item = 0x4101,
   menu_footer = 0x4201,
   preview_waveform = 0x4402,
+  unknown1 = 0x4502,
   beatgrid = 0x4602,
+  cues = 0x4702,
   waveform = 0x4a02,
+  unknown2 = 0x4e02
 )
 
 DBMessage = Struct(
