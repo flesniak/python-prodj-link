@@ -375,6 +375,9 @@ class Gui(QWidget):
         continue
       logging.debug("Gui: dbclient_callback %s source player %d to widget player %d", request, source_player_number, player_number)
       if request == "metadata":
+        if len(reply) == 0:
+          logging.warning("Gui: empty metadata received")
+          continue
         self.players[player_number].setMetadata(reply["title"], reply["artist"], reply["album"])
         with open("tracks.log", "a") as f:
           f.write("{} - {} ({})\n".format(reply["artist"], reply["title"], reply["album"]))
