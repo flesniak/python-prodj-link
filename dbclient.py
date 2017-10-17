@@ -123,6 +123,8 @@ class DBClient(Thread):
     self.beatgrid_store = {} # map of player_number,slot,artwork_id: beatgrid_data
 
     self.request_retry_count = 3
+    self.parse_error_count = 40
+    self.receive_timeout_count = 3
 
   def start(self):
     self.keep_running = True
@@ -255,7 +257,7 @@ class DBClient(Thread):
     parse_errors = 0
     receive_timeouts = 0
     data = b""
-    while parse_errors < 40 and receive_timeouts < 3:
+    while parse_errors < self.parse_error_count and receive_timeouts < self.receive_timeout_count:
       new_data = sockrcv(sock, 4096, 1)
       if len(new_data) == 0:
         receive_timeouts += 1
@@ -341,7 +343,7 @@ class DBClient(Thread):
     parse_errors = 0
     receive_timeouts = 0
     data = b""
-    while parse_errors < 40 and receive_timeouts < 3:
+    while parse_errors < self.parse_error_count and receive_timeouts < self.receive_timeout_count:
       new_data = sockrcv(sock, 4096, 1)
       if len(new_data) == 0:
         receive_timeouts += 1
@@ -358,7 +360,7 @@ class DBClient(Thread):
           parse_errors += 1
         else:
           break
-    if parse_errors >= 40 or receive_timeouts >= 3:
+    if parse_errors >= self.parse_error_count or receive_timeouts >= self.receive_timeout_count:
       logging.error("DBClient: Failed to receive %s render reply after %d timeouts, %d parse errors", request_type, receive_timeouts, parse_errors)
       return None
 
