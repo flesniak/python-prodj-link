@@ -256,7 +256,7 @@ class DBClient(Thread):
       except RangeError as e:
         logging.debug("DBClient: Received %d bytes but parsing failed, trying to receive more", len(data))
         parse_errors += 1
-    logging.error("Failed to receive dbmessage after %d tries", parse_errors)
+    logging.error("Failed to receive dbmessage after %d tries and %d timeouts", parse_errors, receive_timeouts)
     return None
 
   def query_list(self, player_number, slot, id_list, sort_mode, request_type):
@@ -301,8 +301,8 @@ class DBClient(Thread):
     except (RangeError, FieldError, MappingError, KeyError) as e:
       logging.error("DBClient: parsing %s query failed on player %d failed: %s", query["type"], player_number, str(e))
       return None
-    if reply["type"] != "success":
-      logging.error("DBClient: %s failed on player %d (got %s)", query["type"], player_number, reply["type"])
+    if reply is None or reply["type"] != "success":
+      logging.error("DBClient: %s failed on player %d (got %s)", query["type"], player_number, "NONE" if reply is None else reply["type"])
       return None
     entry_count = reply["args"][1]["value"]
     if entry_count == 0:
@@ -386,7 +386,7 @@ class DBClient(Thread):
       return None
     if reply is None:
       return None
-    if reply["type"] == "invalid_request" or reply["args"][2]["value"] == 0:
+    if reply["type"] == "invalid_request" or len(reply["args"])<3 or reply["args"][2]["value"] == 0:
       logging.error("DBClient: %s blob query failed on player %d (got %s)", query["type"], player_number, reply["type"])
       return None
     blob = reply["args"][3]["value"]
