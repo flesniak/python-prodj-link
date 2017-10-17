@@ -8,6 +8,7 @@ from queue import Empty, Queue
 from construct import FieldError, RangeError, MappingError, byte2int
 
 metadata_type = {
+  0x0000: "mount_path",
   0x0001: "folder",
   0x0002: "album",
   0x0003: "disc",
@@ -36,6 +37,7 @@ metadata_type = {
   0x0029: "remixer",
   0x002a: "play_count",
   0x002e: "date_added",
+  0x002f: "unknown1",
   0x0080: "root_genre",
   0x0081: "root_artist",
   0x0082: "root_album",
@@ -131,6 +133,8 @@ class DBClient(Thread):
   def parse_metadata_payload(self, payload):
     entry = {}
 
+    # we may test payload[n]["type"] here to verify the argument types, but it
+    # seems constant on every db query, so let's just assume this fixed mapping
     entry_id1 = payload[0]["value"]
     entry_id2 = payload[1]["value"]
     entry_string1 = payload[3]["value"]
@@ -164,6 +168,11 @@ class DBClient(Thread):
       entry["parent_id"] = entry_id1
     elif entry_label in ["date_added"]:
       entry[entry_label] = entry_string1
+    elif entry_label == "mount_path":
+      entry["mount_path"] = entry_string1
+    elif entry_label == "unknown1":
+      logging.debug("DBClient: parse_metadata unknown1 id1 %d id2 %d", entry_id1, entry_id2)
+      entry["unknown1"] = entry_id2 # entry_id1 seems to be 0 everytime here
     elif entry_label[:5] == "root_":
       entry["name"] = entry_string1
       entry["menu_id"] = entry_id2
@@ -282,7 +291,7 @@ class DBClient(Thread):
     if request_type == "root_menu_request":
       query["args"].append({"type": "int32", "value": 0})
       query["args"].append({"type": "int32", "value": 0xffffff})
-    elif request_type == "metadata_request":
+    elif request_type in ["metadata_request", "track_data_request"]:
       query["args"].append({"type": "int32", "value": id_list[0]})
     elif request_type == "playlist_request":
       query["args"].append({"type": "int32", "value": sort_id})
@@ -537,6 +546,9 @@ class DBClient(Thread):
   def get_beatgrid(self, player_number, slot, track_id, callback=None):
     self._enqueue_request("beatgrid", self.beatgrid_store, (player_number, slot, track_id), callback)
 
+  def get_mount_info(self, player_number, slot, track_id, callback=None):
+    self._enqueue_request("mount_info", None, (player_number, slot, [track_id], None), callback)
+
   def _enqueue_request(self, request, store, params, callback):
     player_number = params[0]
     if player_number == 0 or player_number > 4:
@@ -596,6 +608,8 @@ class DBClient(Thread):
       except (RangeError, FieldError) as e:
         logging.error("DBClient: failed to parse beatgrid data: %s", e)
         reply = None
+    elif request == "mount_info":
+      reply = self.query_list(*params, "track_data_request")
     else:
       logging.error("DBClient: invalid request type %s", request)
       return
