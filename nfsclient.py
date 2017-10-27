@@ -151,7 +151,7 @@ class NfsClient(Thread):
     return self.NfsCall(sock, dest, "read", nfscall)
 
   def NfsDownloadFile(self, sock, dest, mount_handle, path, filename):
-    logging.debug("NfsClient: starting file download ip %s port %d path %s", *dest, path)
+    logging.info("NfsClient: starting file download ip %s port %d path %s", *dest, path)
     args = self.NfsLookupPath(sock, dest, mount_handle, path)
 
     size = args["attrs"]["size"]
@@ -175,7 +175,7 @@ class NfsClient(Thread):
         offset += len(data)
     end = time.time()
     speed = offset/(end-start)/1024/1024
-    logging.debug("NfsClient: Download of %s complete (%s Bytes, %.2f MiB/s)", path, offset, speed)
+    logging.info("NfsClient: Download of %s complete (%s Bytes, %.2f MiB/s)", path, offset, speed)
 
   # can be used as a callback for dbclient's get_mount_info
   def enqueue_download_from_mount_info(self, request, player_number, slot, id_list, sort_mode, mount_info):

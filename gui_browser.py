@@ -111,6 +111,12 @@ class Browser(QWidget):
       buttons_layout.addWidget(btn)
       self.load_buttons += [btn]
 
+    self.download_button = QPushButton("Download", self)
+    self.download_button.setFlat(True)
+    self.download_button.setStyleSheet("QPushButton { border-style: outset; border-radius: 2px; border-width: 1px; border-color: gray; }")
+    self.download_button.clicked.connect(self.downloadTrack)
+    buttons_layout.addWidget(self.download_button)
+
     layout = QVBoxLayout(self)
     layout.addLayout(top_layout)
     layout.addLayout(mid_layout)
@@ -358,6 +364,11 @@ class Browser(QWidget):
     logging.debug("Browser: loading track (pn %d slot %s tid %d) into player %d",
       self.player_number, self.slot, self.track_id, player_number)
     self.prodj.vcdj.command_load_track(player_number, self.player_number, self.slot, self.track_id)
+
+  def downloadTrack(self):
+    if all([self.player_number, self.slot, self.track_id]):
+      self.prodj.dbc.get_mount_info(self.player_number, self.slot, self.track_id,
+        self.prodj.nfs.enqueue_download_from_mount_info)
 
   def updateButtons(self):
     for i in range(1,5):
