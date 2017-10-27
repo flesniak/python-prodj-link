@@ -1,3 +1,4 @@
-- play/cued/looping widget
+- play/cued/looping widget -> partially done, state text is displayed next to browse button
 - clear stores on player media change / player disconnect/timeout
 - garbage collection in stores using ttl and check if track is still loaded anywhere
+- improve time widget, smaller, clickable for remaining time, maybe display total time?

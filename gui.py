@@ -10,6 +10,8 @@ from gui_browser import Browser, printableField
 from waveform_gl import GLWaveformWidget
 
 class PreviewWaveformWidget(QWidget):
+  redraw_signal = pyqtSignal()
+
   def __init__(self, parent):
     super().__init__(parent)
     self.pixmap_width = 400
@@ -19,6 +21,7 @@ class PreviewWaveformWidget(QWidget):
     self.pixmap = None
     self.pixmap_lock = Lock()
     self.position = 0 # relative, between 0 and 1
+    self.redraw_signal.connect(self.update)
 
   def clear(self):
     self.setData(None)
@@ -27,7 +30,7 @@ class PreviewWaveformWidget(QWidget):
     with self.pixmap_lock:
       self.data = data
       self.pixmap = self.drawPreviewWaveformPixmap()
-    self.update()
+    self.redraw_signal.emit()
 
   def sizeHint(self):
     return QSize(self.pixmap_width, self.pixmap_height)
@@ -38,7 +41,7 @@ class PreviewWaveformWidget(QWidget):
   def setPosition(self, relative):
     if relative != self.position:
       self.position = relative
-      self.update()
+      self.redraw_signal.emit()
 
   def paintEvent(self, e):
     painter = QPainter()
