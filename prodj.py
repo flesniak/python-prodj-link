@@ -9,6 +9,7 @@ import packets
 from clientlist import ClientList
 from dbclient import DBClient
 from vcdj import Vcdj
+from nfsclient import NfsClient
 from ip import guess_own_iface
 
 class OwnIpStatus(Enum):
@@ -22,6 +23,7 @@ class ProDj(Thread):
     self.cl = ClientList(self)
     self.dbc = DBClient(self)
     self.vcdj = Vcdj(self)
+    self.nfs = NfsClient(self)
     self.keepalive_ip = "0.0.0.0"
     self.keepalive_port = 50000
     self.beat_ip = "0.0.0.0"
@@ -49,6 +51,7 @@ class ProDj(Thread):
 
   def stop(self):
     self.keep_running = False
+    self.nfs.stop()
     self.dbc.stop()
     if self.vcdj is not None:
       self.vcdj_disable()

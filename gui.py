@@ -132,16 +132,21 @@ class PlayerWidget(QFrame):
     self.browse_button = QPushButton("BROWSE", self)
     self.browse_button.setFlat(True)
     self.browse_button.setStyleSheet("QPushButton { color: white; font: 10px; background-color: black; padding: 1px; border-style: outset; border-radius: 2px; border-width: 1px; border-color: gray; }")
+    self.download_button = QPushButton("DLOAD", self)
+    self.download_button.setFlat(True)
+    self.download_button.setStyleSheet("QPushButton { color: white; font: 10px; background-color: black; padding: 1px; border-style: outset; border-radius: 2px; border-width: 1px; border-color: gray; }")
 
     self.labels["play_state"] = QLabel(self)
     self.labels["play_state"].setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
 
     buttons_layout = QHBoxLayout()
     buttons_layout.addWidget(self.browse_button)
+    buttons_layout.addWidget(self.download_button)
     buttons_layout.addWidget(self.labels["play_state"])
-    buttons_layout.setStretch(1, 1)
+    buttons_layout.setStretch(2, 1)
 
     self.browse_button.clicked.connect(self.openBrowseDialog)
+    self.download_button.clicked.connect(self.downloadTrack)
 
     # time and beat bar
     self.time = QLCDNumber(5, self)
@@ -274,6 +279,14 @@ class PlayerWidget(QFrame):
     if self.browse_dialog is None:
       self.browse_dialog = Browser(self.parent().prodj, self.player_number)
     self.browse_dialog.show()
+
+  def downloadTrack(self):
+    logging.info("Gui: Player %d track download requested", self.player_number)
+    c = self.parent().prodj.cl.getClient(self.player_number)
+    if c is None:
+      logging.error("Gui: Download failed, player %d unknown", self.player_number)
+    self.parent().prodj.dbc.get_mount_info(c.loaded_player_number, c.loaded_slot,
+      c.track_id, self.parent().prodj.nfs.enqueue_download_from_mount_info)
 
   # make browser dialog close when player window disappears
   def hideEvent(self, event):
