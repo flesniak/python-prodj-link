@@ -367,7 +367,8 @@ class DBClient(Thread):
       logging.error("DBClient: Failed to receive %s render reply after %d timeouts, %d parse errors", request_type, receive_timeouts, parse_errors)
       return None
 
-    if request_type == "metadata_request":
+    # basically, parse_metadata returns a single dict whereas parse_list returns a list of dicts
+    if request_type in ["metadata_request", "track_data_request"]:
       parsed = self.parse_metadata(reply)
     else:
       parsed = self.parse_list(reply)
@@ -658,9 +659,9 @@ class DBClient(Thread):
         self._handle_request(*request[:-1])
         self.queue.task_done()
       except TemporaryQueryError as e:
-        logging.error("DBclient: %s request failed: %s", request[0], e)
+        logging.error("DBClient: %s request failed: %s", request[0], e)
         self._retry_request(request)
       except FatalQueryError as e:
-        logging.error("DBclient: %s request failed: %s", request[0], e)
+        logging.error("DBClient: %s request failed: %s", request[0], e)
         self.queue.task_done()
     logging.debug("DBClient shutting down")
