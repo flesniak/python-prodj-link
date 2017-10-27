@@ -53,8 +53,7 @@ class ProDj(Thread):
     self.keep_running = False
     self.nfs.stop()
     self.dbc.stop()
-    if self.vcdj is not None:
-      self.vcdj_disable()
+    self.vcdj_disable()
     self.join()
     self.keepalive_sock.close()
     self.beat_sock.close()
@@ -73,7 +72,7 @@ class ProDj(Thread):
     self.vcdj.join()
 
   def vcdj_set_iface(self):
-    if self.own_ip is not None and self.vcdj is not None:
+    if self.own_ip is not None:
       self.vcdj.set_interface_data(*self.own_ip[1:4])
 
   def run(self):
