@@ -198,6 +198,9 @@ class NfsClient(Thread):
     self.queue.put((ip, path, filename, export))
 
   def handle_download(self, ip, path, filename, export):
+    if os.path.exists(filename):
+      logging.error("NfsClient: file already exists: %s", filename)
+      return
     mount_port = self.PortmapGetPort(ip, "mount", MountVersion, "udp")
     logging.debug("NfsClient mount port of player %s: %d", ip, mount_port)
     nfs_port = self.PortmapGetPort(ip, "nfs", NfsVersion, "udp")
