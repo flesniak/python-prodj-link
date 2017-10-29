@@ -1,5 +1,5 @@
 import logging
-from PyQt5.QtWidgets import QFrame, QGridLayout, QLabel, QLCDNumber, QPushButton, QSizePolicy, QHBoxLayout, QVBoxLayout, QWidget
+from PyQt5.QtWidgets import QFrame, QGridLayout, QLabel, QPushButton, QSizePolicy, QHBoxLayout, QVBoxLayout, QWidget
 from PyQt5.QtGui import QColor, QPainter, QPixmap
 from PyQt5.QtCore import pyqtSignal, Qt, QSize
 import sys
@@ -8,6 +8,11 @@ from threading import Lock
 
 from gui_browser import Browser, printableField
 from waveform_gl import GLWaveformWidget
+
+class ClickableLabel(QLabel):
+  clicked = pyqtSignal()
+  def mousePressEvent(self, event):
+    self.clicked.emit()
 
 class PreviewWaveformWidget(QWidget):
   redraw_signal = pyqtSignal()
@@ -106,6 +111,7 @@ class PlayerWidget(QFrame):
     self.labels = {}
     self.track_id = None # track id of displayed metadata, waveform etc from dbclient queries
     self.browse_dialog = None
+    self.time_mode_remain = False
 
     # metadata and player info
     self.labels["title"] = QLabel(self)
@@ -144,22 +150,39 @@ class PlayerWidget(QFrame):
     buttons_layout.addWidget(self.download_button)
     buttons_layout.addWidget(self.labels["play_state"])
     buttons_layout.setStretch(2, 1)
+    buttons_layout.setSpacing(3)
 
     self.browse_button.clicked.connect(self.openBrowseDialog)
     self.download_button.clicked.connect(self.downloadTrack)
 
     # time and beat bar
-    self.time = QLCDNumber(5, self)
-    self.time.setSegmentStyle(QLCDNumber.Flat)
-    self.time.setMinimumSize(160,10)
+    self.elapsed_label = ClickableLabel("ELAPSED", self)
+    self.elapsed_label.setStyleSheet("QLabel:disabled { color: gray; }")
+    self.remain_label = ClickableLabel("REMAIN", self)
+    self.remain_label.setStyleSheet("QLabel:disabled { color: gray; }")
+    self.remain_label.setEnabled(False)
+    self.time = ClickableLabel(self)
+    self.time.setStyleSheet("QLabel { font: 32px; qproperty-alignment: AlignRight; }")
+    self.time.setMaximumHeight(32)
+    self.total_time_label = QLabel("TOTAL", self)
+    self.total_time = QLabel(self)
+    self.total_time.setStyleSheet("QLabel { font: 32px; qproperty-alignment: AlignRight; }")
+    self.total_time.setMaximumHeight(32)
     self.beat_bar = BeatBarWidget(self)
 
-    time_layout = QVBoxLayout()
-    time_layout.addWidget(self.time)
-    time_layout.addWidget(self.beat_bar)
-    time_layout.addLayout(buttons_layout)
-    time_layout.setStretch(0, 10)
-    time_layout.setStretch(1, 2)
+    time_layout = QGridLayout()
+    time_layout.addWidget(self.elapsed_label, 0, 0)
+    time_layout.addWidget(self.remain_label, 1, 0)
+    time_layout.addWidget(self.time, 0, 1, 2, 1)
+    time_layout.addWidget(self.total_time_label, 2, 0)
+    time_layout.addWidget(self.total_time, 2, 1, 2, 1)
+    time_layout.addWidget(self.beat_bar, 4, 0, 1, 2)
+    time_layout.addLayout(buttons_layout, 5, 0, 1, 2)
+    time_layout.setHorizontalSpacing(0)
+
+    self.elapsed_label.clicked.connect(self.toggleTimeMode)
+    self.remain_label.clicked.connect(self.toggleTimeMode)
+    self.time.clicked.connect(self.toggleTimeMode)
 
     # waveform widgets
     self.waveform = GLWaveformWidget(self)
@@ -217,6 +240,7 @@ class PlayerWidget(QFrame):
     self.setMetadata("Not loaded", "", "")
     self.setArtwork(None)
     self.setTime(None)
+    self.setTotalTime(None)
     self.beat_bar.setBeat(0)
     self.waveform.clear()
     self.preview_waveform.clear()
@@ -266,14 +290,27 @@ class PlayerWidget(QFrame):
       p.loadFromData(data)
       self.labels["artwork"].setPixmap(p)
 
-  def setTime(self, seconds):
+  def setTime(self, seconds, total=None):
     if seconds is not None:
-      self.time.display("{:02d}:{:02d}".format(int(seconds//60), int(seconds)%60))
+      if total is not None and self.time_mode_remain:
+        seconds = total-seconds
+      self.time.setText("{}{:02d}:{:02d}".format("" if self.time_mode_remain==False else "-", int(seconds//60), int(seconds)%60))
     else:
-      self.time.display("--:--")
+      self.time.setText("00:00")
+
+  def setTotalTime(self, seconds):
+    if seconds is not None:
+      self.total_time.setText("{:02d}:{:02d}".format(int(seconds//60), int(seconds)%60))
+    else:
+      self.total_time.setText("00:00")
 
   def setPlayState(self, state):
     self.labels["play_state"].setText(printableField(state))
+
+  def toggleTimeMode(self):
+    self.time_mode_remain = not self.time_mode_remain
+    self.elapsed_label.setEnabled(not self.time_mode_remain)
+    self.remain_label.setEnabled(self.time_mode_remain)
 
   def openBrowseDialog(self):
     if self.browse_dialog is None:
@@ -359,10 +396,15 @@ class Gui(QWidget):
     self.players[player_number].setSync("sync" in c.state)
     self.players[player_number].beat_bar.setBeat(c.beat)
     self.players[player_number].waveform.setPosition(c.position, c.actual_pitch, c.play_state)
-    self.players[player_number].setTime(c.position)
     self.players[player_number].setPlayState(c.play_state)
-    if c.metadata is not None and "duration" in c.metadata and c.position is not None:
-      self.players[player_number].preview_waveform.setPosition(c.position/c.metadata["duration"])
+    if c.metadata is not None and "duration" in c.metadata:
+      self.players[player_number].setTime(c.position, c.metadata["duration"])
+      self.players[player_number].setTotalTime(c.metadata["duration"])
+      if c.position is not None:
+        self.players[player_number].preview_waveform.setPosition(c.position/c.metadata["duration"])
+    else:
+      self.players[player_number].setTime(c.position, None)
+      self.players[player_number].setTotalTime(None)
     if len(c.fw) > 0:
       self.players[player_number].setPlayerInfo(c.model, c.ip_addr, c.fw)
 
