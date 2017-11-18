@@ -6,6 +6,7 @@ from select import select
 from threading import Thread
 from queue import Empty, Queue
 from construct import FieldError, RangeError, MappingError, byte2int
+from datastore import DataStore
 
 metadata_type = {
   0x0000: "mount_path",
@@ -122,11 +123,11 @@ class DBClient(Thread):
     # alternatively, we can use a player number from 1 to 4 without rendering issues, but then only max. 3 real players can be used
     self.own_player_number = 0
 
-    self.metadata_store = {} # map of player_number,slot,track_id: metadata
-    self.artwork_store = {} # map of player_number,slot,artwork_id: artwork_data
-    self.waveform_store = {} # map of player_number,slot,artwork_id: waveform_data
-    self.preview_waveform_store = {} # map of player_number,slot,artwork_id: preview_waveform_data
-    self.beatgrid_store = {} # map of player_number,slot,artwork_id: beatgrid_data
+    self.metadata_store = DataStore() # map of player_number,slot,track_id: metadata
+    self.artwork_store = DataStore() # map of player_number,slot,artwork_id: artwork_data
+    self.waveform_store = DataStore() # map of player_number,slot,artwork_id: waveform_data
+    self.preview_waveform_store = DataStore() # map of player_number,slot,artwork_id: preview_waveform_data
+    self.beatgrid_store = DataStore() # map of player_number,slot,artwork_id: beatgrid_data
 
     self.request_retry_count = 3
     self.parse_error_count = 40
@@ -138,6 +139,11 @@ class DBClient(Thread):
 
   def stop(self):
     self.keep_running = False
+    self.metadata_store.stop()
+    self.artwork_store.stop()
+    self.waveform_store.stop()
+    self.preview_waveform_store.stop()
+    self.beatgrid_store.stop()
     self.join()
 
   def parse_metadata_payload(self, payload):
