@@ -365,6 +365,12 @@ class Gui(QWidget):
     else:
       raise Exception("Unknown Gui layout mode {}".format(str(layout_mode)))
 
+  def connect_waveform_zoom(self, player_number):
+    for pn, p in self.players.items():
+      if pn != player_number:
+        self.players[player_number].waveform.waveform_zoom_changed_signal.connect(p.waveform.setZoom, type = Qt.UniqueConnection | Qt.AutoConnection)
+        p.waveform.waveform_zoom_changed_signal.connect(self.players[player_number].waveform.setZoom, type = Qt.UniqueConnection | Qt.AutoConnection)
+
   def create_player(self, player_number):
     if player_number in self.players:
       return
@@ -376,6 +382,7 @@ class Gui(QWidget):
     else:
       logging.info("Gui: Creating player {}".format(player_number))
       self.players[player_number] = PlayerWidget(player_number, self)
+    self.connect_waveform_zoom(player_number)
     self.players[player_number].show()
     self.layout.addWidget(self.players[player_number], *self.get_layout_coordinates(player_number))
 

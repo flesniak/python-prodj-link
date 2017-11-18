@@ -12,6 +12,8 @@ import OpenGL.GL as gl
 from packets import Beatgrid, PlayStatePlaying, PlayStateStopped
 
 class GLWaveformWidget(QOpenGLWidget):
+  waveform_zoom_changed_signal = pyqtSignal(int)
+
   def __init__(self, parent=None):
     super().__init__(parent)
 
@@ -34,6 +36,8 @@ class GLWaveformWidget(QOpenGLWidget):
     self.waveform_lines_per_x = 150
     self.baseline_height = 0.2
     self.position_marker_width = 0.3
+
+    self.waveform_zoom_changed_signal.connect(self.setZoom)
 
     self.update_interval = 0.04
     self.startTimer(self.update_interval*1000)
@@ -89,6 +93,12 @@ class GLWaveformWidget(QOpenGLWidget):
       self.offset = 0
       self.pitch = 0
 
+  def wheelEvent(self, event):
+    if event.angleDelta().y() > 0 and self.zoom_seconds > 2:
+      self.waveform_zoom_changed_signal.emit(self.zoom_seconds-1)
+    elif event.angleDelta().y() < 0 and self.zoom_seconds < 15:
+      self.waveform_zoom_changed_signal.emit(self.zoom_seconds+1)
+
   # how many seconds to show left and right of the position marker
   def setZoom(self, seconds):
     if seconds != self.zoom_seconds:
@@ -139,12 +149,6 @@ class GLWaveformWidget(QOpenGLWidget):
 
   def resizeGL(self, width, height):
     gl.glViewport(0, 0, width, height)
-
-  def wheelEvent(self, event):
-    if event.angleDelta().y() > 0 and self.zoom_seconds > 2:
-      self.setZoom(self.zoom_seconds-1)
-    elif event.angleDelta().y() < 0 and self.zoom_seconds < 15:
-      self.setZoom(self.zoom_seconds+1)
 
   def renderCrosshair(self):
     gl.glNewList(self.lists, gl.GL_COMPILE)
