@@ -105,6 +105,8 @@ class BeatBarWidget(QWidget):
     painter.end()
 
 class PlayerWidget(QFrame):
+  time_mode_remain_changed_signal = pyqtSignal(bool)
+
   def __init__(self, player_number, parent):
     super().__init__(parent)
     self.setFrameStyle(QFrame.Box | QFrame.Plain)
@@ -182,6 +184,7 @@ class PlayerWidget(QFrame):
     self.elapsed_label.clicked.connect(self.toggleTimeMode)
     self.remain_label.clicked.connect(self.toggleTimeMode)
     self.time.clicked.connect(self.toggleTimeMode)
+    self.time_mode_remain_changed_signal.connect(self.setTimeMode)
 
     # waveform widgets
     self.waveform = GLWaveformWidget(self)
@@ -308,7 +311,10 @@ class PlayerWidget(QFrame):
     self.labels["play_state"].setText(printableField(state))
 
   def toggleTimeMode(self):
-    self.time_mode_remain = not self.time_mode_remain
+    self.time_mode_remain_changed_signal.emit(not self.time_mode_remain)
+
+  def setTimeMode(self, time_mode_remain):
+    self.time_mode_remain = time_mode_remain
     self.elapsed_label.setEnabled(not self.time_mode_remain)
     self.remain_label.setEnabled(self.time_mode_remain)
 
@@ -365,11 +371,13 @@ class Gui(QWidget):
     else:
       raise Exception("Unknown Gui layout mode {}".format(str(layout_mode)))
 
-  def connect_waveform_zoom(self, player_number):
+  def connect_linked_player_controls(self, player_number):
     for pn, p in self.players.items():
       if pn != player_number:
         self.players[player_number].waveform.waveform_zoom_changed_signal.connect(p.waveform.setZoom, type = Qt.UniqueConnection | Qt.AutoConnection)
         p.waveform.waveform_zoom_changed_signal.connect(self.players[player_number].waveform.setZoom, type = Qt.UniqueConnection | Qt.AutoConnection)
+        self.players[player_number].time_mode_remain_changed_signal.connect(p.setTimeMode, type = Qt.UniqueConnection | Qt.AutoConnection)
+        p.time_mode_remain_changed_signal.connect(self.players[player_number].setTimeMode, type = Qt.UniqueConnection | Qt.AutoConnection)
 
   def create_player(self, player_number):
     if player_number in self.players:
@@ -382,7 +390,7 @@ class Gui(QWidget):
     else:
       logging.info("Gui: Creating player {}".format(player_number))
       self.players[player_number] = PlayerWidget(player_number, self)
-    self.connect_waveform_zoom(player_number)
+    self.connect_linked_player_controls(player_number)
     self.players[player_number].show()
     self.layout.addWidget(self.players[player_number], *self.get_layout_coordinates(player_number))
 
