@@ -463,8 +463,6 @@ class Gui(QWidget):
           logging.warning("Gui: empty metadata received")
           continue
         self.players[player_number].setMetadata(reply["title"], reply["artist"], reply["album"])
-        with open("tracks.log", "a") as f:
-          f.write("{} - {} ({})\n".format(reply["artist"], reply["title"], reply["album"]))
         if "artwork_id" in reply and reply["artwork_id"] != 0:
           self.prodj.dbc.get_artwork(source_player_number, slot, reply["artwork_id"], self.dbclient_callback)
         else:

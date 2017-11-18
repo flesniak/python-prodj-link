@@ -1,5 +1,6 @@
 import time
 import logging
+from datetime import datetime
 
 class ClientList:
   def __init__(self, prodj):
@@ -7,7 +8,9 @@ class ClientList:
     self.client_keepalive_callback = None
     self.client_change_callback = None
     self.media_change_callback = None
+    self.log_played_tracks = True
     self.auto_request_beatgrid = True # to enable position detection
+    self.auto_track_download = False
     self.prodj = prodj
 
   def __len__():
@@ -56,6 +59,12 @@ class ClientList:
     else:
       c.position = None
     c.position_timestamp = time.time()
+
+  def logPlayedTrackCallback(self, request, source_player_number, slot, item_id, reply):
+    if request != "metadata" or reply is None or len(reply) == 0:
+      return
+    with open("tracks.log", "a") as f:
+      f.write("{}: {} - {} ({})\n".format(datetime.now().strftime("%Y-%m-%d %H:%M:%S"), reply["artist"], reply["title"], reply["album"]))
 
   # adds client if it is not known yet, in any case it resets the ttl
   def eatKeepalive(self, keepalive_packet):
@@ -207,8 +216,14 @@ class ClientList:
         client_changed = True
         c.metadata = None
         c.position = None
+        if self.log_played_tracks:
+          self.prodj.dbc.get_metadata(c.loaded_player_number, c.loaded_slot, c.track_id, self.logPlayedTrackCallback)
         if self.auto_request_beatgrid and c.track_id != 0:
           self.prodj.dbc.get_beatgrid(c.loaded_player_number, c.loaded_slot, c.track_id)
+        if self.auto_track_download:
+          logging.info("Automatic download of track in player %d", c.player_number)
+          self.prodj.dbc.get_mount_info(c.loaded_player_number, c.loaded_slot,
+            c.track_id, self.prodj.nfs.enqueue_download_from_mount_info)
 
     c.updateTtl()
     if self.client_change_callback and client_changed:
