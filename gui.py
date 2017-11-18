@@ -109,7 +109,6 @@ class PlayerWidget(QFrame):
     super().__init__(parent)
     self.setFrameStyle(QFrame.Box | QFrame.Plain)
     self.labels = {}
-    self.track_id = None # track id of displayed metadata, waveform etc from dbclient queries
     self.browse_dialog = None
     self.time_mode_remain = False
 
@@ -251,6 +250,7 @@ class PlayerWidget(QFrame):
     self.setSpeed("")
     self.setMaster(False)
     self.setSync(False)
+    self.track_id = 0 # track id of displayed metadata, waveform etc from dbclient queries
 
   def setPlayerNumber(self, player_number):
     self.player_number = player_number
@@ -356,6 +356,8 @@ class Gui(QWidget):
     self.show()
 
   def get_layout_coordinates(self, player_number):
+    if player_number == 0:
+      return 0, 0
     if self.layout_mode == "xy":
       return (player_number-1)//2, (player_number-1)%2
     elif self.layout_mode == "yx":
@@ -375,10 +377,7 @@ class Gui(QWidget):
       logging.info("Gui: Creating player {}".format(player_number))
       self.players[player_number] = PlayerWidget(player_number, self)
     self.players[player_number].show()
-    if player_number == 0:
-      self.layout.addWidget(self.players[0], 0, 0)
-    else:
-      self.layout.addWidget(self.players[player_number], *self.get_layout_coordinates(player_number))
+    self.layout.addWidget(self.players[player_number], *self.get_layout_coordinates(player_number))
 
   def remove_player(self, player_number):
     if not player_number in self.players:
@@ -386,14 +385,14 @@ class Gui(QWidget):
     self.layout.removeWidget(self.players[player_number])
     if len(self.players) == 1:
       logging.info("All players gone, resetting last player to 0")
-      self.players[0] = self.players[player_number]
+      self.players = {0: self.players[player_number]}
       self.players[0].setPlayerNumber(0)
       self.players[0].reset()
-      self.layout.addWidget(self.players[0], 0, 0)
+      self.layout.addWidget(self.players[0], *self.get_layout_coordinates(0))
     else:
       self.players[player_number].hide()
       self.players[player_number].deleteLater()
-    del self.players[player_number]
+      del self.players[player_number]
     logging.info("Gui: Removed player {}".format(player_number))
 
   # has to be called using a signal, otherwise windows are created standalone

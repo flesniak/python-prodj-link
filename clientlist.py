@@ -255,7 +255,7 @@ class Client:
     self.loaded_slot = "empty"
     self.state = []
     self.track_number = None
-    self.track_id = None
+    self.track_id = 0
     self.position = None # position in track in seconds, 0 if not determinable
     self.position_timestamp = None
     # internal use
