@@ -6,7 +6,6 @@ class ClientList:
     self.clients = []
     self.client_keepalive_callback = None
     self.client_change_callback = None
-    self.master_change_callback = None
     self.media_change_callback = None
     self.auto_request_beatgrid = True # to enable position detection
     self.prodj = prodj
@@ -214,8 +213,6 @@ class ClientList:
     c.updateTtl()
     if self.client_change_callback and client_changed:
       self.client_change_callback(self, c.player_number)
-    if self.master_change_callback and "master" in c.state and client_changed:
-      self.master_change_callback(self, c.player_number)
 
   # checks ttl and clears expired clients
   def gc(self):
