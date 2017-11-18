@@ -296,7 +296,7 @@ class PlayerWidget(QFrame):
   def setTime(self, seconds, total=None):
     if seconds is not None:
       if total is not None and self.time_mode_remain:
-        seconds = total-seconds
+        seconds = total-seconds if total > seconds else 0
       self.time.setText("{}{:02d}:{:02d}".format("" if self.time_mode_remain==False else "-", int(seconds//60), int(seconds)%60))
     else:
       self.time.setText("00:00")
