@@ -158,16 +158,16 @@ class PlayerWidget(QFrame):
 
     # time and beat bar
     self.elapsed_label = ClickableLabel("ELAPSED", self)
-    self.elapsed_label.setStyleSheet("QLabel:disabled { color: gray; }")
+    self.elapsed_label.setStyleSheet("QLabel { color: white; } QLabel:disabled { color: gray; }")
     self.remain_label = ClickableLabel("REMAIN", self)
-    self.remain_label.setStyleSheet("QLabel:disabled { color: gray; }")
+    self.remain_label.setStyleSheet("QLabel { color: white; } QLabel:disabled { color: gray; }")
     self.remain_label.setEnabled(False)
     self.time = ClickableLabel(self)
-    self.time.setStyleSheet("QLabel { font: 32px; qproperty-alignment: AlignRight; }")
+    self.time.setStyleSheet("QLabel { color: white; font: 32px; qproperty-alignment: AlignRight; }")
     self.time.setMaximumHeight(32)
     self.total_time_label = QLabel("TOTAL", self)
     self.total_time = QLabel(self)
-    self.total_time.setStyleSheet("QLabel { font: 32px; qproperty-alignment: AlignRight; }")
+    self.total_time.setStyleSheet("QLabel { color: white; font: 32px; qproperty-alignment: AlignRight; }")
     self.total_time.setMaximumHeight(32)
     self.beat_bar = BeatBarWidget(self)
 
