@@ -69,16 +69,16 @@ class ClientList:
       self.clients += [c]
       logging.info("New Player %d: %s, %s, %s", c.player_number, c.model, c.ip_addr, c.mac_addr)
       if self.client_keepalive_callback:
-        self.client_keepalive_callback(self, c.player_number)
+        self.client_keepalive_callback(c.player_number)
     else:
       n = keepalive_packet["player_number"]
       if c.player_number != n:
         logging.info("Player {} changed player number from {} to {}".format(c.ip_addr, c.player_number, n))
         c.player_number = n
         if self.client_keepalive_callback:
-          self.client_keepalive_callback(self, c.player_number)
+          self.client_keepalive_callback(c.player_number)
         if self.client_change_callback:
-          self.client_change_callback(self, c.player_number)
+          self.client_change_callback(c.player_number)
     c.updateTtl()
 
   # updates pitch/bpm/beat information for player if we do not receive status packets (e.g. no vcdj enabled)
@@ -102,7 +102,7 @@ class ClientList:
         c.beat = new_beat
         client_changed = True
       if self.client_change_callback and client_changed:
-        self.client_change_callback(self, c.player_number)
+        self.client_change_callback(c.player_number)
 
   # update all known player information
   def eatStatus(self, status_packet):
@@ -212,7 +212,7 @@ class ClientList:
 
     c.updateTtl()
     if self.client_change_callback and client_changed:
-      self.client_change_callback(self, c.player_number)
+      self.client_change_callback(c.player_number)
 
   # checks ttl and clears expired clients
   def gc(self):
@@ -224,7 +224,7 @@ class ClientList:
       else:
         logging.info("Player {} dropped due to timeout".format(client.player_number))
         if self.client_change_callback:
-          self.client_change_callback(self, client.player_number)
+          self.client_change_callback(client.player_number)
 
   # returns a list of ips of all clients (used to guess own ip)
   def getClientIps(self):

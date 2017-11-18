@@ -322,6 +322,7 @@ class PlayerWidget(QFrame):
     c = self.parent().prodj.cl.getClient(self.player_number)
     if c is None:
       logging.error("Gui: Download failed, player %d unknown", self.player_number)
+      return
     self.parent().prodj.dbc.get_mount_info(c.loaded_player_number, c.loaded_slot,
       c.track_id, self.parent().prodj.nfs.enqueue_download_from_mount_info)
 
@@ -333,6 +334,7 @@ class PlayerWidget(QFrame):
 
 class Gui(QWidget):
   keepalive_signal = pyqtSignal(int)
+  client_change_signal = pyqtSignal(int)
 
   def __init__(self, prodj):
     super().__init__()
@@ -342,12 +344,24 @@ class Gui(QWidget):
     self.setAutoFillBackground(True)
 
     self.keepalive_signal.connect(self.keepalive_slot)
+    self.client_change_signal.connect(self.client_change_slot)
 
     self.players = {}
     self.layout = QGridLayout(self)
+    # "xy" = player 1 + 2 in the first row
+    # "yx" = player 1 + 2 in the first column
+    self.layout_mode = "xy"
     self.create_player(0)
 
     self.show()
+
+  def get_layout_coordinates(self, player_number):
+    if self.layout_mode == "xy":
+      return (player_number-1)//2, (player_number-1)%2
+    elif self.layout_mode == "yx":
+      return (player_number-1)%2, (player_number-1)//2
+    else:
+      raise Exception("Unknown Gui layout mode {}".format(str(layout_mode)))
 
   def create_player(self, player_number):
     if player_number in self.players:
@@ -364,18 +378,28 @@ class Gui(QWidget):
     if player_number == 0:
       self.layout.addWidget(self.players[0], 0, 0)
     else:
-      self.layout.addWidget(self.players[player_number], (player_number-1)//2, (player_number-1)%2)
+      self.layout.addWidget(self.players[player_number], *self.get_layout_coordinates(player_number))
 
   def remove_player(self, player_number):
     if not player_number in self.players:
       return
     self.layout.removeWidget(self.players[player_number])
-    self.players[player_number].hide()
-    self.players[player_number].deleteLater()
+    if len(self.players) == 1:
+      logging.info("All players gone, resetting last player to 0")
+      self.players[0] = self.players[player_number]
+      self.players[0].setPlayerNumber(0)
+      self.players[0].reset()
+      self.layout.addWidget(self.players[0], 0, 0)
+    else:
+      self.players[player_number].hide()
+      self.players[player_number].deleteLater()
     del self.players[player_number]
     logging.info("Gui: Removed player {}".format(player_number))
 
   # has to be called using a signal, otherwise windows are created standalone
+  def keepalive_callback(self, player_number):
+    self.keepalive_signal.emit(player_number)
+
   def keepalive_slot(self, player_number):
     if player_number not in range(1,5):
       return
@@ -384,10 +408,13 @@ class Gui(QWidget):
     c = self.prodj.cl.getClient(player_number)
     self.players[player_number].setPlayerInfo(c.model, c.ip_addr)
 
-  def change_callback(self, clientlist, player_number):
+  def client_change_callback(self, player_number):
+    self.client_change_signal.emit(player_number)
+
+  def client_change_slot(self, player_number):
     if not player_number in self.players:
       return
-    c = clientlist.getClient(player_number)
+    c = self.prodj.cl.getClient(player_number)
     if c is None:
       self.remove_player(player_number)
       return
