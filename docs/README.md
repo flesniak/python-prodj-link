@@ -1,6 +1,6 @@
 # Python ProDJ Link
 
-![single player screenshot](docs/screenshot-single.png)
+![single player screenshot](screenshot-single.png)
 
 This is a set of python scripts to participate in a Pioneer ProDJ Link system.
 It is particularly useful to monitor whats happening on the players, but can also help by syncing other devices using midi clock.
@@ -39,7 +39,7 @@ Additionally, you can download tracks from remote players, either directly when 
 
     ./monitor-qt.py
 
-![two players screenshot with browser](docs/screenshot-full.png)
+![two players screenshot with browser](screenshot-full.png)
 
 ### Midi Clock
 
