@@ -212,7 +212,9 @@ class NfsClient(Thread):
     mount_sock.close()
 
     # create download directory is nonexistant
-    os.makedirs(os.path.dirname(filename), exist_ok=True)
+    dirname = os.path.dirname(filename)
+    if dirname:
+      os.makedirs(dirname, exist_ok=True)
 
     nfs_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     nfs_sock.bind(("0.0.0.0", 0))
