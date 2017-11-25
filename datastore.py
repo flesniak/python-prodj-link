@@ -50,3 +50,6 @@ class DataStore(Thread, dict):
     for delete_item in oldest_items[0:len(self)-self.size_limit]:
       logging.debug("DataStore: delete %s due to age", str(delete_item[0]))
       del self[delete_item[0]]
+
+  def removeByPlayerSlot(player_number, slot):
+    pass

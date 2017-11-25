@@ -41,6 +41,12 @@ class ClientList:
           p.track_id == track_id):
         p.metadata = metadata
 
+  def mediaChanged(self, player_number, slot):
+    logging.debug("Media %s in player %d changed", slot, player_number)
+    self.prodj.dbc.cleanup_stores_from_changed_media(player_number, slot):
+    if self.media_change_callback is not None:
+      self.media_change_callback(self, c.player_number, status_packet["slot"])
+
   def updatePositionByBeat(self, player_number, new_beat_count, new_play_state):
     c = self.getClient(player_number)
     #logging.debug("Track position p %d abs %f actual_pitch %.6f play_state %s beat %d", player_number, c.position if c.position is not None else -1, c.actual_pitch, new_play_state, new_beat_count)
@@ -135,8 +141,7 @@ class ClientList:
       logging.info("Player %d Link Info: %s \"%s\", %d tracks, %d playlists, %d/%dMB free",
         c.player_number, status_packet["slot"], link_info["name"], link_info["track_count"], link_info["playlist_count"],
         link_info["bytes_free"]//1024//1024, link_info["bytes_total"]//1024//1024)
-      if self.media_change_callback is not None:
-        self.media_change_callback(self, c.player_number, status_packet["slot"])
+      self.mediaChanged(c.player_number, status_packet["slot"])
       return
     c.type = status_packet["type"] # cdj or djm
 
@@ -195,8 +200,7 @@ class ClientList:
           c.usb_info = {}
         else:
           self.prodj.vcdj.query_link_info(c.player_number, "usb")
-        if self.media_change_callback is not None:
-          self.media_change_callback(self, c.player_number, "usb")
+        self.mediaChanged(c.player_number, "usb")
       new_sd_state = status_packet["sd_state"]
       if c.sd_state != new_sd_state:
         c.sd_state = new_sd_state
@@ -204,8 +208,7 @@ class ClientList:
           c.sd_info = {}
         else:
           self.prodj.vcdj.query_link_info(c.player_number, "sd")
-        if self.media_change_callback is not None:
-          self.media_change_callback(self, c.player_number, "sd")
+        self.mediaChanged(c.player_number, "sd")
       c.track_number = status_packet["track_number"]
       c.loaded_player_number = status_packet["loaded_player_number"]
       c.loaded_slot = status_packet["loaded_slot"]

@@ -125,9 +125,9 @@ class DBClient(Thread):
 
     self.metadata_store = DataStore() # map of player_number,slot,track_id: metadata
     self.artwork_store = DataStore() # map of player_number,slot,artwork_id: artwork_data
-    self.waveform_store = DataStore() # map of player_number,slot,artwork_id: waveform_data
-    self.preview_waveform_store = DataStore() # map of player_number,slot,artwork_id: preview_waveform_data
-    self.beatgrid_store = DataStore() # map of player_number,slot,artwork_id: beatgrid_data
+    self.waveform_store = DataStore() # map of player_number,slot,track_id: waveform_data
+    self.preview_waveform_store = DataStore() # map of player_number,slot,track_id: preview_waveform_data
+    self.beatgrid_store = DataStore() # map of player_number,slot,track_id: beatgrid_data
 
     self.request_retry_count = 3
     self.parse_error_count = 40
@@ -145,6 +145,13 @@ class DBClient(Thread):
     self.preview_waveform_store.stop()
     self.beatgrid_store.stop()
     self.join()
+
+  def cleanup_stores_from_changed_media(self, player_number, slot):
+    self.metadata_store.removeByPlayerSlot(player_number, slot)
+    self.artwork_store.removeByPlayerSlot(player_number, slot)
+    self.waveform_store.removeByPlayerSlot(player_number, slot)
+    self.preview_waveform_store.removeByPlayerSlot(player_number, slot)
+    self.beatgrid_store.removeByPlayerSlot(player_number, slot)
 
   def parse_metadata_payload(self, payload):
     entry = {}
