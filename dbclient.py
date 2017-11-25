@@ -118,7 +118,7 @@ class DBClient(Thread):
     self.socks = {} # dict of player_number: (sock, ttl, transaction_id)
     self.queue = Queue()
 
-    # db queries seem to work if we submit player number 0 everywhere
+    # db queries seem to work if we submit player number 0 everywhere (NOTE: this seems to work only if less than 4 players are on the network)
     # however, this messes up rendering on the players sometimes (i.e. when querying metadata and player has browser opened)
     # alternatively, we can use a player number from 1 to 4 without rendering issues, but then only max. 3 real players can be used
     self.own_player_number = 0
