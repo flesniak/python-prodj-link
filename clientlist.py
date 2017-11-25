@@ -43,9 +43,9 @@ class ClientList:
 
   def mediaChanged(self, player_number, slot):
     logging.debug("Media %s in player %d changed", slot, player_number)
-    self.prodj.dbc.cleanup_stores_from_changed_media(player_number, slot):
+    self.prodj.dbc.cleanup_stores_from_changed_media(player_number, slot)
     if self.media_change_callback is not None:
-      self.media_change_callback(self, c.player_number, status_packet["slot"])
+      self.media_change_callback(self, player_number, slot)
 
   def updatePositionByBeat(self, player_number, new_beat_count, new_play_state):
     c = self.getClient(player_number)

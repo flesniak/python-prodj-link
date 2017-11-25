@@ -51,5 +51,8 @@ class DataStore(Thread, dict):
       logging.debug("DataStore: delete %s due to age", str(delete_item[0]))
       del self[delete_item[0]]
 
-  def removeByPlayerSlot(player_number, slot):
-    pass
+  def removeByPlayerSlot(self, player_number, slot):
+    for keys in self.keys():
+      if keys[0] == player_number and keys[1] == slot:
+        logging.debug("DataStore: delete %s due to media change on player %d slot %s", str(keys), player_number, slot)
+        del self[keys]
