@@ -52,7 +52,7 @@ class DataStore(Thread, dict):
       del self[delete_item[0]]
 
   def removeByPlayerSlot(self, player_number, slot):
-    for keys in self.keys():
+    for keys in list(keys):
       if keys[0] == player_number and keys[1] == slot:
         logging.debug("DataStore: delete %s due to media change on player %d slot %s", str(keys), player_number, slot)
         del self[keys]
