@@ -26,6 +26,11 @@ class NfsClient(Thread):
     self.portmap_sock = None
     self.xid = 1
 
+    self.export_by_slot = {
+      "sd": "/B/",
+      "usb": "/C/"
+    }
+
   def start(self):
     if self.is_alive():
       return
@@ -186,12 +191,16 @@ class NfsClient(Thread):
     if c is None:
       logging.error("NfsClient: player {} unknown")
       return
-    self.enqueue_download(c.ip_addr, mount_info["mount_path"])
+    self.enqueue_download(c.ip_addr, slot, mount_info["mount_path"])
 
   # download path from player with ip after trying to mount "export"
   # save to file if file is not None, otherwise to default download directory
-  def enqueue_download(self, ip, path, filename=None, export="/C/"):
+  def enqueue_download(self, ip, slot, path, filename=None):
     self.start()
+    if slot not in self.export_by_slot:
+      logging.error("NfsClient: Unable to download from \"%s\"", slot)
+      return
+    export = self.export_by_slot[slot]
     logging.debug("NfsClient: enqueueing download of \"%s\" from %s", path, ip)
     if filename is None:
       filename = self.default_download_directory + path.split("/")[-1]
