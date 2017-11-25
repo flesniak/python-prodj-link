@@ -219,14 +219,15 @@ class ClientList:
         client_changed = True
         c.metadata = None
         c.position = None
-        if self.log_played_tracks:
-          self.prodj.dbc.get_metadata(c.loaded_player_number, c.loaded_slot, c.track_id, self.logPlayedTrackCallback)
-        if self.auto_request_beatgrid and c.track_id != 0:
-          self.prodj.dbc.get_beatgrid(c.loaded_player_number, c.loaded_slot, c.track_id)
-        if self.auto_track_download:
-          logging.info("Automatic download of track in player %d", c.player_number)
-          self.prodj.dbc.get_mount_info(c.loaded_player_number, c.loaded_slot,
-            c.track_id, self.prodj.nfs.enqueue_download_from_mount_info)
+        if c.loaded_slot in ["usb", "sd"]:
+          if self.log_played_tracks:
+            self.prodj.dbc.get_metadata(c.loaded_player_number, c.loaded_slot, c.track_id, self.logPlayedTrackCallback)
+          if self.auto_request_beatgrid and c.track_id != 0:
+            self.prodj.dbc.get_beatgrid(c.loaded_player_number, c.loaded_slot, c.track_id)
+          if self.auto_track_download:
+            logging.info("Automatic download of track in player %d", c.player_number)
+            self.prodj.dbc.get_mount_info(c.loaded_player_number, c.loaded_slot,
+              c.track_id, self.prodj.nfs.enqueue_download_from_mount_info)
 
     c.updateTtl()
     if self.client_change_callback and client_changed:
