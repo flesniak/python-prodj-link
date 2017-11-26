@@ -4,6 +4,13 @@ from threading import Thread
 from queue import Empty, Queue
 from datastore import DataStore
 from dbclient import DBClient
+from pdbprovider import PDBProvider
+
+class TemporaryQueryError(Exception):
+  pass
+
+class FatalQueryError(Exception):
+  pass
 
 class DataProvider(Thread):
   def __init__(self, prodj):
@@ -21,6 +28,7 @@ class DataProvider(Thread):
     # however, this messes up rendering on the players sometimes (i.e. when querying metadata and player has browser opened)
     # alternatively, we can use a player number from 1 to 4 without rendering issues, but then only max. 3 real players can be used
     self.own_player_number = 0
+    self.request_retry_count = 3
 
     self.metadata_store = DataStore() # map of player_number,slot,track_id: metadata
     self.artwork_store = DataStore() # map of player_number,slot,artwork_id: artwork_data
@@ -133,11 +141,11 @@ class DataProvider(Thread):
     reply = None
     if store is not None:
       logging.debug("DataStore: trying %s from store", request)
-      reply = _handle_request_from_store(store, *params)
-    if reply is None:
-      reply = _handle_request_from_pdb(request, store, *params)
-    if reply is None:
-      reply = _handle_request_from_dbclient(request, store, *params)
+      reply = self._handle_request_from_store(store, params)
+    if self.pdb_enabled and reply is None:
+      reply = self._handle_request_from_pdb(request, params)
+    if self.dbc_enabled and reply is None:
+      reply = self._handle_request_from_dbclient(request, params)
 
     # special call for metadata since it is expected to be part of the client status
     if request == "metadata":
@@ -160,6 +168,9 @@ class DataProvider(Thread):
     else:
       logging.info("DataProvider: %s request failed %d times, giving up", request[0], self.request_retry_count)
 
+  def gc(self):
+    self.dbc.gc()
+
   def run(self):
     logging.debug("DataProvider starting")
     while self.keep_running:
@@ -167,16 +178,6 @@ class DataProvider(Thread):
         request = self.queue.get(timeout=1)
       except Empty:
         self.gc()
-        continue
-      client = self.prodj,cl.getClient(request[2][0])
-      if not client:
-        logging.warning("DataProvider: player %s not found in clientlist", request[2])
-        self._retry_request(request)
-        continue
-      if (request[0] in ["metadata_request", "artwork_request", "preview_waveform_request", "beatgrid_request", "waveform_request"]
-          and client.play_state in ["no_track", "loading_track", "cannot_play_track", "emergency"]):
-        logging.debug("DataProvider: delaying %s request due to play state: %s", request[0], client.play_state)
-        self._retry_request(request)
         continue
       try:
         self._handle_request(*request[:-1])

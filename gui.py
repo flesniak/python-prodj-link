@@ -253,7 +253,7 @@ class PlayerWidget(QFrame):
     self.setSpeed("")
     self.setMaster(False)
     self.setSync(False)
-    self.track_id = 0 # track id of displayed metadata, waveform etc from dbclient queries
+    self.track_id = 0
 
   def setPlayerNumber(self, player_number):
     self.player_number = player_number
@@ -329,7 +329,7 @@ class PlayerWidget(QFrame):
     if c is None:
       logging.error("Gui: Download failed, player %d unknown", self.player_number)
       return
-    self.parent().prodj.dbc.get_mount_info(c.loaded_player_number, c.loaded_slot,
+    self.parent().prodj.data.get_mount_info(c.loaded_player_number, c.loaded_slot,
       c.track_id, self.parent().prodj.nfs.enqueue_download_from_mount_info)
 
   # make browser dialog close when player window disappears
@@ -454,11 +454,11 @@ class Gui(QWidget):
       self.players[player_number].track_id = c.track_id # remember requested track id
       if c.track_id != 0 and c.loaded_slot in ["sd", "usb"]:
         logging.info("Gui: track id of player %d changed to %d, requesting metadata", player_number, c.track_id)
-        self.prodj.dbc.get_metadata(c.loaded_player_number, c.loaded_slot, c.track_id, self.dbclient_callback)
+        self.prodj.data.get_metadata(c.loaded_player_number, c.loaded_slot, c.track_id, self.dbclient_callback)
         # we do not get artwork yet because we need metadata to know the artwork_id
-        self.prodj.dbc.get_preview_waveform(c.loaded_player_number, c.loaded_slot, c.track_id, self.dbclient_callback)
-        self.prodj.dbc.get_beatgrid(c.loaded_player_number, c.loaded_slot, c.track_id, self.dbclient_callback)
-        self.prodj.dbc.get_waveform(c.loaded_player_number, c.loaded_slot, c.track_id, self.dbclient_callback)
+        self.prodj.data.get_preview_waveform(c.loaded_player_number, c.loaded_slot, c.track_id, self.dbclient_callback)
+        self.prodj.data.get_beatgrid(c.loaded_player_number, c.loaded_slot, c.track_id, self.dbclient_callback)
+        self.prodj.data.get_waveform(c.loaded_player_number, c.loaded_slot, c.track_id, self.dbclient_callback)
       else:
         logging.info("Gui: track id of player %d changed to %d, unloading", player_number, c.track_id)
         self.players[player_number].unload()
@@ -479,7 +479,7 @@ class Gui(QWidget):
           continue
         self.players[player_number].setMetadata(reply["title"], reply["artist"], reply["album"])
         if "artwork_id" in reply and reply["artwork_id"] != 0:
-          self.prodj.dbc.get_artwork(source_player_number, slot, reply["artwork_id"], self.dbclient_callback)
+          self.prodj.data.get_artwork(source_player_number, slot, reply["artwork_id"], self.dbclient_callback)
         else:
           self.players[player_number].setArtwork(None)
       elif request == "artwork":

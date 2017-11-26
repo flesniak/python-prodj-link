@@ -43,7 +43,7 @@ class ClientList:
 
   def mediaChanged(self, player_number, slot):
     logging.debug("Media %s in player %d changed", slot, player_number)
-    self.prodj.dbc.cleanup_stores_from_changed_media(player_number, slot)
+    self.prodj.data.cleanup_stores_from_changed_media(player_number, slot)
     if self.media_change_callback is not None:
       self.media_change_callback(self, player_number, slot)
 
@@ -51,13 +51,13 @@ class ClientList:
     c = self.getClient(player_number)
     #logging.debug("Track position p %d abs %f actual_pitch %.6f play_state %s beat %d", player_number, c.position if c.position is not None else -1, c.actual_pitch, new_play_state, new_beat_count)
     identifier = (c.loaded_player_number, c.loaded_slot, c.track_id)
-    if identifier in self.prodj.dbc.beatgrid_store:
+    if identifier in self.prodj.data.beatgrid_store:
       if new_beat_count > 0:
         if (c.play_state == "cued" and new_play_state == "cueing") or (c.play_state == "playing" and new_play_state == "paused") or (c.play_state == "paused" and new_play_state == "playing"):
           return # ignore absolute position when switching from cued to cueing
         if new_play_state != "cued": # when releasing cue scratch, the beat count is still +1
           new_beat_count -= 1
-        beatgrid = self.prodj.dbc.beatgrid_store[identifier]
+        beatgrid = self.prodj.data.beatgrid_store[identifier]
         if beatgrid is not None and len(beatgrid["beats"]) > new_beat_count:
           c.position = beatgrid["beats"][new_beat_count]["time"] / 1000
       else:
@@ -221,12 +221,12 @@ class ClientList:
         c.position = None
         if c.loaded_slot in ["usb", "sd"]:
           if self.log_played_tracks:
-            self.prodj.dbc.get_metadata(c.loaded_player_number, c.loaded_slot, c.track_id, self.logPlayedTrackCallback)
+            self.prodj.data.get_metadata(c.loaded_player_number, c.loaded_slot, c.track_id, self.logPlayedTrackCallback)
           if self.auto_request_beatgrid and c.track_id != 0:
-            self.prodj.dbc.get_beatgrid(c.loaded_player_number, c.loaded_slot, c.track_id)
+            self.prodj.data.get_beatgrid(c.loaded_player_number, c.loaded_slot, c.track_id)
           if self.auto_track_download:
             logging.info("Automatic download of track in player %d", c.player_number)
-            self.prodj.dbc.get_mount_info(c.loaded_player_number, c.loaded_slot,
+            self.prodj.data.get_mount_info(c.loaded_player_number, c.loaded_slot,
               c.track_id, self.prodj.nfs.enqueue_download_from_mount_info)
 
     c.updateTtl()
