@@ -147,6 +147,9 @@ class DataProvider(Thread):
     if self.dbc_enabled and reply is None:
       reply = self._handle_request_from_dbclient(request, params)
 
+    if reply is None:
+      raise FatalQueryError("DataStore: request returned none, see log for details")
+
     # special call for metadata since it is expected to be part of the client status
     if request == "metadata":
       self.prodj.cl.storeMetadataByLoadedTrack(*params, reply)

@@ -245,8 +245,7 @@ class DBClient:
         continue
       data += new_data
       try:
-        reply = packets.DBMessage.parse(data)
-        return reply
+        return packets.DBMessage.parse(data)
       except RangeError as e:
         logging.debug("DBClient: Received %d bytes but parsing failed, trying to receive more", len(data))
         parse_errors += 1
@@ -339,7 +338,7 @@ class DBClient:
         else:
           break
     if parse_errors >= self.parse_error_count or receive_timeouts >= self.receive_timeout_count:
-      logging.error("DBClient: Failed to receive %s render reply after %d timeouts, %d parse errors", request_type, receive_timeouts, parse_errors)
+      raise FatalQueryError("DBClient: Failed to receive {} render reply after {} timeouts, {} parse errors".format(request_type, receive_timeouts, parse_errors))
       return None
 
     # basically, parse_metadata returns a single dict whereas parse_list returns a list of dicts
