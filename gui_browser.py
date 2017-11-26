@@ -354,9 +354,11 @@ class Browser(QWidget):
 
   def sortChanged(self):
     self.sort = self.sort_box.currentData()
-    if self.menu[:5] == "title" or self.menu == "playlist":
-      logging.debug("sort changed to %s", self.sort)
+    logging.debug("sort changed to %s", self.sort)
+    if self.menu[:5] == "title":
       self.titleMenu()
+    elif self.menu == "playlist":
+      self.titlePlaylistMenu(self.playlist_id)
 
   def loadIntoPlayer(self, player_number):
     if self.slot is None or self.track_id is None:
