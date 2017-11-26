@@ -3,7 +3,6 @@ import packets
 import logging
 from select import select
 from construct import FieldError, RangeError, MappingError, byte2int
-#from dataprovider import dataprovider.TemporaryQueryError, dataprovider.FatalQueryError
 import dataprovider
 
 metadata_type = {
@@ -83,7 +82,7 @@ sort_types = {
   "bpm": 0x04, # title | bpm
   "rating": 0x05, # title | rating
   "genre": 0x06, # title | genre (+id)
-  "comment": 0x07, # title | comment (+id)
+  "comment": 0x07, # title | comment
   "duration": 0x08, # title | duration
   "remixer": 0x09, # title | remixer (+id)
   "label": 0x0a, # title | label (+id)
@@ -144,14 +143,14 @@ class DBClient:
     elif entry_label[:5] == "color":
       entry["color"] = entry_label[6:]
       entry["color_text"] = entry_string1
-    elif entry_label in ["artist", "album", "comment", "genre", "original_artist", "remixer", "key", "label", "folder"]:
+    elif entry_label in ["artist", "album", "genre", "original_artist", "remixer", "key", "label", "folder"]:
       entry[entry_label] = entry_string1
       entry[entry_label+"_id"] = entry_id2
     elif entry_label == "playlist": # merge with above? entry_id1 always seems to be some kind of parent id
       entry["playlist"] = entry_string1
       entry["playlist_id"] = entry_id2
       entry["parent_id"] = entry_id1
-    elif entry_label in ["date_added"]:
+    elif entry_label in ["date_added", "comment"]:
       entry[entry_label] = entry_string1
     elif entry_label == "mount_path":
       entry["mount_path"] = entry_string1
