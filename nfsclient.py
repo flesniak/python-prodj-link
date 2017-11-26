@@ -195,7 +195,8 @@ class NfsClient(Thread):
 
   # download path from player with ip after trying to mount "export"
   # save to file if file is not None, otherwise to default download directory
-  def enqueue_download(self, ip, slot, path, filename=None):
+  # a callback can be supplied to be called when the download is complete, argument is filename
+  def enqueue_download(self, ip, slot, path, filename=None, callback=None):
     self.start()
     if slot not in self.export_by_slot:
       logging.error("NfsClient: Unable to download from \"%s\"", slot)
@@ -204,9 +205,9 @@ class NfsClient(Thread):
     logging.debug("NfsClient: enqueueing download of \"%s\" from %s", path, ip)
     if filename is None:
       filename = self.default_download_directory + path.split("/")[-1]
-    self.queue.put((ip, path, filename, export))
+    self.queue.put((ip, path, filename, export, callback))
 
-  def handle_download(self, ip, path, filename, export):
+  def handle_download(self, ip, path, filename, export, callback):
     if os.path.exists(filename):
       logging.error("NfsClient: file already exists: %s", filename)
       return
@@ -229,6 +230,9 @@ class NfsClient(Thread):
     nfs_sock.bind(("0.0.0.0", 0))
     self.NfsDownloadFile(nfs_sock, (ip, nfs_port), mount_handle, path, filename)
     nfs_sock.close()
+
+    if callback is not None:
+      callback(filename)
 
   def run(self):
     logging.debug("NfsClient starting")
