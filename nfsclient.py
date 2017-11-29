@@ -190,6 +190,19 @@ class NfsClient(Thread):
     self.download_buffer += data
 
   def NfsDownloadToFile(self, sock, host, mount_handle, src_path, dst_path):
+    # if dst_path is empty, use a default download path
+    if not dst_path:
+      dst_path = self.default_download_directory + src_path.split("/")[-1]
+
+    if os.path.exists(dst_path):
+      logging.error("NfsClient: file already exists: %s", dst_path)
+      return
+
+    # create download directory is nonexistant
+    dirname = os.path.dirname(dst_path)
+    if dirname:
+      os.makedirs(dirname, exist_ok=True)
+
     self.download_file_handle = open(dst_path, "wb")
     self.NfsDownloadFile(sock, host, mount_handle, src_path, DownloadToFileHandler)
     self.download_file_handle.close()
@@ -198,9 +211,26 @@ class NfsClient(Thread):
   def NfsDownloadToBuffer(self, sock, host, mount_handle, src_path):
     self.download_buffer = b""
     self.NfsDownloadFile(sock, host, mount_handle, src_path, DownloadToBufferHandler)
-    buf = self.download_buffer
-    self.download_buffer = None
-    return buf
+    #return self.download_buffer # this return is usually not used as it is in NfsClient thread context
+
+  # download path from player with ip after trying to mount slot
+  # save to dst_path if it is not empty, otherwise to default download directory
+  # if dst_path is None, the data will be stored to self.download_buffer
+  # a callback can be supplied to be called when the download is complete,
+  # the callback argument is dst_path or the downloaded data if dst_path is None
+  def enqueue_download(self, ip, slot, src_path, dst_path="", sync=False, callback=None):
+    self.start()
+    logging.debug("NfsClient: enqueueing download of \"%s\" from %s", src_path, ip)
+    event = Event() if sync else None
+    self.queue.put((ip, slot, src_path, dst_path, event, callback))
+    if sync and not event.wait(30):
+      raise RuntimeError("NfsClient: synchronous download timed out")
+
+  # download path from player with ip after trying to mount slot
+  # this call blocks until the download is finished and returns the downloaded bytes
+  def enqueue_buffer_download(self, ip, slot, src_path):
+    self.enqueue_download(ip, slot, src_path, dst_path=None, sync=True, callback=None)
+    return self.download_buffer
 
   # can be used as a callback for DataProvider.get_mount_info
   def enqueue_download_from_mount_info(self, request, player_number, slot, id_list, sort_mode, mount_info):
@@ -213,27 +243,12 @@ class NfsClient(Thread):
       return
     self.enqueue_download(c.ip_addr, slot, mount_info["mount_path"])
 
-  # download path from player with ip after trying to mount "export"
-  # save to file if file is not None, otherwise to default download directory
-  # a callback can be supplied to be called when the download is complete, argument is dst_path
-  def enqueue_download(self, ip, slot, src_path, dst_path=None, sync=False, callback=None):
-    self.start()
+  def handle_download(self, ip, slot, src_path, dst_path, event, callback):
     if slot not in self.export_by_slot:
-      logging.error("NfsClient: Unable to download from \"%s\"", slot)
+      logging.error("NfsClient: Unable to download from slot \"%s\"", slot)
       return
     export = self.export_by_slot[slot]
-    logging.debug("NfsClient: enqueueing download of \"%s\" from %s", src_path, ip)
-    if dst_path is None:
-      dst_path = self.default_download_directory + src_path.split("/")[-1]
-    event = Event() if sync else None
-    self.queue.put((ip, src_path, dst_path, export, event, callback))
-    if sync and not event.wait(30):
-      raise RuntimeError("NfsClient: synchronous download timed out")
 
-  def handle_download(self, ip, src_path, dst_path, export, event, callback):
-    if os.path.exists(dst_path):
-      logging.error("NfsClient: file already exists: %s", dst_path)
-      return
     mount_port = self.PortmapGetPort(ip, "mount", MountVersion, "udp")
     logging.debug("NfsClient mount port of player %s: %d", ip, mount_port)
     nfs_port = self.PortmapGetPort(ip, "nfs", NfsVersion, "udp")
@@ -244,14 +259,12 @@ class NfsClient(Thread):
     mount_handle = self.MountMnt(mount_sock, (ip, mount_port), export)
     mount_sock.close()
 
-    # create download directory is nonexistant
-    dirname = os.path.dirname(dst_path)
-    if dirname:
-      os.makedirs(dirname, exist_ok=True)
-
     nfs_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     nfs_sock.bind(("0.0.0.0", 0))
-    self.NfsDownloadToFile(nfs_sock, (ip, nfs_port), mount_handle, src_path, dst_path)
+    if dst_path is None:
+      self.NfsDownloadToBuffer(nfs_sock, (ip, nfs_port), mount_handle, src_path)
+    else:
+      self.NfsDownloadToFile(nfs_sock, (ip, nfs_port), mount_handle, src_path, dst_path)
     nfs_sock.close()
 
     if callback is not None:
