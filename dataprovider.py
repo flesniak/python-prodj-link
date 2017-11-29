@@ -18,10 +18,10 @@ class DataProvider(Thread):
     self.prodj = prodj
     self.queue = Queue()
 
-    self.dbc_enabled = True
+    self.dbc_enabled = False
     self.dbc = DBClient(prodj)
 
-    self.pdb_enabled = False
+    self.pdb_enabled = True
     self.pdb = PDBProvider(prodj)
 
     # db queries seem to work if we submit player number 0 everywhere (NOTE: this seems to work only if less than 4 players are on the network)
@@ -42,6 +42,7 @@ class DataProvider(Thread):
 
   def stop(self):
     self.keep_running = False
+    self.pdb.stop()
     self.metadata_store.stop()
     self.artwork_store.stop()
     self.waveform_store.stop()

@@ -9,43 +9,43 @@ class PDBDatabase(dict):
     self.parsed = None
 
   def get_track(self, track_id):
-    for track in self.tracks:
+    for track in self["tracks"]:
       if track.id == track_id:
         return track
     raise KeyError("PDBDatabase: track {} not found".format(track_id))
 
   def get_artist(self, artist_id):
-    for artist in self.artists:
+    for artist in self["artists"]:
       if artist.id == artist_id:
         return artist
     raise KeyError("PDBDatabase: artist {} not found".format(artist_id))
 
   def get_album(self, album_id):
-    for album in self.albums:
+    for album in self["albums"]:
       if album.id == album_id:
         return album
     raise KeyError("PDBDatabase: album {} not found".format(album_id))
 
   def get_key(self, key_id):
-    for key in self.key_names:
+    for key in self["key_names"]:
       if key.id == key_id:
         return key
     raise KeyError("PDBDatabase: key {} not found".format(key_id))
 
   def get_genre(self, genre_id):
-    for genre in self.genres:
+    for genre in self["genres"]:
       if genre.id == genre_id:
         return genre
     raise KeyError("PDBDatabase: genre {} not found".format(genre_id))
 
   def get_color(self, color_id):
-    for color in self.colors:
+    for color in self["colors"]:
       if color.id == color_id:
         return color
     raise KeyError("PDBDatabase: color {} not found".format(color_id))
 
   def get_artwork(self, artwork_id):
-    for artwork in self.artwork:
+    for artwork in self["artwork"]:
       if artwork.id == artwork_id:
         return artwork
     raise KeyError("PDBDatabase: artwork {} not found".format(artwork_id))

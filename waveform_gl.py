@@ -194,7 +194,7 @@ class GLWaveformWidget(QOpenGLWidget):
       gl.glDisable(gl.GL_MULTISAMPLE)
       gl.glBegin(gl.GL_LINES)
 
-      for beat in self.beatgrid_data["beats"]:
+      for beat in self.beatgrid_data:
         if beat["beat"] == 1:
           gl.glColor3f(1, 0, 0)
           height = 8

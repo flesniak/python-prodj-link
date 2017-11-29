@@ -54,7 +54,7 @@ class UsbAnlzDatabase(dict):
     self.parsed = None
 
   def load_dat_buffer(self, data):
-    logging.debug("UsbAnlzDatabase: Loading DAT buffer")
+    logging.debug("UsbAnlzDatabase: Loading DAT from buffer")
     self._load_buffer(data)
     self._parse_dat()
 
@@ -64,7 +64,7 @@ class UsbAnlzDatabase(dict):
     self._parse_dat()
 
   def load_ext_buffer(self, data):
-    logging.debug("UsbAnlzDatabase: Loading DAT buffer")
+    logging.debug("UsbAnlzDatabase: Loading EXT from buffer")
     self._load_buffer(data)
     self._parse_ext()
 

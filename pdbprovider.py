@@ -1,4 +1,6 @@
+import logging
 import dataprovider
+import os
 from datastore import DataStore
 from pdblib import PDBDatabase, UsbAnlzDatabase
 
@@ -7,13 +9,16 @@ colors = ["none", "pink", "red", "orange", "yellow", "green", "aqua", "blue", "p
 class PDBProvider:
   def __init__(self, prodj):
     self.prodj = prodj
-    self.dbs = DataStore() # (player_number,slot): PDBDatabase
-    self.usbanlz = DataStore()
-    self.usbanlz_track_id = 0
+    self.dbs = DataStore() # (player_number,slot) -> PDBDatabase
+    self.usbanlz = DataStore() # (player_number, slot, track_id) -> UsbAnlzDatabase
+
+  def stop(self):
+    self.dbs.stop()
+    self.usbanlz.stop()
 
   def delete_pdb(self, filename):
     try:
-      os.delete(filename)
+      os.remove(filename)
     except OSError:
       pass
 
@@ -58,22 +63,21 @@ class PDBProvider:
     return db
 
   def get_anlz(self, player_number, slot, track_id):
-    if self.usbanlz is None or self.usbanlz_track_id != track_id:
+    if (player_number, slot, track_id) not in self.usbanlz:
       db = self.get_db(player_number, slot)
-      track = db.getTrack(track_id)
-      self.usbanlz = self.download_and_parse_usbanlz(player_number, slot, track.analyze_path)
-      self.usbanlz_track_id = track_id
-    return self.usbanlz
+      track = db.get_track(track_id)
+      self.usbanlz[player_number, slot, track_id] = self.download_and_parse_usbanlz(player_number, slot, track.analyze_path)
+    return self.usbanlz[player_number, slot, track_id]
 
   def get_metadata(self, player_number, slot, track_id):
-    db = self.get_db()
+    db = self.get_db(player_number, slot)
     track = db.get_track(track_id)
     artist = db.get_artist(track.artist_id)
     album = db.get_album(track.album_id)
     key = db.get_key(track.key_id)
     genre = db.get_genre(track.genre_id)
     color_name = colors[track.color_id]
-    if track.color_id > 0:
+    if track.color_id > 0 and False: # TODO: fix color parsing in pdbfile
       color = db.get_color(track.color_id)
       color_text = color.name
     else:
@@ -105,19 +109,24 @@ class PDBProvider:
     player = self.prodj.cl.getClient(player_number)
     if player is None:
       raise dataprovider.FatalQueryError("PDBProvider: player {} not found in clientlist".format(player_number))
-    db = self.get_db()
+    db = self.get_db(player_number, slot)
     artwork = db.get_artwork(artwork_id)
     return self.prodj.nfs.enqueue_buffer_download(player.ip_addr, slot, artwork.path)
 
   def get_waveform(self, player_number, slot, track_id):
-    db = self.get_anlz(player_number, slot, track_id):
-    pass
+    db = self.get_anlz(player_number, slot, track_id)
+    return db.get_waveform()
 
   def get_preview_waveform(self, player_number, slot, track_id):
-    pass
+    db = self.get_anlz(player_number, slot, track_id)
+    waveform_spread = b""
+    for line in db.get_preview_waveform():
+      waveform_spread += bytes([line & 0x1f, line>>5])
+    return waveform_spread
 
   def get_beatgrid(self, player_number, slot, track_id):
-    pass
+    db = self.get_anlz(player_number, slot, track_id)
+    return db.get_beatgrid()
 
   def get_mount_info(self, player_number, slot, track_id):
     db = self.get_db()
@@ -132,7 +141,7 @@ class PDBProvider:
     return mount_info
 
   def handle_request(self, request, params):
-    logging.debug("DBClient: handling %s request params %s", request, str(params))
+    logging.debug("PDBProvider: handling %s request params %s", request, str(params))
     if request == "metadata":
       return self.get_metadata(*params)
     elif request == "root_menu":
@@ -162,18 +171,12 @@ class PDBProvider:
     elif request == "artwork":
       return self.get_artwork(*params)
     elif request == "waveform":
-      return self.query_blob(*params, "waveform_request", 1)
+      return self.get_waveform(*params)
     elif request == "preview_waveform":
-      return self.query_blob(*params, "preview_waveform_request")
+      return self.get_preview_waveform(*params)
     elif request == "mount_info":
-      return self.query_list(*params, "track_data_request")
+      return self.get_mount_info(*params)
     elif request == "beatgrid":
-      reply = self.query_blob(*params, "beatgrid_request")
-      if reply is None:
-        return None
-      try: # pre-parse beatgrid data (like metadata) for easier access
-        return packets.Beatgrid.parse(reply)
-      except (RangeError, FieldError) as e:
-        raise dataprovider.FatalQueryError("DBClient: failed to parse beatgrid data: {}".format(e))
+      return self.get_beatgrid(*params)
     else:
-      raise dataprovider.FatalQueryError("DBClient: invalid request type {}".format(request))
+      raise dataprovider.FatalQueryError("PDBProvider: invalid request type {}".format(request))

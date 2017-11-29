@@ -204,13 +204,13 @@ class NfsClient(Thread):
       os.makedirs(dirname, exist_ok=True)
 
     self.download_file_handle = open(dst_path, "wb")
-    self.NfsDownloadFile(sock, host, mount_handle, src_path, DownloadToFileHandler)
+    self.NfsDownloadFile(sock, host, mount_handle, src_path, self.DownloadToFileHandler)
     self.download_file_handle.close()
     self.download_file_handle = None
 
   def NfsDownloadToBuffer(self, sock, host, mount_handle, src_path):
     self.download_buffer = b""
-    self.NfsDownloadFile(sock, host, mount_handle, src_path, DownloadToBufferHandler)
+    self.NfsDownloadFile(sock, host, mount_handle, src_path, self.DownloadToBufferHandler)
     #return self.download_buffer # this return is usually not used as it is in NfsClient thread context
 
   # download path from player with ip after trying to mount slot
@@ -266,6 +266,8 @@ class NfsClient(Thread):
     else:
       self.NfsDownloadToFile(nfs_sock, (ip, nfs_port), mount_handle, src_path, dst_path)
     nfs_sock.close()
+
+    # TODO: NFS UMNT
 
     if callback is not None:
       callback(filename)

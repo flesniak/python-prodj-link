@@ -502,7 +502,7 @@ Beatgrid = Struct(
   "u3" / Int16ul,
   "beats" / Array(this.beat_count, Struct(
     "beat" / Int16ul, # beat in measure 1..4
-    "u1" / Int16ul, # different on every track
+    "bpm_100" / Int16ul, # bpm may change dynamically on each beat
     "time" / Int32ul, # time in ms from start
     Padding(8) # 8 times 0xff
   ))

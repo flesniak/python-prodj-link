@@ -525,7 +525,7 @@ class DBClient:
       if reply is None:
         return None
       try: # pre-parse beatgrid data (like metadata) for easier access
-        return packets.Beatgrid.parse(reply)
+        return packets.Beatgrid.parse(reply)["beats"]
       except (RangeError, FieldError) as e:
         raise dataprovider.FatalQueryError("DBClient: failed to parse beatgrid data: {}".format(e))
     else:
