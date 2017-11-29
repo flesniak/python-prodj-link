@@ -10,7 +10,7 @@ Track = Struct(
   "sample_rate" / Int32ul,
   "composer_index" / Int32ul,
   "file_size" / Int32ul,
-  "id" / Int32ul, # the rekordbox track id
+  "u1" / Int32ul, # some id?
   "u2" / Int16ul, # always 19048?
   "u3" / Int16ul, # always 30967?
   "artwork_id" / Int32ul,
@@ -24,7 +24,7 @@ Track = Struct(
   "genre_id" / Int32ul,
   "album_id" / Int32ul, # album artist is set in album entry
   "artist_id" / Int32ul,
-  "u8" / Int32ul, # maybe total track index
+  "id" / Int32ul, # the rekordbox track id
   "disc_number" / Int16ul,
   "play_count" / Int16ul,
   "year" / Int16ul,
