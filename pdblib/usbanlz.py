@@ -1,7 +1,6 @@
 #!/usr/bin/python3
 
-from construct import Array, Computed, Const, Default, Enum, GreedyRange, Int8ub, Int16ub, Int32ub, Padding, PrefixedArray, String, Struct, Switch, this
-import sys
+from construct import Array, Const, Default, Enum, GreedyRange, Int8ub, Int16ub, Int32ub, Padding, PrefixedArray, String, Struct, Switch, this
 
 # file format from https://reverseengineering.stackexchange.com/questions/4311/help-reversing-a-edb-database-file-for-pioneers-rekordbox-software
 
@@ -25,7 +24,13 @@ AnlzQuantizeTick = Struct(
 
 AnlzTagQuantize = Struct(
   Padding(4),
-  "u1" / Const(Int32ub, 0x80000),
+  "unknown" / Const(Int32ub, 0x80000),
+  "entries" / PrefixedArray(Int32ub, AnlzQuantizeTick)
+)
+
+AnlzTagQuantize2 = Struct(
+  Padding(4),
+  "u1" / Const(Int32ub, 0x01000002),
   "entries" / PrefixedArray(Int32ub, AnlzQuantizeTick),
   "u2" / Int32ub,
   "u3" / Int32ub,
@@ -33,12 +38,6 @@ AnlzTagQuantize = Struct(
   "u5" / Int32ub,
   "u6" / Int32ub,
   Padding(8)
-)
-
-AnlzTagQuantize2 = Struct(
-  Padding(4),
-  "unknown" / Const(Int32ub, 0x01000002),
-  "entries" / PrefixedArray(Int32ub, AnlzQuantizeTick)
 )
 
 AnlzTagWaveform = Struct(
@@ -127,7 +126,7 @@ AnlzTag = Struct(
     "PWV3": AnlzTagBigWaveform, # seen in EXT files
     "PCOB": AnlzTagCueObject,
     "PCO2": AnlzTagCueObject2 # seen in EXT files
-  }, defaul)
+  }, default=Padding(this._.tag_size-12))
 )
 
 AnlzFile = Struct(
@@ -139,4 +138,5 @@ AnlzFile = Struct(
   "u3" / Int32ub,
   "u4" / Int32ub,
   "tags" / GreedyRange(AnlzTag)
+  #"tags" / Array(8, AnlzTag)
 )
