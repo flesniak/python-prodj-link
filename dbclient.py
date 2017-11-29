@@ -519,7 +519,7 @@ class DBClient:
     elif request == "preview_waveform":
       return self.query_blob(*params, "preview_waveform_request")
     elif request == "mount_info":
-      return self.query_list(*params, "track_data_request")
+      return self.query_list(*params, None, "track_data_request")
     elif request == "beatgrid":
       reply = self.query_blob(*params, "beatgrid_request")
       if reply is None:

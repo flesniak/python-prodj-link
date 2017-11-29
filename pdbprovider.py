@@ -129,14 +129,15 @@ class PDBProvider:
     return db.get_beatgrid()
 
   def get_mount_info(self, player_number, slot, track_id):
-    db = self.get_db()
+    db = self.get_db(player_number, slot)
     track = db.get_track(track_id)
 
     # contains additional fields to mimic dbserver reply
     mount_info = {
       "track_id": track.id,
       "duration": track.length_seconds,
-      "bpm": track.bpm_100/100
+      "bpm": track.bpm_100/100,
+      "mount_path": track.path
     }
     return mount_info
 
@@ -175,7 +176,7 @@ class PDBProvider:
     elif request == "preview_waveform":
       return self.get_preview_waveform(*params)
     elif request == "mount_info":
-      return self.get_mount_info(*params)
+      return self.get_mount_info(*params[:-1], params[-1][0])
     elif request == "beatgrid":
       return self.get_beatgrid(*params)
     else:

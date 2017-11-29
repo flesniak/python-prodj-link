@@ -233,7 +233,7 @@ class NfsClient(Thread):
     return self.download_buffer
 
   # can be used as a callback for DataProvider.get_mount_info
-  def enqueue_download_from_mount_info(self, request, player_number, slot, id_list, sort_mode, mount_info):
+  def enqueue_download_from_mount_info(self, request, player_number, slot, id_list, mount_info):
     if request != "mount_info":
       logging.error("NfsClient: not enqueueing non-mount_info request")
       return
