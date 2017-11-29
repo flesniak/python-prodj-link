@@ -1,12 +1,15 @@
 import dataprovider
 from datastore import DataStore
+from pdblib import PDBDatabase, UsbAnlzDatabase
 
 colors = ["none", "pink", "red", "orange", "yellow", "green", "aqua", "blue", "purple"]
 
 class PDBProvider:
   def __init__(self, prodj):
     self.prodj = prodj
-    self.dbs = DataStore # (player_number,slot): PDBDatabase
+    self.dbs = DataStore() # (player_number,slot): PDBDatabase
+    self.usbanlz = DataStore()
+    self.usbanlz_track_id = 0
 
   def delete_pdb(self, filename):
     try:
@@ -43,8 +46,25 @@ class PDBProvider:
       db = self.dbs[player_number, slot]
     return db
 
-  # except KeyError:
-  #   raise FatalQueryError("PDBFile: player {} slot {} track {} not found in pdb".format(player_number, slot, track_id))
+  def download_and_parse_usbanlz(self, player_number, slot, anlz_path):
+    player = self.prodj.cl.getClient(player_number)
+    if player is None:
+      raise dataprovider.FatalQueryError("PDBProvider: player {} not found in clientlist".format(player_number))
+    dat = self.prodj.nfs.enqueue_buffer_download(player.ip_addr, slot, anlz_path)
+    ext = self.prodj.nfs.enqueue_buffer_download(player.ip_addr, slot, anlz_path.replace("DAT", "EXT"))
+    db = UsbAnlzDatabase()
+    db.load_dat_buffer(dat)
+    db.load_ext_buffer(ext)
+    return db
+
+  def get_anlz(self, player_number, slot, track_id):
+    if self.usbanlz is None or self.usbanlz_track_id != track_id:
+      db = self.get_db(player_number, slot)
+      track = db.getTrack(track_id)
+      self.usbanlz = self.download_and_parse_usbanlz(player_number, slot, track.analyze_path)
+      self.usbanlz_track_id = track_id
+    return self.usbanlz
+
   def get_metadata(self, player_number, slot, track_id):
     db = self.get_db()
     track = db.get_track(track_id)
@@ -82,12 +102,15 @@ class PDBProvider:
     return metadata
 
   def get_artwork(self, player_number, slot, artwork_id):
+    player = self.prodj.cl.getClient(player_number)
+    if player is None:
+      raise dataprovider.FatalQueryError("PDBProvider: player {} not found in clientlist".format(player_number))
     db = self.get_db()
-    artwork = db.get_artwork()
-    self.prodj.nfs.enqueue_download(player.ip_addr, slot, artwork.path, filename, sync=True)
-    pass
+    artwork = db.get_artwork(artwork_id)
+    return self.prodj.nfs.enqueue_buffer_download(player.ip_addr, slot, artwork.path)
 
   def get_waveform(self, player_number, slot, track_id):
+    db = self.get_anlz(player_number, slot, track_id):
     pass
 
   def get_preview_waveform(self, player_number, slot, track_id):
