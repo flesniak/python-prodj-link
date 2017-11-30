@@ -56,6 +56,7 @@ metadata_type = {
   0x0094: "root_filename",
   0x0095: "root_history",
   0x0098: "root_hot_cue_bank",
+  0x00a0: "all",
   0x0204: "title_and_album",
   0x0604: "title_and_genre",
   0x0704: "title_and_artist",
@@ -150,10 +151,8 @@ class DBClient:
       entry["playlist"] = entry_string1
       entry["playlist_id"] = entry_id2
       entry["parent_id"] = entry_id1
-    elif entry_label in ["date_added", "comment"]:
+    elif entry_label in ["date_added", "comment", "mount_path", "all"]:
       entry[entry_label] = entry_string1
-    elif entry_label == "mount_path":
-      entry["mount_path"] = entry_string1
     elif entry_label == "unknown1":
       logging.debug("DBClient: parse_metadata unknown1 id1 %d id2 %d", entry_id1, entry_id2)
       entry["unknown1"] = entry_id2 # entry_id1 seems to be 0 everytime here

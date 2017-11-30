@@ -228,21 +228,27 @@ class Browser(QWidget):
     # guess columns
     columns = []
     if len(reply) > 0:
-      for key in reply[0]:
+      # skip first entry if it is "all"
+      for key in reply[1] if "all" in reply[0] else reply[0]:
         if key[-3:] != "_id":
           columns += [key]
     self.model.setHorizontalHeaderLabels([printableField(x) for x in columns])
     for entry in reply:
       data = {"type": request, **entry}
       row = []
-      for column in columns:
-        if request == "playlist_folder" and column not in entry:
-          column = "folder" if column == "playlist" else "playlist"
-        if column == "rating":
-          text = ratingString(entry[column])
-        else:
-          text = str(entry[column])
-        row += [makeItem(text, data)]
+      if "all" in entry: # on the special "all" entry, set the id to 0
+        data[columns[0]] = entry["all"][1:-1]
+        data[columns[0]+"_id"] = 0
+        row += [makeItem(entry["all"][1:-1], data)]
+      else:
+        for column in columns:
+          if request == "playlist_folder" and column not in entry:
+            column = "folder" if column == "playlist" else "playlist"
+          if column == "rating":
+            text = ratingString(entry[column])
+          else:
+            text = str(entry[column])
+          row += [makeItem(text, data)]
       self.model.appendRow(row)
 
   def metadata(self, track_id):

@@ -45,7 +45,7 @@ class PDBProvider:
     try:
       db.load_file(filename)
     except RuntimeError as e:
-      raise FatalQueryError("PDBFile: failed to parse \"{}\": {}".format(filename, e))
+      raise dataprovider.FatalQueryError("PDBFile: failed to parse \"{}\": {}".format(filename, e))
     return db
 
   def get_db(self, player_number, slot):
@@ -209,6 +209,37 @@ class PDBProvider:
       titles += [{"title": track.title, "track_id": track.id, col2_name: col2_item}]
     return sorted(titles, key=lambda key: key[sort_mode])
 
+  # id_list empty -> list all artists
+  # one id_list entry = genre_id -> all artists by genre
+  def get_artists(self, player_number, slot, id_list=[], sort_mode=None):
+    logging.debug("PDBProvider: get_artists (%d, %s, %s)", player_number, slot, str(id_list))
+    db = self.get_db(player_number, slot)
+    if len(id_list) == 1:
+      raise dataprovider.FatalQueryError("PDBProvider: get_artists by genre not implemented yet")
+      #ff = lambda artist: artist.genre_id == id_list[0]
+    else:
+      ff = lambda track: True
+    artist_list = filter(ff, db["artists"])
+    artists = [{"artist": artist.name, "artist_id": artist.id} for artist in artist_list]
+    return sorted(artists, key=lambda key: key["artist"])
+
+  # id_list empty -> list all albums
+  # one id_list entry = artist_id -> all albums by artist
+  # two id_list entries = genre_id, artist_id -> all albums by artist and genre
+  def get_albums(self, player_number, slot, id_list=[], sort_mode=None):
+    logging.debug("PDBProvider: get_albums (%d, %s, %s)", player_number, slot, str(id_list))
+    db = self.get_db(player_number, slot)
+    if len(id_list) == 2:
+      ff = lambda album: any(album.id == track.album_id for track in db["tracks"] if track.artist_id == id_list[0])
+    elif len(id_list) == 1:
+      # no artist->album mapping, so filter tracks by artist and take each album matching one of these tracks
+      ff = lambda album: any(album.id == track.album_id for track in db["tracks"] if track.artist_id == id_list[0])
+    else:
+      ff = lambda track: True
+    album_list = filter(ff, db["albums"])
+    albums = [{"album": album.name, "album_id": album.id} for album in album_list]
+    return sorted(albums, key=lambda key: key["album"])
+
   def handle_request(self, request, params):
     logging.debug("PDBProvider: handling %s request params %s", request, str(params))
     if request == "metadata":
@@ -218,25 +249,25 @@ class PDBProvider:
     elif request == "title":
       return self.get_titles(*params)
     elif request == "title_by_album":
-      return self.get_titles(*params, "title_by_album_request")
+      return self.get_titles(*params)
     elif request == "title_by_artist_album":
-      return self.get_titles(*params, "title_by_artist_album_request")
+      return self.get_titles(*params)
     elif request == "title_by_genre_artist_album":
-      return self.get_titles(*params, "title_by_genre_artist_album_request")
+      return self.get_titles(*params)
     elif request == "artist":
-      return self.query_list(*params, "artist_request")
-    elif request == "album_by_artist":
-      return self.query_list(*params, "album_by_artist_request")
-    elif request == "album":
-      return self.query_list(*params, "album_request")
-    elif request == "genre":
-      return self.query_list(*params, "genre_request")
+      return self.get_artists(*params)
     elif request == "artist_by_genre":
-      return self.query_list(*params, "artist_by_genre_request")
+      raise dataprovider.FatalQueryError("PDBProvider: artist_by_genre_request not implemented yet")
+    elif request == "album":
+      return self.get_albums(*params)
+    elif request == "album_by_artist":
+      return self.get_albums(*params)
     elif request == "album_by_genre_artist":
-      return self.query_list(*params, "album_by_genre_artist_request")
+      raise dataprovider.FatalQueryError("PDBProvider: album_by_genre_artist_request not implemented yet")
+    elif request == "genre":
+      raise dataprovider.FatalQueryError("PDBProvider:genre_request not implemented yet")
     elif request in ["playlist", "playlist_folder"]:
-      return self.query_list(*params, "playlist_request")
+      raise dataprovider.FatalQueryError("PDBProvider: playlist_request not implemented yet")
     elif request == "artwork":
       return self.get_artwork(*params)
     elif request == "waveform":
