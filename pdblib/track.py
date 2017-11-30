@@ -29,7 +29,7 @@ Track = Struct(
   "play_count" / Int16ul,
   "year" / Int16ul,
   "sample_depth" / Int16ul, # not sure
-  "length_seconds" / Int16ul,
+  "duration" / Int16ul,
   "u9" / Int16ul, # always 41?
   "color_id" / Int8ul,
   "rating" / Int8ul,

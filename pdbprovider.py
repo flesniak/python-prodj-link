@@ -31,6 +31,7 @@ class PDBProvider:
     if player is None:
       raise dataprovider.FatalQueryError("PDBProvider: player {} not found in clientlist".format(player_number))
     filename = "databases/player-{}-{}.pdb".format(player_number, slot)
+    return filename # TODO: DEBUG; REMOVE LATER
     self.delete_pdb(filename)
     try:
       self.prodj.nfs.enqueue_download(player.ip_addr, slot, "/PIONEER/rekordbox/export.pdb", filename, sync=True)
@@ -76,12 +77,12 @@ class PDBProvider:
   def get_metadata(self, player_number, slot, track_id):
     db = self.get_db(player_number, slot)
     track = db.get_track(track_id)
-    artist = db.get_artist(track.artist_id)
-    album = db.get_album(track.album_id)
-    key = db.get_key(track.key_id)
-    genre = db.get_genre(track.genre_id)
-    color_name = colors[track.color_id]
-    if track.color_id > 0 and False: # TODO: fix color parsing in pdbfile
+    artist = db.get_artist(track.artist_id).name if track.artist_id > 0 else ""
+    album = db.get_album(track.album_id).name if track.album_id > 0 else ""
+    key = db.get_key(track.key_id).name if track.key_id > 0 else ""
+    genre = db.get_genre(track.genre_id).name if track.genre_id > 0 else ""
+    color_name = colors[track.color_id] if track.color_id > 0 else ""
+    if track.color_id > 0:
       color = db.get_color(track.color_id)
       color_text = color.name
     else:
@@ -91,14 +92,14 @@ class PDBProvider:
       "track_id": track.id,
       "title": track.title,
       "artist_id": track.artist_id,
-      "artist": artist.name,
+      "artist": artist,
       "album_id": track.album_id,
-      "album": album.name,
+      "album": album,
       "key_id": track.key_id,
-      "key": key.name,
+      "key": key,
       "genre_id": track.genre_id,
-      "genre": genre.name,
-      "duration": track.length_seconds,
+      "genre": genre,
+      "duration": track.duration,
       "comment": track.comment,
       "date_added": track.date_added,
       "color": color_name,
@@ -139,17 +140,32 @@ class PDBProvider:
     # contains additional fields to mimic dbserver reply
     mount_info = {
       "track_id": track.id,
-      "duration": track.length_seconds,
+      "duration": track.duration,
       "bpm": track.bpm_100/100,
       "mount_path": track.path
     }
     return mount_info
+
+  # returns a dummy root menu
+  def get_root_menu(self):
+    return [
+      {'name': '\ufffaTRACK\ufffb', 'menu_id': 4},
+      {'name': '\ufffaARTIST\ufffb', 'menu_id': 2},
+      {'name': '\ufffaALBUM\ufffb', 'menu_id': 3},
+      {'name': '\ufffaGENRE\ufffb', 'menu_id': 1},
+      {'name': '\ufffaKEY\ufffb', 'menu_id': 12},
+      {'name': '\ufffaPLAYLIST\ufffb', 'menu_id': 5},
+      {'name': '\ufffaHISTORY\ufffb', 'menu_id': 22},
+      {'name': '\ufffaSEARCH\ufffb', 'menu_id': 18},
+      {'name': '\ufffaFOLDER\ufffb', 'menu_id': 17}
+    ]
 
   # id_list empty -> list all titles
   # one id_list entry = album_id -> all titles in album
   # two id_list entries = artist_id,album_id -> all titles in album by artist
   # three id_list entries = genre_id,artist_id,album_id -> all titles in album by artist matching genre
   def get_titles(self, player_number, slot, id_list=[], sort_mode="default"):
+    logging.debug("PDBProvider: get_titles (%d, %s, %s) sort %s", player_number, slot, str(id_list), sort_mode)
     db = self.get_db(player_number, slot)
     if len(id_list) == 3:
       ff = lambda track: track.genre_id == id_lisŧ[0] and track.artist_id == id_list[1] and track.album_id == id_list[2]
@@ -160,6 +176,7 @@ class PDBProvider:
     else:
       ff = lambda track: True
     track_list = filter(ff, db["tracks"])
+    #logging.debug("PDBProvider: track_list %s", str(track_list))
     titles = []
     if sort_mode == "default":
       sort_mode = "title" # we do not know the default sort mode from pdb, thus fall back to title
@@ -176,17 +193,20 @@ class PDBProvider:
         col2_item = db.get_genre(track.genre_id).name if track.genre_id > 0 else ""
       elif col2_name == "label":
         col2_item = db.get_label(track.label_id).name if track.label_id > 0 else ""
-      elif col2_name == "original_artist_id":
+      elif col2_name == "original_artist":
         col2_item = db.get_artist(track.original_artist_id).name if track.original_artist_id > 0 else ""
+      elif col2_name == "remixer":
+        col2_item = db.get_artist(track.remixer_id).name if track.remixer_id > 0 else ""
       elif col2_name == "key":
         col2_item = db.get_key(track.key_id).name if track.key_id > 0 else ""
       elif col2_name == "bpm":
         col2_item = track.bpm_100/100
-      elif col2_name in ["rating", "comment", "duration", "remixer", "bitrate", "play_count"]: # 1:1 mappings
+      elif col2_name in ["rating", "comment", "duration", "bitrate", "play_count"]: # 1:1 mappings
         col2_item = track[col2_name]
       else:
         raise dataprovider.FatalQueryError("PDBProvider: unknown sort mode {}".format(sort_mode))
-      titles += [{"title": track.title, col2_name: col2_item}]
+      #logging.debug("PDBProvider: add titles %s", str(track.title))
+      titles += [{"title": track.title, "track_id": track.id, col2_name: col2_item}]
     return sorted(titles, key=lambda key: key[sort_mode])
 
   def handle_request(self, request, params):
@@ -194,27 +214,27 @@ class PDBProvider:
     if request == "metadata":
       return self.get_metadata(*params)
     elif request == "root_menu":
-      return self.query_list(*params, None, None, "root_menu_request")
+      return self.get_root_menu()
     elif request == "title":
-      return self.query_list(*params, "title_request")
+      return self.get_titles(*params)
     elif request == "title_by_album":
-      return self.query_list(*params, "title_by_album_request")
+      return self.get_titles(*params, "title_by_album_request")
+    elif request == "title_by_artist_album":
+      return self.get_titles(*params, "title_by_artist_album_request")
+    elif request == "title_by_genre_artist_album":
+      return self.get_titles(*params, "title_by_genre_artist_album_request")
     elif request == "artist":
       return self.query_list(*params, "artist_request")
     elif request == "album_by_artist":
       return self.query_list(*params, "album_by_artist_request")
     elif request == "album":
       return self.query_list(*params, "album_request")
-    elif request == "title_by_artist_album":
-      return self.query_list(*params, "title_by_artist_album_request")
     elif request == "genre":
       return self.query_list(*params, "genre_request")
     elif request == "artist_by_genre":
       return self.query_list(*params, "artist_by_genre_request")
     elif request == "album_by_genre_artist":
       return self.query_list(*params, "album_by_genre_artist_request")
-    elif request == "title_by_genre_artist_album":
-      return self.query_list(*params, "title_by_genre_artist_album_request")
     elif request in ["playlist", "playlist_folder"]:
       return self.query_list(*params, "playlist_request")
     elif request == "artwork":

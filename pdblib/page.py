@@ -9,6 +9,7 @@ from .artwork import Artwork
 from .color import Color
 from .genre import Genre
 from .key import Key
+from .label import Label
 
 # a strange page exists for every (?) page type, header.u9 is 1004 and page is filled with 0xf8ffff1f
 StrangePage = Struct(
@@ -37,6 +38,7 @@ ReverseIndexedEntry = FocusedSeq(1,
       "block_colors": Color,
       "block_genres": Genre,
       "block_keys": Key,
+      "block_labels": Label,
       #"strange": StrangePage,
     }, default = Computed("page type not implemented")),
   )
