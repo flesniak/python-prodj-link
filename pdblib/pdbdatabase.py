@@ -5,7 +5,7 @@ from .pdbfile import PDBFile
 
 class PDBDatabase(dict):
   def __init__(self):
-    super().__init__(self, tracks=[], artists=[], albums=[], playlists=[], playlist_map=[], artwork=[], colors=[], genres=[], key_names=[])
+    super().__init__(self, tracks=[], artists=[], albums=[], playlists=[], playlist_map=[], artwork=[], colors=[], genres=[], labels=[], key_names=[])
     self.parsed = None
 
   def get_track(self, track_id):
@@ -37,6 +37,12 @@ class PDBDatabase(dict):
       if genre.id == genre_id:
         return genre
     raise KeyError("PDBDatabase: genre {} not found".format(genre_id))
+
+  def get_label(self, label_id):
+    for label in self["labels"]:
+      if label.id == label_id:
+        return label
+    raise KeyError("PDBDatabase: label {} not found".format(genre_id))
 
   def get_color(self, color_id):
     for color in self["colors"]:
@@ -81,3 +87,4 @@ class PDBDatabase(dict):
     self.collect_entries("block_colors", "colors")
     self.collect_entries("block_genres", "genres")
     self.collect_entries("block_keys", "key_names")
+    self.collect_entries("block_labels", "labels")

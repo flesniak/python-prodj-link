@@ -85,12 +85,12 @@ sort_types = {
   "comment": 0x07, # title | comment
   "duration": 0x08, # title | duration
   "remixer": 0x09, # title | remixer (+id)
-  "label": 0x0a, # title | label (+id)
+  "label": 0x0a, # title | label (+id) # TODO: label is duplicate
   "original_artist": 0x0b, # title | original artist (+id)
   "key": 0x0c, # title | key (+id)
   "bitrate": 0x0d, # title | bitrate
   "play_count": 0x10, # title | play_count
-  "label": 0x11, # title | label (+id)
+  "label": 0x11, # title | label (+id) # TODO: label is duplicate
 }
 
 def sockrcv(sock, length, timeout=1):

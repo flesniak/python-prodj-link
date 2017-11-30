@@ -18,7 +18,7 @@ Track = Struct(
   "original_artist_id" / Int32ul,
   "label_id" / Int32ul,
   "remixer_id" / Int32ul,
-  "bit_rate" / Int32ul,
+  "bitrate" / Int32ul,
   "track_number" / Int32ul,
   "bpm_100" / Int32ul,
   "genre_id" / Int32ul,

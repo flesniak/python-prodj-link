@@ -141,6 +141,50 @@ class PDBProvider:
     }
     return mount_info
 
+  # id_list empty -> list all titles
+  # one id_list entry = album_id -> all titles in album
+  # two id_list entries = artist_id,album_id -> all titles in album by artist
+  # three id_list entries = genre_id,artist_id,album_id -> all titles in album by artist matching genre
+  def get_titles(self, player_number, slot, id_list=[], sort_mode="default"):
+    db = self.get_db(player_number, slot)
+    if len(id_list) == 3:
+      ff = lambda track: track.genre_id == id_lisŧ[0] and track.artist_id == id_list[1] and track.album_id == id_list[2]
+    elif len(id_list) == 2:
+      ff = lambda track: track.artist_id == id_list[0] and track.album_id == id_list[1]
+    elif len(id_list) == 1:
+      ff = lambda track: track.album_id == id_list[0]
+    else:
+      ff = lambda track: True
+    track_list = filter(ff, db["tracks"])
+    titles = []
+    if sort_mode == "default":
+      sort_mode = "title" # we do not know the default sort mode from pdb, thus fall back to title
+    if sort_mode == "title":
+      col2_name = "artist"
+    else:
+      col2_name = sort_mode
+    for track in track_list:
+      if col2_name in ["title", "artist"]:
+        col2_item = db.get_artist(track.artist_id).name if track.artist_id > 0 else ""
+      elif col2_name == "album":
+        col2_item = db.get_album(track.album_id).name if track.album_id > 0 else ""
+      elif col2_name == "genre":
+        col2_item = db.get_genre(track.genre_id).name if track.genre_id > 0 else ""
+      elif col2_name == "label":
+        col2_item = db.get_label(track.label_id).name if track.label_id > 0 else ""
+      elif col2_name == "original_artist_id":
+        col2_item = db.get_artist(track.original_artist_id).name if track.original_artist_id > 0 else ""
+      elif col2_name == "key":
+        col2_item = db.get_key(track.key_id).name if track.key_id > 0 else ""
+      elif col2_name == "bpm":
+        col2_item = track.bpm_100/100
+      elif col2_name in ["rating", "comment", "duration", "remixer", "bitrate", "play_count"]: # 1:1 mappings
+        col2_item = track[col2_name]
+      else:
+        raise dataprovider.FatalQueryError("PDBProvider: unknown sort mode {}".format(sort_mode))
+      titles += [{"title": track.title, col2_name: col2_item}]
+    return sorted(titles, key=lambda key: key[sort_mode])
+
   def handle_request(self, request, params):
     logging.debug("PDBProvider: handling %s request params %s", request, str(params))
     if request == "metadata":
