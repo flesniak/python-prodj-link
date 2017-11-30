@@ -142,11 +142,18 @@ class DataProvider(Thread):
     logging.debug("DataProvider: handling %s request params %s", request, str(params))
     reply = None
     if store is not None:
-      logging.debug("DataStore: trying %s from store", request)
+      logging.debug("DataProvider: trying request %s %s from store", request, str(params))
       reply = self._handle_request_from_store(store, params)
     if self.pdb_enabled and reply is None:
-      reply = self._handle_request_from_pdb(request, params)
+      try:
+        logging.debug("DataProvider: trying request %s %s from pdb", request, str(params))
+        reply = self._handle_request_from_pdb(request, params)
+      except FatalQueryError as e: # on a fatal error, continue with dbc
+        logging.warning("DataProvider: pdb failed [%s]", str(e))
+        if not self.dbc_enabled:
+          raise
     if self.dbc_enabled and reply is None:
+      logging.debug("DataProvider: trying request %s %s from dbc", request, str(params))
       reply = self._handle_request_from_dbclient(request, params)
 
     if reply is None:
