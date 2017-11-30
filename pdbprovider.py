@@ -12,6 +12,10 @@ class PDBProvider:
     self.dbs = DataStore() # (player_number,slot) -> PDBDatabase
     self.usbanlz = DataStore() # (player_number, slot, track_id) -> UsbAnlzDatabase
 
+  def cleanup_stores_from_changed_media(self, player_number, slot):
+    self.dbs.removeByPlayerSlot(player_number, slot)
+    self.usbanlz.removeByPlayerSlot(player_number, slot)
+
   def stop(self):
     self.dbs.stop()
     self.usbanlz.stop()

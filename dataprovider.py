@@ -56,6 +56,7 @@ class DataProvider(Thread):
     self.waveform_store.removeByPlayerSlot(player_number, slot)
     self.preview_waveform_store.removeByPlayerSlot(player_number, slot)
     self.beatgrid_store.removeByPlayerSlot(player_number, slot)
+    self.pdb.cleanup_stores_from_changed_media(player_number, slot)
 
   # called from outside, enqueues request
   def get_metadata(self, player_number, slot, track_id, callback=None):
