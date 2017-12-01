@@ -19,8 +19,10 @@ class DataProvider(Thread):
     self.queue = Queue()
 
     self.dbc_enabled = False
+    self.dbc_enabled = True
     self.dbc = DBClient(prodj)
 
+    self.pdb_enabled = False
     self.pdb_enabled = True
     self.pdb = PDBProvider(prodj)
 
@@ -71,6 +73,12 @@ class DataProvider(Thread):
   def get_titles_by_album(self, player_number, slot, album_id, sort_mode="default", callback=None):
     self._enqueue_request("title_by_album", None, (player_number, slot, [album_id], sort_mode), callback)
 
+  def get_titles_by_artist_album(self, player_number, slot, artist_id, album_id, sort_mode="default", callback=None):
+    self._enqueue_request("title_by_artist_album", None, (player_number, slot, [artist_id, album_id], sort_mode), callback)
+
+  def get_titles_by_genre_artist_album(self, player_number, slot, genre_id, artist_id, album_id, sort_mode="default", callback=None):
+    self._enqueue_request("title_by_genre_artist_album", None, (player_number, slot, [genre_id, artist_id, album_id], sort_mode), callback)
+
   def get_artists(self, player_number, slot, callback=None):
     self._enqueue_request("artist", None, (player_number, slot, [], None), callback)
 
@@ -80,9 +88,6 @@ class DataProvider(Thread):
   def get_albums(self, player_number, slot, callback=None):
     self._enqueue_request("album", None, (player_number, slot, [], None), callback)
 
-  def get_titles_by_artist_album(self, player_number, slot, artist_id, album_id, sort_mode="default", callback=None):
-    self._enqueue_request("title_by_artist_album", None, (player_number, slot, [artist_id, album_id], sort_mode), callback)
-
   def get_genres(self, player_number, slot, callback=None):
     self._enqueue_request("genre", None, (player_number, slot, [], None), callback)
 
@@ -91,9 +96,6 @@ class DataProvider(Thread):
 
   def get_albums_by_genre_artist(self, player_number, slot, genre_id, artist_id, callback=None):
     self._enqueue_request("album_by_genre_artist", None, (player_number, slot, [genre_id, artist_id], None), callback)
-
-  def get_titles_by_genre_artist_album(self, player_number, slot, genre_id, artist_id, album_id, callback=None):
-    self._enqueue_request("title_by_genre_artist_album", None, (player_number, slot, [genre_id, artist_id, album_id], None), callback)
 
   def get_playlist_folder(self, player_number, slot, folder_id=0, callback=None):
     self._enqueue_request("playlist_folder", None, (player_number, slot, [folder_id, 0], None), callback)
@@ -139,7 +141,7 @@ class DataProvider(Thread):
     return self.dbc.handle_request(request, params)
 
   def _handle_request(self, request, store, params, callback):
-    logging.debug("DataProvider: handling %s request params %s", request, str(params))
+    #logging.debug("DataProvider: handling %s request params %s", request, str(params))
     reply = None
     if store is not None:
       logging.debug("DataProvider: trying request %s %s from store", request, str(params))

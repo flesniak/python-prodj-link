@@ -76,8 +76,6 @@ class PDBDatabase(dict):
     if stat.st_size != self.parsed["file_size"]:
       raise RuntimeError("PDBDatabase: failed to parse the complete file ({}/{} bytes parsed)".format(self.parsed["file_size"], stat.st_size))
 
-    logging.debug("PDBDatabase: Loaded %d pages, %d tracks", len(self.parsed.pages), len(self["tracks"]))
-
     self.collect_entries("block_tracks", "tracks")
     self.collect_entries("block_artists", "artists")
     self.collect_entries("block_albums", "albums")
@@ -88,3 +86,5 @@ class PDBDatabase(dict):
     self.collect_entries("block_genres", "genres")
     self.collect_entries("block_keys", "key_names")
     self.collect_entries("block_labels", "labels")
+
+    logging.debug("PDBDatabase: Loaded %d pages, %d tracks, %d playlists", len(self.parsed.pages), len(self["tracks"]), len(self["playlists"]))

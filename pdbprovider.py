@@ -167,14 +167,24 @@ class PDBProvider:
   def get_titles(self, player_number, slot, id_list=[], sort_mode="default"):
     logging.debug("PDBProvider: get_titles (%d, %s, %s) sort %s", player_number, slot, str(id_list), sort_mode)
     db = self.get_db(player_number, slot)
-    if len(id_list) == 3:
-      ff = lambda track: track.genre_id == id_lisŧ[0] and track.artist_id == id_list[1] and track.album_id == id_list[2]
-    elif len(id_list) == 2:
-      ff = lambda track: track.artist_id == id_list[0] and track.album_id == id_list[1]
+    if len(id_list) == 3: # genre, artist, album
+      if id_list[1] == 0 and id_list[2] == 0: # any artist, any album
+        ff = lambda track: track.genre_id == id_list[0]
+      elif id_list[2] == 0: # any album
+        ff = lambda track: track.genre_id == id_list[0] and track.artist_id == id_list[1]
+      elif id_list[1] == 0: # any artist
+        ff = lambda track: track.genre_id == id_list[0] and track.album_id == id_list[2]
+      else:
+        ff = lambda track: track.genre_id == id_list[0] and track.artist_id == id_list[1] and track.album_id == id_list[2]
+    elif len(id_list) == 2: # artist, album
+      if id_list[1] == 0: # any album
+        ff = lambda track: track.artist_id == id_list[0]
+      else:
+        ff = lambda track: track.artist_id == id_list[0] and track.album_id == id_list[1]
     elif len(id_list) == 1:
       ff = lambda track: track.album_id == id_list[0]
     else:
-      ff = lambda track: True
+      ff = None
     track_list = filter(ff, db["tracks"])
     #logging.debug("PDBProvider: track_list %s", str(track_list))
     titles = []
@@ -215,30 +225,45 @@ class PDBProvider:
     logging.debug("PDBProvider: get_artists (%d, %s, %s)", player_number, slot, str(id_list))
     db = self.get_db(player_number, slot)
     if len(id_list) == 1:
-      raise dataprovider.FatalQueryError("PDBProvider: get_artists by genre not implemented yet")
-      #ff = lambda artist: artist.genre_id == id_list[0]
+      ff = lambda artist: any(artist.id == track.artist_id for track in db["tracks"] if track.genre_id == id_list[0])
+      prepend = [{"all": " ALL "}]
     else:
-      ff = lambda track: True
+      ff = None
+      prepend = []
     artist_list = filter(ff, db["artists"])
     artists = [{"artist": artist.name, "artist_id": artist.id} for artist in artist_list]
-    return sorted(artists, key=lambda key: key["artist"])
+    return prepend+sorted(artists, key=lambda key: key["artist"])
 
   # id_list empty -> list all albums
   # one id_list entry = artist_id -> all albums by artist
-  # two id_list entries = genre_id, artist_id -> all albums by artist and genre
+  # two id_list entries = genre_id, artist_id -> all albums by artist matching genre
+  # two id_list entries = genre_id, 0 -> all albums matching genre
   def get_albums(self, player_number, slot, id_list=[], sort_mode=None):
     logging.debug("PDBProvider: get_albums (%d, %s, %s)", player_number, slot, str(id_list))
     db = self.get_db(player_number, slot)
     if len(id_list) == 2:
-      ff = lambda album: any(album.id == track.album_id for track in db["tracks"] if track.artist_id == id_list[0])
+      if id_list[1] == 0:
+        ff = lambda album: any(album.id == track.album_id for track in db["tracks"] if track.genre_id == id_list[0])
+      else:
+        ff = lambda album: any(album.id == track.album_id for track in db["tracks"] if track.artist_id == id_list[1] and track.genre_id == id_list[0])
+      prepend = [{"all": " ALL "}]
     elif len(id_list) == 1:
-      # no artist->album mapping, so filter tracks by artist and take each album matching one of these tracks
       ff = lambda album: any(album.id == track.album_id for track in db["tracks"] if track.artist_id == id_list[0])
+      prepend = [{"all": " ALL "}]
     else:
-      ff = lambda track: True
+      ff = None
+      prepend = []
     album_list = filter(ff, db["albums"])
     albums = [{"album": album.name, "album_id": album.id} for album in album_list]
-    return sorted(albums, key=lambda key: key["album"])
+    return prepend+sorted(albums, key=lambda key: key["album"])
+
+  # id_list empty -> list genres
+  def get_genres(self, player_number, slot, id_list=[], sort_mode=None):
+    logging.debug("PDBProvider: get_genres (%d, %s)", player_number, slot)
+    db = self.get_db(player_number, slot)
+    genres = [{"genre": genre.name, "genre_id": genre.id} for genre in db["genres"]]
+    sorted_genres = sorted(genres, key=lambda key: key["genre"])
+    return sorted(genres, key=lambda key: key["genre"])
 
   def handle_request(self, request, params):
     logging.debug("PDBProvider: handling %s request params %s", request, str(params))
@@ -257,15 +282,15 @@ class PDBProvider:
     elif request == "artist":
       return self.get_artists(*params)
     elif request == "artist_by_genre":
-      raise dataprovider.FatalQueryError("PDBProvider: artist_by_genre_request not implemented yet")
+      return self.get_artists(*params)
     elif request == "album":
       return self.get_albums(*params)
     elif request == "album_by_artist":
       return self.get_albums(*params)
     elif request == "album_by_genre_artist":
-      raise dataprovider.FatalQueryError("PDBProvider: album_by_genre_artist_request not implemented yet")
+      return self.get_albums(*params)
     elif request == "genre":
-      raise dataprovider.FatalQueryError("PDBProvider:genre_request not implemented yet")
+      return self.get_genres(*params)
     elif request in ["playlist", "playlist_folder"]:
       raise dataprovider.FatalQueryError("PDBProvider: playlist_request not implemented yet")
     elif request == "artwork":
