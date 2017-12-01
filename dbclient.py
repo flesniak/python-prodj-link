@@ -279,6 +279,8 @@ class DBClient:
     else: # for any (non-playlist) "*_by_*_request"
       query["args"].append({"type": "int32", "value": sort_id})
       for item_id in id_list:
+        if item_id == 0: # we use id 0 for "ALL", dbserver expects all bits set
+          item_id = 0xffffffff
         query["args"].append({"type": "int32", "value": item_id})
     data = packets.DBMessage.build(query)
     logging.debug("DBClient: query_list request: {}".format(query))
