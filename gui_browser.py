@@ -175,36 +175,36 @@ class Browser(QWidget):
   def titleMenu(self):
     self.prodj.data.get_titles(self.player_number, self.slot, self.sort, self.storeRequest)
 
-  def artistMenu(self):
-    self.prodj.data.get_artists(self.player_number, self.slot, self.storeRequest)
-
-  def albumArtistMenu(self, artist_id):
-    self.artist_id = artist_id
-    self.prodj.data.get_albums_by_artist(self.player_number, self.slot, artist_id, self.storeRequest)
+  def titleAlbumMenu(self, album_id):
+    self.prodj.data.get_titles_by_album(self.player_number, self.slot, album_id, self.sort, self.storeRequest)
 
   def titleAlbumArtistMenu(self, album_id):
     self.prodj.data.get_titles_by_artist_album(self.player_number, self.slot, self.artist_id, album_id, self.sort, self.storeRequest)
 
-  def albumMenu(self):
-    self.prodj.data.get_albums(self.player_number, self.slot, self.storeRequest)
+  def titleAlbumArtistGenreMenu(self, album_id):
+    self.album_id = album_id
+    self.prodj.data.get_titles_by_genre_artist_album(self.player_number, self.slot, self.genre_id, self.artist_id, album_id, self.sort, self.storeRequest)
 
-  def titleAlbumMenu(self, album_id):
-    self.prodj.data.get_titles_by_album(self.player_number, self.slot, album_id, self.sort, self.storeRequest)
-
-  def genreMenu(self):
-    self.prodj.data.get_genres(self.player_number, self.slot, self.storeRequest)
+  def artistMenu(self):
+    self.prodj.data.get_artists(self.player_number, self.slot, self.storeRequest)
 
   def artistGenreMenu(self, genre_id):
     self.genre_id = genre_id
     self.prodj.data.get_artists_by_genre(self.player_number, self.slot, genre_id, self.storeRequest)
 
+  def albumMenu(self):
+    self.prodj.data.get_albums(self.player_number, self.slot, self.storeRequest)
+
+  def albumArtistMenu(self, artist_id):
+    self.artist_id = artist_id
+    self.prodj.data.get_albums_by_artist(self.player_number, self.slot, artist_id, self.storeRequest)
+
   def albumArtistGenreMenu(self, artist_id):
     self.artist_id = artist_id
     self.prodj.data.get_albums_by_genre_artist(self.player_number, self.slot, self.genre_id, artist_id, self.storeRequest)
 
-  def titleAlbumArtistGenreMenu(self, album_id):
-    self.album_id = album_id
-    self.prodj.data.get_titles_by_genre_artist_album(self.player_number, self.slot, self.genre_id, self.artist_id, album_id, self.storeRequest)
+  def genreMenu(self):
+    self.prodj.data.get_genres(self.player_number, self.slot, self.storeRequest)
 
   def folderPlaylistMenu(self, folder_id=0):
     if folder_id == 0:
@@ -219,7 +219,7 @@ class Browser(QWidget):
     self.prodj.data.get_playlist(self.player_number, self.slot, playlist_id, self.sort, self.storeRequest)
 
   def renderList(self, request, player_number, slot, query_ids, sort_mode, reply):
-    logging.debug("renderList %s %s", request, str(player_number))
+    logging.debug("Browser: rendering %s list from player %d", request, player_number)
     if player_number != self.player_number:
       return
     self.menu = request
@@ -227,8 +227,9 @@ class Browser(QWidget):
     self.model.clear()
     # guess columns
     columns = []
-    if len(reply) > 0:
+    if len(reply) > 1 or (len(reply) > 0 and "all" not in reply[0]):
       # skip first entry if it is "all"
+      #logging.debug("RENDERLIST %s | %s", str(reply[0]), str(reply[1]))
       for key in reply[1] if "all" in reply[0] else reply[0]:
         if key[-3:] != "_id":
           columns += [key]
@@ -360,11 +361,19 @@ class Browser(QWidget):
 
   def sortChanged(self):
     self.sort = self.sort_box.currentData()
-    logging.debug("sort changed to %s", self.sort)
-    if self.menu[:5] == "title":
+    logging.debug("Browser: sort changed to %s", self.sort)
+    if self.menu == "title":
       self.titleMenu()
+    elif self.menu == "title_by_album":
+      self.titleAlbumMenu(self.album_id)
+    elif self.menu == "title_by_artist_album":
+      self.titleAlbumArtistMenu(self.album_id)
+    elif self.menu == "title_by_genre_artist_album":
+      self.titleAlbumArtistGenreMenu(self.album_id)
     elif self.menu == "playlist":
       self.titlePlaylistMenu(self.playlist_id)
+    else:
+      logging.debug("Browser: unsortable menu type %s", self.menu)
 
   def loadIntoPlayer(self, player_number):
     if self.slot is None or self.track_id is None:
@@ -393,7 +402,7 @@ class Browser(QWidget):
 
   # handleRequest is called by handleRequestSignal, from inside the gui thread
   def handleRequest(self):
-    #logging.debug("handleRequest %s", self.request[0])
+    #logging.debug("Browser: handle request %s", self.request[0])
     if self.request is None or self.request[-1] is None:
       return
     if self.request[0] == "root_menu":
