@@ -18,13 +18,11 @@ class DataProvider(Thread):
     self.prodj = prodj
     self.queue = Queue()
 
-    self.dbc_enabled = False
-    self.dbc_enabled = True
-    self.dbc = DBClient(prodj)
-
-    self.pdb_enabled = False
     self.pdb_enabled = True
     self.pdb = PDBProvider(prodj)
+
+    self.dbc_enabled = True
+    self.dbc = DBClient(prodj)
 
     # db queries seem to work if we submit player number 0 everywhere (NOTE: this seems to work only if less than 4 players are on the network)
     # however, this messes up rendering on the players sometimes (i.e. when querying metadata and player has browser opened)
@@ -68,40 +66,40 @@ class DataProvider(Thread):
     self._enqueue_request("root_menu", None, (player_number, slot), callback)
 
   def get_titles(self, player_number, slot, sort_mode="default", callback=None):
-    self._enqueue_request("title", None, (player_number, slot, [], sort_mode), callback)
+    self._enqueue_request("title", None, (player_number, slot, sort_mode), callback)
 
   def get_titles_by_album(self, player_number, slot, album_id, sort_mode="default", callback=None):
-    self._enqueue_request("title_by_album", None, (player_number, slot, [album_id], sort_mode), callback)
+    self._enqueue_request("title_by_album", None, (player_number, slot, sort_mode, [album_id]), callback)
 
   def get_titles_by_artist_album(self, player_number, slot, artist_id, album_id, sort_mode="default", callback=None):
-    self._enqueue_request("title_by_artist_album", None, (player_number, slot, [artist_id, album_id], sort_mode), callback)
+    self._enqueue_request("title_by_artist_album", None, (player_number, slot, sort_mode, [artist_id, album_id]), callback)
 
   def get_titles_by_genre_artist_album(self, player_number, slot, genre_id, artist_id, album_id, sort_mode="default", callback=None):
-    self._enqueue_request("title_by_genre_artist_album", None, (player_number, slot, [genre_id, artist_id, album_id], sort_mode), callback)
+    self._enqueue_request("title_by_genre_artist_album", None, (player_number, slot, sort_mode, [genre_id, artist_id, album_id]), callback)
 
   def get_artists(self, player_number, slot, callback=None):
-    self._enqueue_request("artist", None, (player_number, slot, [], None), callback)
-
-  def get_albums_by_artist(self, player_number, slot, artist_id, callback=None):
-    self._enqueue_request("album_by_artist", None, (player_number, slot, [artist_id], None), callback)
-
-  def get_albums(self, player_number, slot, callback=None):
-    self._enqueue_request("album", None, (player_number, slot, [], None), callback)
-
-  def get_genres(self, player_number, slot, callback=None):
-    self._enqueue_request("genre", None, (player_number, slot, [], None), callback)
+    self._enqueue_request("artist", None, (player_number, slot), callback)
 
   def get_artists_by_genre(self, player_number, slot, genre_id, callback=None):
-    self._enqueue_request("artist_by_genre", None, (player_number, slot, [genre_id], None), callback)
+    self._enqueue_request("artist_by_genre", None, (player_number, slot, [genre_id]), callback)
+
+  def get_albums(self, player_number, slot, callback=None):
+    self._enqueue_request("album", None, (player_number, slot), callback)
+
+  def get_albums_by_artist(self, player_number, slot, artist_id, callback=None):
+    self._enqueue_request("album_by_artist", None, (player_number, slot, [artist_id]), callback)
 
   def get_albums_by_genre_artist(self, player_number, slot, genre_id, artist_id, callback=None):
-    self._enqueue_request("album_by_genre_artist", None, (player_number, slot, [genre_id, artist_id], None), callback)
+    self._enqueue_request("album_by_genre_artist", None, (player_number, slot, [genre_id, artist_id]), callback)
+
+  def get_genres(self, player_number, slot, callback=None):
+    self._enqueue_request("genre", None, (player_number, slot), callback)
 
   def get_playlist_folder(self, player_number, slot, folder_id=0, callback=None):
-    self._enqueue_request("playlist_folder", None, (player_number, slot, [folder_id, 0], None), callback)
+    self._enqueue_request("playlist_folder", None, (player_number, slot, folder_id), callback)
 
   def get_playlist(self, player_number, slot, playlist_id, sort_mode="default", callback=None):
-    self._enqueue_request("playlist", None, (player_number, slot, [0, playlist_id], sort_mode), callback)
+    self._enqueue_request("playlist", None, (player_number, slot, sort_mode, playlist_id), callback)
 
   def get_artwork(self, player_number, slot, artwork_id, callback=None):
     self._enqueue_request("artwork", self.artwork_store, (player_number, slot, artwork_id), callback)

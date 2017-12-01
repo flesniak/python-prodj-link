@@ -249,7 +249,7 @@ class DBClient:
         parse_errors += 1
     raise dataprovider.TemporaryQueryError("Failed to receive dbmessage after {} tries and {} timeouts".format(parse_errors, receive_timeouts))
 
-  def query_list(self, player_number, slot, id_list, sort_mode, request_type):
+  def query_list(self, player_number, slot, sort_mode, id_list, request_type):
     sock = self.getSocket(player_number)
     slot_id = byte2int(packets.PlayerSlot.build(slot)) if slot is not None else 0
     if sort_mode is None:
@@ -483,43 +483,45 @@ class DBClient:
     if request in critical_requests and client.play_state in critical_play_states:
       raise dataprovider.TemporaryQueryError("DataProvider: delaying %s request due to play state: %s".format(request, client.play_state))
 
+#def query_list(self, player_number, slot, id_list, sort_mode, request_type):
+#def query_blob(self, player_number, slot, item_id, request_type, location=8):
   def handle_request(self, request, params):
     self.ensure_request_possible(request, params[0])
     logging.debug("DBClient: handling %s request params %s", request, str(params))
     if request == "metadata":
       return self.query_list(*params[:2], [params[2]], None, "metadata_request")
     elif request == "root_menu":
-      return self.query_list(*params, None, None, "root_menu_request")
+      return self.query_list(*params, None, [], "root_menu_request")
     elif request == "title":
-      return self.query_list(*params, "title_request")
+      return self.query_list(*param, [], "title_request")
     elif request == "title_by_album":
       return self.query_list(*params, "title_by_album_request")
-    elif request == "artist":
-      return self.query_list(*params, "artist_request")
-    elif request == "album_by_artist":
-      return self.query_list(*params, "album_by_artist_request")
-    elif request == "album":
-      return self.query_list(*params, "album_request")
     elif request == "title_by_artist_album":
       return self.query_list(*params, "title_by_artist_album_request")
-    elif request == "genre":
-      return self.query_list(*params, "genre_request")
-    elif request == "artist_by_genre":
-      return self.query_list(*params, "artist_by_genre_request")
-    elif request == "album_by_genre_artist":
-      return self.query_list(*params, "album_by_genre_artist_request")
     elif request == "title_by_genre_artist_album":
       return self.query_list(*params, "title_by_genre_artist_album_request")
-    elif request in ["playlist", "playlist_folder"]:
-      return self.query_list(*params, "playlist_request")
+    elif request == "artist":
+      return self.query_list(*params, None, [], "artist_request")
+    elif request == "artist_by_genre":
+      return self.query_list(*params[:2], None, params[2], "artist_by_genre_request")
+    elif request == "album":
+      return self.query_list(*params, None, [], "album_request")
+    elif request == "album_by_artist":
+      return self.query_list(*params[:2], None, params[2], "album_by_artist_request")
+    elif request == "album_by_genre_artist":
+      return self.query_list(*params[:2], None, params[2], "album_by_genre_artist_request")
+    elif request == "genre":
+      return self.query_list(*params, None, [], "genre_request")
+    elif request == "playlist_folder":
+      return self.query_list(*param[:2], None, [param[2], 0], "playlist_request")
+    elif request == "playlist":
+      return self.query_list(*param[:3], [0, param[3]], "playlist_request")
     elif request == "artwork":
       return self.query_blob(*params, "artwork_request")
     elif request == "waveform":
-      return self.query_blob(*params, "waveform_request", 1)
+      return self.query_blob(*params, "waveform_request", 1)[20:]
     elif request == "preview_waveform":
       return self.query_blob(*params, "preview_waveform_request")
-    elif request == "mount_info":
-      return self.query_list(*params, None, "track_data_request")
     elif request == "beatgrid":
       reply = self.query_blob(*params, "beatgrid_request")
       if reply is None:
@@ -528,5 +530,7 @@ class DBClient:
         return packets.Beatgrid.parse(reply)["beats"]
       except (RangeError, FieldError) as e:
         raise dataprovider.FatalQueryError("DBClient: failed to parse beatgrid data: {}".format(e))
+    elif request == "mount_info":
+      return self.query_list(*params, None, "track_data_request")
     else:
       raise dataprovider.FatalQueryError("DBClient: invalid request type {}".format(request))

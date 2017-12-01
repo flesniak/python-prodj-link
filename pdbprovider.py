@@ -188,7 +188,6 @@ class PDBProvider:
         col2_item = track[col2_name]
       else:
         raise dataprovider.FatalQueryError("PDBProvider: unknown sort mode {}".format(sort_mode))
-      logging.debug("PDBProvider: add converted %s", str(track.title))
       converted += [{
         "title": track.title,
         col2_name: col2_item,
@@ -200,13 +199,13 @@ class PDBProvider:
     if sort_mode == "default":
       return converted
     else:
-      return sorted(converted, key=lambda key: key[sort_mode])
+      return sorted(converted, key=lambda key: key[sort_mode], reverse=sort_mode=="rating")
 
   # id_list empty -> list all titles
   # one id_list entry = album_id -> all titles in album
   # two id_list entries = artist_id,album_id -> all titles in album by artist
   # three id_list entries = genre_id,artist_id,album_id -> all titles in album by artist matching genre
-  def get_titles(self, player_number, slot, id_list=[], sort_mode="default"):
+  def get_titles(self, player_number, slot, sort_mode="default", id_list=[]):
     logging.debug("PDBProvider: get_titles (%d, %s, %s) sort %s", player_number, slot, str(id_list), sort_mode)
     db = self.get_db(player_number, slot)
     if len(id_list) == 3: # genre, artist, album
@@ -235,7 +234,7 @@ class PDBProvider:
 
   # id_list empty -> list all artists
   # one id_list entry = genre_id -> all artists by genre
-  def get_artists(self, player_number, slot, id_list=[], sort_mode=None):
+  def get_artists(self, player_number, slot, id_list=[]):
     logging.debug("PDBProvider: get_artists (%d, %s, %s)", player_number, slot, str(id_list))
     db = self.get_db(player_number, slot)
     if len(id_list) == 1:
@@ -252,7 +251,7 @@ class PDBProvider:
   # one id_list entry = artist_id -> all albums by artist
   # two id_list entries = genre_id, artist_id -> all albums by artist matching genre
   # two id_list entries = genre_id, 0 -> all albums matching genre
-  def get_albums(self, player_number, slot, id_list=[], sort_mode=None):
+  def get_albums(self, player_number, slot, id_list=[]):
     logging.debug("PDBProvider: get_albums (%d, %s, %s)", player_number, slot, str(id_list))
     db = self.get_db(player_number, slot)
     if len(id_list) == 2:
@@ -272,7 +271,7 @@ class PDBProvider:
     return prepend+sorted(albums, key=lambda key: key["album"])
 
   # id_list empty -> list genres
-  def get_genres(self, player_number, slot, id_list=[], sort_mode=None):
+  def get_genres(self, player_number, slot):
     logging.debug("PDBProvider: get_genres (%d, %s)", player_number, slot)
     db = self.get_db(player_number, slot)
     genres = [{"genre": genre.name, "genre_id": genre.id} for genre in db["genres"]]
@@ -290,7 +289,7 @@ class PDBProvider:
         playlists += [{"playlist": playlist.name, "playlist_id": playlist.id, "parend_id": playlist.folder_id}]
     return playlists
 
-  def get_playlist(self, player_number, slot, playlist_id, sort_mode="default"):
+  def get_playlist(self, player_number, slot, sort_mode, playlist_id):
     logging.debug("PDBProvider: get_playlist (%d, %s, %d, %s)", player_number, slot, playlist_id, sort_mode)
     db = self.get_db(player_number, slot)
     track_list = db.get_playlist(playlist_id)
@@ -324,18 +323,18 @@ class PDBProvider:
     elif request == "genre":
       return self.get_genres(*params)
     elif request == "playlist_folder":
-      return self.get_playlists(*params[:2], params[2][0]) # unpack ugly parameter list
+      return self.get_playlists(*params)
     elif request == "playlist":
-      return self.get_playlist(*params[:2], params[2][1], params[3]) # unpack ugly parameter list
+      return self.get_playlist(*params)
     elif request == "artwork":
       return self.get_artwork(*params)
     elif request == "waveform":
       return self.get_waveform(*params)
     elif request == "preview_waveform":
       return self.get_preview_waveform(*params)
-    elif request == "mount_info":
-      return self.get_mount_info(*params[:-1], params[-1][0])
     elif request == "beatgrid":
       return self.get_beatgrid(*params)
+    elif request == "mount_info":
+      return self.get_mount_info(*params[:-1], params[-1][0])
     else:
       raise dataprovider.FatalQueryError("PDBProvider: invalid request type {}".format(request))

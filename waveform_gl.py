@@ -58,7 +58,7 @@ class GLWaveformWidget(QOpenGLWidget):
 
   def setData(self, waveform_data):
     with self.data_lock:
-      self.waveform_data = waveform_data[20:]
+      self.waveform_data = waveform_data
       self.update()
 
   def setBeatgridData(self, beatgrid_data):

@@ -218,7 +218,7 @@ class Browser(QWidget):
     self.playlist_id = playlist_id
     self.prodj.data.get_playlist(self.player_number, self.slot, playlist_id, self.sort, self.storeRequest)
 
-  def renderList(self, request, player_number, slot, query_ids, sort_mode, reply):
+  def renderList(self, request, player_number, slot, reply):
     logging.debug("Browser: rendering %s list from player %d", request, player_number)
     if player_number != self.player_number:
       return
@@ -403,13 +403,13 @@ class Browser(QWidget):
 
   # handleRequest is called by handleRequestSignal, from inside the gui thread
   def handleRequest(self):
-    #logging.debug("Browser: handle request %s", str(self.request))
+    logging.debug("Browser: handle request %s", str(self.request))
     if self.request is None or self.request[-1] is None:
       return
     if self.request[0] == "root_menu":
       self.renderRootMenu(*self.request)
     elif self.request[0] in ["title", "artist", "album_by_artist", "title_by_artist_album", "album", "title_by_album", "genre", "artist_by_genre", "album_by_genre_artist", "title_by_genre_artist_album", "playlist_folder", "playlist"]:
-      self.renderList(*self.request)
+      self.renderList(*self.request[:3], self.request[-1])
     elif self.request[0] == "metadata":
       self.renderMetadata(*self.request)
     else:
