@@ -227,10 +227,11 @@ class Browser(QWidget):
     self.model.clear()
     # guess columns
     columns = []
-    if len(reply) > 1 or (len(reply) > 0 and "all" not in reply[0]):
-      # skip first entry if it is "all"
-      #logging.debug("RENDERLIST %s | %s", str(reply[0]), str(reply[1]))
-      for key in reply[1] if "all" in reply[0] else reply[0]:
+    if len(reply) > 0:
+      guess = reply[0]
+      if len(reply) > 1 and "all" in guess:
+        guess = reply[1]
+      for key in guess:
         if key[-3:] != "_id":
           columns += [key]
     self.model.setHorizontalHeaderLabels([printableField(x) for x in columns])
@@ -402,7 +403,7 @@ class Browser(QWidget):
 
   # handleRequest is called by handleRequestSignal, from inside the gui thread
   def handleRequest(self):
-    #logging.debug("Browser: handle request %s", self.request[0])
+    #logging.debug("Browser: handle request %s", str(self.request))
     if self.request is None or self.request[-1] is None:
       return
     if self.request[0] == "root_menu":
