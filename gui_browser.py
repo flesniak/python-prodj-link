@@ -176,9 +176,11 @@ class Browser(QWidget):
     self.prodj.data.get_titles(self.player_number, self.slot, self.sort, self.storeRequest)
 
   def titleAlbumMenu(self, album_id):
+    self.album_id = album_id
     self.prodj.data.get_titles_by_album(self.player_number, self.slot, album_id, self.sort, self.storeRequest)
 
   def titleAlbumArtistMenu(self, album_id):
+    self.album_id = album_id
     self.prodj.data.get_titles_by_artist_album(self.player_number, self.slot, self.artist_id, album_id, self.sort, self.storeRequest)
 
   def titleAlbumArtistGenreMenu(self, album_id):
@@ -403,7 +405,7 @@ class Browser(QWidget):
 
   # handleRequest is called by handleRequestSignal, from inside the gui thread
   def handleRequest(self):
-    logging.debug("Browser: handle request %s", str(self.request))
+    #logging.debug("Browser: handle request %s", str(self.request))
     if self.request is None or self.request[-1] is None:
       return
     if self.request[0] == "root_menu":

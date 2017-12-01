@@ -181,7 +181,7 @@ class DBClient:
       logging.warning("DBClient: unhandled metadata type %s", entry_label)
       return None
 
-    logging.debug("DBClient: parse_metadata %s", str(entry))
+    #logging.debug("DBClient: parse_metadata %s", str(entry))
     return entry
 
   def parse_list(self, data):
@@ -489,11 +489,11 @@ class DBClient:
     self.ensure_request_possible(request, params[0])
     logging.debug("DBClient: handling %s request params %s", request, str(params))
     if request == "metadata":
-      return self.query_list(*params[:2], [params[2]], None, "metadata_request")
+      return self.query_list(*params[:2], None, [params[2]], "metadata_request")
     elif request == "root_menu":
       return self.query_list(*params, None, [], "root_menu_request")
     elif request == "title":
-      return self.query_list(*param, [], "title_request")
+      return self.query_list(*params, [], "title_request")
     elif request == "title_by_album":
       return self.query_list(*params, "title_by_album_request")
     elif request == "title_by_artist_album":
@@ -513,9 +513,9 @@ class DBClient:
     elif request == "genre":
       return self.query_list(*params, None, [], "genre_request")
     elif request == "playlist_folder":
-      return self.query_list(*param[:2], None, [param[2], 0], "playlist_request")
+      return self.query_list(*params[:2], None, [params[2], 0], "playlist_request")
     elif request == "playlist":
-      return self.query_list(*param[:3], [0, param[3]], "playlist_request")
+      return self.query_list(*params[:3], [0, params[3]], "playlist_request")
     elif request == "artwork":
       return self.query_blob(*params, "artwork_request")
     elif request == "waveform":
