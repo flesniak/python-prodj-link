@@ -56,6 +56,19 @@ class PDBDatabase(dict):
         return artwork
     raise KeyError("PDBDatabase: artwork {} not found".format(artwork_id))
 
+  # returns all playlists in folder "folder_id", sorted by the user-defined sort order
+  def get_playlists(self, folder_id):
+    ff = lambda pl: pl.folder_id == folder_id
+    sf = lambda pl: pl.sort_order
+    return sorted(filter(ff, self["playlists"]), key=sf)
+
+  # returns all tracks in playlist "playlist_id", sorted by the user-defined sort order
+  def get_playlist(self, playlist_id):
+    pms = filter(lambda pm: pm.playlist_id == playlist_id, self["playlist_map"])
+    sorted_pms = sorted(pms, key=lambda pm: pm.entry_index)
+    tracks = filter(lambda t: any(t.id == pm.track_id for pm in sorted_pms), self["tracks"])
+    return tracks
+
   def collect_entries(self, page_type, target):
     for page in filter(lambda x: x.page_type == page_type, self.parsed.pages):
       #logging.debug("PDBDatabase: parsing page %s %d", page.page_type, page.index)

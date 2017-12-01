@@ -160,6 +160,48 @@ class PDBProvider:
       {'name': '\ufffaFOLDER\ufffb', 'menu_id': 17}
     ]
 
+  def convert_and_sort_track_list(self, db, track_list, sort_mode):
+    converted = []
+    # we do not know the default sort mode from pdb, thus fall back to title
+    if sort_mode in ["title", "default"]:
+      col2_name = "artist"
+    else:
+      col2_name = sort_mode
+    for track in track_list:
+      if col2_name in ["title", "artist"]:
+        col2_item = db.get_artist(track.artist_id).name if track.artist_id > 0 else ""
+      elif col2_name == "album":
+        col2_item = db.get_album(track.album_id).name if track.album_id > 0 else ""
+      elif col2_name == "genre":
+        col2_item = db.get_genre(track.genre_id).name if track.genre_id > 0 else ""
+      elif col2_name == "label":
+        col2_item = db.get_label(track.label_id).name if track.label_id > 0 else ""
+      elif col2_name == "original_artist":
+        col2_item = db.get_artist(track.original_artist_id).name if track.original_artist_id > 0 else ""
+      elif col2_name == "remixer":
+        col2_item = db.get_artist(track.remixer_id).name if track.remixer_id > 0 else ""
+      elif col2_name == "key":
+        col2_item = db.get_key(track.key_id).name if track.key_id > 0 else ""
+      elif col2_name == "bpm":
+        col2_item = track.bpm_100/100
+      elif col2_name in ["rating", "comment", "duration", "bitrate", "play_count"]: # 1:1 mappings
+        col2_item = track[col2_name]
+      else:
+        raise dataprovider.FatalQueryError("PDBProvider: unknown sort mode {}".format(sort_mode))
+      logging.debug("PDBProvider: add converted %s", str(track.title))
+      converted += [{
+        "title": track.title,
+        col2_name: col2_item,
+        "track_id": track.id,
+        "artist_id": track.artist_id,
+        "album_id": track.album_id,
+        "artwork_id": track.artwork_id,
+        "genre_id": track.genre_id}]
+    if sort_mode == "default":
+      return converted
+    else:
+      return sorted(converted, key=lambda key: key[sort_mode])
+
   # id_list empty -> list all titles
   # one id_list entry = album_id -> all titles in album
   # two id_list entries = artist_id,album_id -> all titles in album by artist
@@ -186,38 +228,10 @@ class PDBProvider:
     else:
       ff = None
     track_list = filter(ff, db["tracks"])
-    #logging.debug("PDBProvider: track_list %s", str(track_list))
-    titles = []
+    # on titles, fall back to "title" sort mode as we can't know the user's default choice
     if sort_mode == "default":
-      sort_mode = "title" # we do not know the default sort mode from pdb, thus fall back to title
-    if sort_mode == "title":
-      col2_name = "artist"
-    else:
-      col2_name = sort_mode
-    for track in track_list:
-      if col2_name in ["title", "artist"]:
-        col2_item = db.get_artist(track.artist_id).name if track.artist_id > 0 else ""
-      elif col2_name == "album":
-        col2_item = db.get_album(track.album_id).name if track.album_id > 0 else ""
-      elif col2_name == "genre":
-        col2_item = db.get_genre(track.genre_id).name if track.genre_id > 0 else ""
-      elif col2_name == "label":
-        col2_item = db.get_label(track.label_id).name if track.label_id > 0 else ""
-      elif col2_name == "original_artist":
-        col2_item = db.get_artist(track.original_artist_id).name if track.original_artist_id > 0 else ""
-      elif col2_name == "remixer":
-        col2_item = db.get_artist(track.remixer_id).name if track.remixer_id > 0 else ""
-      elif col2_name == "key":
-        col2_item = db.get_key(track.key_id).name if track.key_id > 0 else ""
-      elif col2_name == "bpm":
-        col2_item = track.bpm_100/100
-      elif col2_name in ["rating", "comment", "duration", "bitrate", "play_count"]: # 1:1 mappings
-        col2_item = track[col2_name]
-      else:
-        raise dataprovider.FatalQueryError("PDBProvider: unknown sort mode {}".format(sort_mode))
-      #logging.debug("PDBProvider: add titles %s", str(track.title))
-      titles += [{"title": track.title, "track_id": track.id, col2_name: col2_item}]
-    return sorted(titles, key=lambda key: key[sort_mode])
+      sort_mode = "title"
+    return self.convert_and_sort_track_list(db, track_list, sort_mode)
 
   # id_list empty -> list all artists
   # one id_list entry = genre_id -> all artists by genre
@@ -265,6 +279,24 @@ class PDBProvider:
     sorted_genres = sorted(genres, key=lambda key: key["genre"])
     return sorted(genres, key=lambda key: key["genre"])
 
+  def get_playlists(self, player_number, slot, folder_id):
+    logging.debug("PDBProvider: get_playlists (%d, %s, %d)", player_number, slot, folder_id)
+    db = self.get_db(player_number, slot)
+    playlists = []
+    for playlist in db.get_playlists(folder_id):
+      if playlist.is_folder:
+        playlists += [{"folder": playlist.name, "folder_id": playlist.id, "parend_id": playlist.folder_id}]
+      else:
+        playlists += [{"playlist": playlist.name, "playlist_id": playlist.id, "parend_id": playlist.folder_id}]
+    return playlists
+
+  def get_playlist(self, player_number, slot, playlist_id, sort_mode="default"):
+    logging.debug("PDBProvider: get_playlist (%d, %s, %d, %s)", player_number, slot, playlist_id, sort_mode)
+    db = self.get_db(player_number, slot)
+    track_list = db.get_playlist(playlist_id)
+    return self.convert_and_sort_track_list(db, track_list, sort_mode)
+    #{'title': 'The Raven', 'artwork_id': 123, 'track_id': 225, 'artist_id': 4, 'key': '09A', 'key_id': 4}
+
   def handle_request(self, request, params):
     logging.debug("PDBProvider: handling %s request params %s", request, str(params))
     if request == "metadata":
@@ -291,8 +323,10 @@ class PDBProvider:
       return self.get_albums(*params)
     elif request == "genre":
       return self.get_genres(*params)
-    elif request in ["playlist", "playlist_folder"]:
-      raise dataprovider.FatalQueryError("PDBProvider: playlist_request not implemented yet")
+    elif request == "playlist_folder":
+      return self.get_playlists(*params[:2], params[2][0]) # unpack ugly parameter list
+    elif request == "playlist":
+      return self.get_playlist(*params[:2], params[2][1], params[3]) # unpack ugly parameter list
     elif request == "artwork":
       return self.get_artwork(*params)
     elif request == "waveform":
