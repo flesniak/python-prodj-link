@@ -31,7 +31,6 @@ class PDBProvider:
     if player is None:
       raise dataprovider.FatalQueryError("PDBProvider: player {} not found in clientlist".format(player_number))
     filename = "databases/player-{}-{}.pdb".format(player_number, slot)
-    return filename # TODO: DEBUG; REMOVE LATER
     self.delete_pdb(filename)
     try:
       self.prodj.nfs.enqueue_download(player.ip_addr, slot, "/PIONEER/rekordbox/export.pdb", filename, sync=True)
