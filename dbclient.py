@@ -471,7 +471,7 @@ class DBClient:
       if player_number is None:
         raise dataprovider.FatalQueryError("socksnd failed with unknown sock")
       else:
-        self.prodj.closeSocket(player_number)
+        self.closeSocket(player_number)
         raise dataprovider.TemporaryQueryError("Connection to player {} lost".format(player_number))
 
   def ensure_request_possible(self, request, player_number):
