@@ -452,7 +452,7 @@ class Gui(QWidget):
     # track changed -> reload metadata
     if self.players[player_number].track_id != c.track_id:
       self.players[player_number].track_id = c.track_id # remember requested track id
-      if c.track_id != 0 and c.loaded_slot in ["sd", "usb"]:
+      if c.track_id != 0 and c.loaded_slot in ["sd", "usb"] and c.track_analyze_type == "rekordbox":
         logging.info("Gui: track id of player %d changed to %d, requesting metadata", player_number, c.track_id)
         self.prodj.data.get_metadata(c.loaded_player_number, c.loaded_slot, c.track_id, self.dbclient_callback)
         # we do not get artwork yet because we need metadata to know the artwork_id

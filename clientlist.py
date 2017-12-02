@@ -212,6 +212,7 @@ class ClientList:
       c.track_number = status_packet["track_number"]
       c.loaded_player_number = status_packet["loaded_player_number"]
       c.loaded_slot = status_packet["loaded_slot"]
+      c.track_analyze_type = status_packet["track_analyze_type"]
 
       new_track_id = status_packet["track_id"]
       if c.track_id != new_track_id:
@@ -219,7 +220,7 @@ class ClientList:
         client_changed = True
         c.metadata = None
         c.position = None
-        if c.loaded_slot in ["usb", "sd"]:
+        if c.loaded_slot in ["usb", "sd"] and c.track_analyze_type == "rekordbox":
           if self.log_played_tracks:
             self.prodj.data.get_metadata(c.loaded_player_number, c.loaded_slot, c.track_id, self.logPlayedTrackCallback)
           if self.auto_request_beatgrid and c.track_id != 0:
@@ -272,6 +273,7 @@ class Client:
     self.sd_info = {}
     self.loaded_player_number = 0
     self.loaded_slot = "empty"
+    self.track_analyze_type = "unknown"
     self.state = []
     self.track_number = None
     self.track_id = 0
