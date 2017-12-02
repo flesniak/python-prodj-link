@@ -111,11 +111,13 @@ class BpmAdapter(Adapter):
 Bpm = BpmAdapter(Int16ub)
 
 BeatPacketType = Enum(Int8ub,
-  type_beat = 0x28
+  type_beat = 0x28,
+  type_mixer = 0x03
 )
 
 BeatPacketSubtype = Enum(Int8ub,
-  stype_beat = 0x3c
+  stype_beat = 0x3c,
+  stype_mixer = 0x09
 )
 
 # received on udp port 50001
@@ -145,7 +147,13 @@ BeatPacket = Struct(
       "bpm" / Bpm,
       "beat" / Int8ub,
       Padding(2), # always 0 except when scratching 0xff
-      "player_number2" / Int8ub)
+      "player_number2" / Int8ub),
+    # type=0x06, the unknown mixer beat info packet
+    "type_mixer": Struct(
+      "u1" / Int16ub,
+      "u2" / Int32ub,
+      "u3" / Int8ub,
+      "u4" / Int16ub)
   }))
 )
 
