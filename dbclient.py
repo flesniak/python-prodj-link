@@ -531,6 +531,6 @@ class DBClient:
       except (RangeError, FieldError) as e:
         raise dataprovider.FatalQueryError("DBClient: failed to parse beatgrid data: {}".format(e))
     elif request == "mount_info":
-      return self.query_list(*params, None, "track_data_request")
+      return self.query_list(*params[:2], None, params[2], "track_data_request")
     else:
       raise dataprovider.FatalQueryError("DBClient: invalid request type {}".format(request))
