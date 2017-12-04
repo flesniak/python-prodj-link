@@ -1,4 +1,4 @@
-from construct import Computed, Const, ExprAdapter, FocusedSeq, Int8ul, Int24ul, RepeatUntil, String, Switch, this, Struct
+from construct import Computed, ExprAdapter, FocusedSeq, Int8ul, Int24ul, Pointer, RepeatUntil, String, Switch, this
 
 #PioString = Struct(
 PioString = FocusedSeq(1,
@@ -17,3 +17,7 @@ PioString = FocusedSeq(1,
       "actual_length" / Computed((this.padded_length[-1]-1)//2-1),
       "text" / String(this.actual_length, encoding="ascii")))
 )
+
+# parses a PioString relative to entry start using an str_idx array
+def IndexedPioString(index):
+  return Pointer(this.entry_start+this.str_idx[index], PioString)

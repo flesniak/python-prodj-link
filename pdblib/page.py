@@ -18,7 +18,7 @@ StrangePage = Struct(
     "next_index" / Int32ul, # index of next page containing real data or 0x3ffffff if next page empty
     Const(Int32ul, 0x3fffffff),
     Padding(4),
-    "u1" / Int16ul, # 0/2 number of bytes in the following data
+    "entry_count" / Int16ul, # number of 4-byte values
     "u2" / Int16ul, # always 8191?
     ),
   Array(1004, Int32ul),
@@ -80,7 +80,7 @@ PageHeader = Struct( # 40 bytes
   "u7" / Int16ul, # (0->1: 2)
   "alternative_entry_count" / Int16ul, # usually <= entry_count except for playlist_map?
   "u9" / Int16ul, # 1004 for strange blocks, 0 otherwise
-  "u10" / Int16ul, # always 0 except 1 for synchistory
+  "u10" / Int16ul, # always 0 except 1 for synchistory, entry count for strange pages?
   "is_strange_page" / Computed(lambda ctx: ctx.index != 0 and ctx.u9 == 1004),
   "is_empty_page" / Computed(lambda ctx: ctx.index == 0 and ctx.u9 == 0),
   # this is fishy: artwork and playlist_map pages have much more entries than set in real_entry_count
