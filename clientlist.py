@@ -102,8 +102,17 @@ class ClientList:
     if c is None: # packet from unknown client
       return
     c.updateTtl()
-    if not c.status_packet_received:
-      client_changed = False;
+    client_changed = False;
+    if beat_packet.type == "type_mixer":
+      for x in range(1,5):
+        player = self.getClient(x)
+        if player is not None:
+          on_air = beat_packet.ch_on_air[x-1] == 1
+          if player.on_air != on_air:
+            if self.client_change_callback:
+              self.client_change_callback(x)
+            player.on_air = on_air
+    elif beat_packet.type == "type_beat" and not c.status_packet_received:
       new_actual_pitch = beat_packet["pitch"]
       if c.actual_pitch != new_actual_pitch:
         c.actual_pitch = new_actual_pitch
@@ -116,8 +125,8 @@ class ClientList:
       if c.beat != new_beat:
         c.beat = new_beat
         client_changed = True
-      if self.client_change_callback and client_changed:
-        self.client_change_callback(c.player_number)
+    if self.client_change_callback and client_changed:
+      self.client_change_callback(c.player_number)
 
   # update all known player information
   def eatStatus(self, status_packet):
@@ -279,6 +288,7 @@ class Client:
     self.track_id = 0
     self.position = None # position in track in seconds, 0 if not determinable
     self.position_timestamp = None
+    self.on_air = False
     # internal use
     self.metadata = None
     self.status_packet_received = False # ignore play state from beat packets

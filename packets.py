@@ -150,10 +150,10 @@ BeatPacket = Struct(
       "player_number2" / Int8ub),
     # type=0x06, the unknown mixer beat info packet
     "type_mixer": Struct(
-      "u1" / Int16ub,
-      "u2" / Int32ub,
-      "u3" / Int8ub,
-      "u4" / Int16ub)
+      "ch_on_air" / Array(4, Int8ub),
+      "u3" / Int16ub,
+      "u4" / Int8ub,
+      "u5" / Int16ub)
   }))
 )
 
