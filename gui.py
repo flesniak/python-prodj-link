@@ -105,11 +105,12 @@ class BeatBarWidget(QWidget):
     painter.end()
 
 class PlayerWidget(QFrame):
+  time_mode_remain_changed_signal = pyqtSignal(bool)
+
   def __init__(self, player_number, parent):
     super().__init__(parent)
     self.setFrameStyle(QFrame.Box | QFrame.Plain)
     self.labels = {}
-    self.track_id = None # track id of displayed metadata, waveform etc from dbclient queries
     self.browse_dialog = None
     self.time_mode_remain = False
 
@@ -157,16 +158,16 @@ class PlayerWidget(QFrame):
 
     # time and beat bar
     self.elapsed_label = ClickableLabel("ELAPSED", self)
-    self.elapsed_label.setStyleSheet("QLabel:disabled { color: gray; }")
+    self.elapsed_label.setStyleSheet("QLabel { color: white; } QLabel:disabled { color: gray; }")
     self.remain_label = ClickableLabel("REMAIN", self)
-    self.remain_label.setStyleSheet("QLabel:disabled { color: gray; }")
+    self.remain_label.setStyleSheet("QLabel { color: white; } QLabel:disabled { color: gray; }")
     self.remain_label.setEnabled(False)
     self.time = ClickableLabel(self)
-    self.time.setStyleSheet("QLabel { font: 32px; qproperty-alignment: AlignRight; }")
+    self.time.setStyleSheet("QLabel { color: white; font: 32px; qproperty-alignment: AlignRight; }")
     self.time.setMaximumHeight(32)
     self.total_time_label = QLabel("TOTAL", self)
     self.total_time = QLabel(self)
-    self.total_time.setStyleSheet("QLabel { font: 32px; qproperty-alignment: AlignRight; }")
+    self.total_time.setStyleSheet("QLabel { color: white; font: 32px; qproperty-alignment: AlignRight; }")
     self.total_time.setMaximumHeight(32)
     self.beat_bar = BeatBarWidget(self)
 
@@ -183,6 +184,7 @@ class PlayerWidget(QFrame):
     self.elapsed_label.clicked.connect(self.toggleTimeMode)
     self.remain_label.clicked.connect(self.toggleTimeMode)
     self.time.clicked.connect(self.toggleTimeMode)
+    self.time_mode_remain_changed_signal.connect(self.setTimeMode)
 
     # waveform widgets
     self.waveform = GLWaveformWidget(self)
@@ -251,6 +253,7 @@ class PlayerWidget(QFrame):
     self.setSpeed("")
     self.setMaster(False)
     self.setSync(False)
+    self.track_id = 0
 
   def setPlayerNumber(self, player_number):
     self.player_number = player_number
@@ -293,7 +296,7 @@ class PlayerWidget(QFrame):
   def setTime(self, seconds, total=None):
     if seconds is not None:
       if total is not None and self.time_mode_remain:
-        seconds = total-seconds
+        seconds = total-seconds if total > seconds else 0
       self.time.setText("{}{:02d}:{:02d}".format("" if self.time_mode_remain==False else "-", int(seconds//60), int(seconds)%60))
     else:
       self.time.setText("00:00")
@@ -308,7 +311,10 @@ class PlayerWidget(QFrame):
     self.labels["play_state"].setText(printableField(state))
 
   def toggleTimeMode(self):
-    self.time_mode_remain = not self.time_mode_remain
+    self.time_mode_remain_changed_signal.emit(not self.time_mode_remain)
+
+  def setTimeMode(self, time_mode_remain):
+    self.time_mode_remain = time_mode_remain
     self.elapsed_label.setEnabled(not self.time_mode_remain)
     self.remain_label.setEnabled(self.time_mode_remain)
 
@@ -322,7 +328,8 @@ class PlayerWidget(QFrame):
     c = self.parent().prodj.cl.getClient(self.player_number)
     if c is None:
       logging.error("Gui: Download failed, player %d unknown", self.player_number)
-    self.parent().prodj.dbc.get_mount_info(c.loaded_player_number, c.loaded_slot,
+      return
+    self.parent().prodj.data.get_mount_info(c.loaded_player_number, c.loaded_slot,
       c.track_id, self.parent().prodj.nfs.enqueue_download_from_mount_info)
 
   # make browser dialog close when player window disappears
@@ -333,6 +340,7 @@ class PlayerWidget(QFrame):
 
 class Gui(QWidget):
   keepalive_signal = pyqtSignal(int)
+  client_change_signal = pyqtSignal(int)
 
   def __init__(self, prodj):
     super().__init__()
@@ -342,12 +350,34 @@ class Gui(QWidget):
     self.setAutoFillBackground(True)
 
     self.keepalive_signal.connect(self.keepalive_slot)
+    self.client_change_signal.connect(self.client_change_slot)
 
     self.players = {}
     self.layout = QGridLayout(self)
+    # "xy" = player 1 + 2 in the first row
+    # "yx" = player 1 + 2 in the first column
+    self.layout_mode = "xy"
     self.create_player(0)
 
     self.show()
+
+  def get_layout_coordinates(self, player_number):
+    if player_number == 0:
+      return 0, 0
+    if self.layout_mode == "xy":
+      return (player_number-1)//2, (player_number-1)%2
+    elif self.layout_mode == "yx":
+      return (player_number-1)%2, (player_number-1)//2
+    else:
+      raise Exception("Unknown Gui layout mode {}".format(str(layout_mode)))
+
+  def connect_linked_player_controls(self, player_number):
+    for pn, p in self.players.items():
+      if pn != player_number:
+        self.players[player_number].waveform.waveform_zoom_changed_signal.connect(p.waveform.setZoom, type = Qt.UniqueConnection | Qt.AutoConnection)
+        p.waveform.waveform_zoom_changed_signal.connect(self.players[player_number].waveform.setZoom, type = Qt.UniqueConnection | Qt.AutoConnection)
+        self.players[player_number].time_mode_remain_changed_signal.connect(p.setTimeMode, type = Qt.UniqueConnection | Qt.AutoConnection)
+        p.time_mode_remain_changed_signal.connect(self.players[player_number].setTimeMode, type = Qt.UniqueConnection | Qt.AutoConnection)
 
   def create_player(self, player_number):
     if player_number in self.players:
@@ -360,22 +390,30 @@ class Gui(QWidget):
     else:
       logging.info("Gui: Creating player {}".format(player_number))
       self.players[player_number] = PlayerWidget(player_number, self)
+    self.connect_linked_player_controls(player_number)
     self.players[player_number].show()
-    if player_number == 0:
-      self.layout.addWidget(self.players[0], 0, 0)
-    else:
-      self.layout.addWidget(self.players[player_number], (player_number-1)//2, (player_number-1)%2)
+    self.layout.addWidget(self.players[player_number], *self.get_layout_coordinates(player_number))
 
   def remove_player(self, player_number):
     if not player_number in self.players:
       return
     self.layout.removeWidget(self.players[player_number])
-    self.players[player_number].hide()
-    self.players[player_number].deleteLater()
-    del self.players[player_number]
+    if len(self.players) == 1:
+      logging.info("All players gone, resetting last player to 0")
+      self.players = {0: self.players[player_number]}
+      self.players[0].setPlayerNumber(0)
+      self.players[0].reset()
+      self.layout.addWidget(self.players[0], *self.get_layout_coordinates(0))
+    else:
+      self.players[player_number].hide()
+      self.players[player_number].deleteLater()
+      del self.players[player_number]
     logging.info("Gui: Removed player {}".format(player_number))
 
   # has to be called using a signal, otherwise windows are created standalone
+  def keepalive_callback(self, player_number):
+    self.keepalive_signal.emit(player_number)
+
   def keepalive_slot(self, player_number):
     if player_number not in range(1,5):
       return
@@ -384,10 +422,13 @@ class Gui(QWidget):
     c = self.prodj.cl.getClient(player_number)
     self.players[player_number].setPlayerInfo(c.model, c.ip_addr)
 
-  def change_callback(self, clientlist, player_number):
+  def client_change_callback(self, player_number):
+    self.client_change_signal.emit(player_number)
+
+  def client_change_slot(self, player_number):
     if not player_number in self.players:
       return
-    c = clientlist.getClient(player_number)
+    c = self.prodj.cl.getClient(player_number)
     if c is None:
       self.remove_player(player_number)
       return
@@ -411,13 +452,13 @@ class Gui(QWidget):
     # track changed -> reload metadata
     if self.players[player_number].track_id != c.track_id:
       self.players[player_number].track_id = c.track_id # remember requested track id
-      if c.track_id != 0:
+      if c.track_id != 0 and c.loaded_slot in ["sd", "usb"] and c.track_analyze_type == "rekordbox":
         logging.info("Gui: track id of player %d changed to %d, requesting metadata", player_number, c.track_id)
-        self.prodj.dbc.get_metadata(c.loaded_player_number, c.loaded_slot, c.track_id, self.dbclient_callback)
+        self.prodj.data.get_metadata(c.loaded_player_number, c.loaded_slot, c.track_id, self.dbclient_callback)
         # we do not get artwork yet because we need metadata to know the artwork_id
-        self.prodj.dbc.get_preview_waveform(c.loaded_player_number, c.loaded_slot, c.track_id, self.dbclient_callback)
-        self.prodj.dbc.get_beatgrid(c.loaded_player_number, c.loaded_slot, c.track_id, self.dbclient_callback)
-        self.prodj.dbc.get_waveform(c.loaded_player_number, c.loaded_slot, c.track_id, self.dbclient_callback)
+        self.prodj.data.get_preview_waveform(c.loaded_player_number, c.loaded_slot, c.track_id, self.dbclient_callback)
+        self.prodj.data.get_beatgrid(c.loaded_player_number, c.loaded_slot, c.track_id, self.dbclient_callback)
+        self.prodj.data.get_waveform(c.loaded_player_number, c.loaded_slot, c.track_id, self.dbclient_callback)
       else:
         logging.info("Gui: track id of player %d changed to %d, unloading", player_number, c.track_id)
         self.players[player_number].unload()
@@ -437,10 +478,8 @@ class Gui(QWidget):
           logging.warning("Gui: empty metadata received")
           continue
         self.players[player_number].setMetadata(reply["title"], reply["artist"], reply["album"])
-        with open("tracks.log", "a") as f:
-          f.write("{} - {} ({})\n".format(reply["artist"], reply["title"], reply["album"]))
         if "artwork_id" in reply and reply["artwork_id"] != 0:
-          self.prodj.dbc.get_artwork(source_player_number, slot, reply["artwork_id"], self.dbclient_callback)
+          self.prodj.data.get_artwork(source_player_number, slot, reply["artwork_id"], self.dbclient_callback)
         else:
           self.players[player_number].setArtwork(None)
       elif request == "artwork":

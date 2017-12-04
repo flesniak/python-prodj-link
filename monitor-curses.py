@@ -23,14 +23,18 @@ ch = CursesHandler(log_win)
 ch.setFormatter(logging.Formatter(fmt='%(levelname)s: %(message)s'))
 logging.basicConfig(level=default_loglevel, handlers=[ch])
 
-def update_clients(client_win, cl):
+p = ProDj()
+p.set_client_keepalive_callback(lambda n: update_clients(client_win))
+p.set_client_change_callback(lambda n: update_clients(client_win))
+
+def update_clients(client_win):
   try:
     client_win.clear()
     client_win.addstr(0, 0, "Detected Pioneer devices:\n")
-    if len(cl.clients) == 0:
+    if len(p.cl.clients) == 0:
       client_win.addstr("  No devices detected\n")
     else:
-      for c in cl.clients:
+      for c in p.cl.clients:
         client_win.addstr("Player {}: {} {} BPM Pitch {:.2f}% Beat {}/{} NextCue {}\n".format(
           c.player_number, c.model if c.fw=="" else "{}({})".format(c.model,c.fw),
           c.bpm, (c.pitch-1)*100, c.beat, c.beat_count, c.cue_distance))
@@ -42,10 +46,7 @@ def update_clients(client_win, cl):
   except Exception as e:
     logging.critical(str(e))
 
-p = ProDj()
-p.set_client_keepalive_callback(lambda cl, n: update_clients(client_win, cl))
-p.set_client_change_callback(lambda cl, n: update_clients(client_win, cl))
-update_clients(client_win, p.cl)
+update_clients(client_win)
 
 try:
   p.start()

@@ -33,8 +33,8 @@ app.setPalette(pal)
 
 signal.signal(signal.SIGINT, lambda s,f: app.quit())
 
-prodj.set_client_keepalive_callback(lambda cl,n: gui.keepalive_signal.emit(n))
-prodj.set_client_change_callback(gui.change_callback)
+prodj.set_client_keepalive_callback(gui.keepalive_callback)
+prodj.set_client_change_callback(gui.client_change_callback)
 prodj.set_media_change_callback(gui.media_callback)
 prodj.start()
 prodj.vcdj_set_player_number(5)

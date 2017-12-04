@@ -12,9 +12,13 @@ default_loglevel=logging.DEBUG
 
 logging.basicConfig(level=default_loglevel, format='%(levelname)s: %(message)s')
 
-def print_clients(cl, player_number):
+p = ProDj()
+p.set_client_keepalive_callback(print_clients)
+p.set_client_change_callback(print_clients)
+
+def print_clients(player_number):
   return
-  for c in cl.clients:
+  for c in p.cl.clients:
     if c.player_number == player_number:
       logging.info("Player {}: {} {} BPM Pitch {:.2f}% ({:.2f}%) Beat {} Beatcnt {} pos {:.6f}".format(
         c.player_number, c.model, c.bpm, (c.pitch-1)*100, (c.actual_pitch-1)*100, c.beat, c.beat_count,
@@ -37,9 +41,6 @@ def print_list(request, player_number, slot, query_ids, sort_mode, reply):
       s += "{}: \"{}\" ".format(label, content)
     logging.info("  {}".format(s))
 
-p = ProDj()
-p.set_client_keepalive_callback(print_clients)
-p.set_client_change_callback(print_clients)
 # TODO replace with call to dbclient
 #p.set_metadata_change_callback(print_metadata)
 

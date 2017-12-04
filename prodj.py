@@ -7,7 +7,7 @@ from enum import Enum
 
 import packets
 from clientlist import ClientList
-from dbclient import DBClient
+from dataprovider import DataProvider
 from vcdj import Vcdj
 from nfsclient import NfsClient
 from ip import guess_own_iface
@@ -21,7 +21,7 @@ class ProDj(Thread):
   def __init__(self):
     super().__init__()
     self.cl = ClientList(self)
-    self.dbc = DBClient(self)
+    self.data = DataProvider(self)
     self.vcdj = Vcdj(self)
     self.nfs = NfsClient(self)
     self.keepalive_ip = "0.0.0.0"
@@ -46,13 +46,13 @@ class ProDj(Thread):
     logging.info("Listening on {}:{} for status packets".format(self.status_ip, self.status_port))
     self.socks = [self.keepalive_sock, self.beat_sock, self.status_sock]
     self.keep_running = True
-    self.dbc.start()
+    self.data.start()
     super().start()
 
   def stop(self):
     self.keep_running = False
     self.nfs.stop()
-    self.dbc.stop()
+    self.data.stop()
     self.vcdj_disable()
     self.join()
     self.keepalive_sock.close()
@@ -61,7 +61,7 @@ class ProDj(Thread):
   def vcdj_set_player_number(self, vcdj_player_number=5):
     logging.info("Player number set to {}".format(vcdj_player_number))
     self.vcdj.player_number = vcdj_player_number
-    #self.dbc.own_player_number = vcdj_player_number
+    #self.data.dbc.own_player_number = vcdj_player_number
 
   def vcdj_enable(self):
     self.vcdj_set_iface()
@@ -118,7 +118,7 @@ class ProDj(Thread):
       logging.warning("Failed to parse beat packet from {}, {} bytes: {}".format(addr, len(data), e))
       dump_packet_raw(data)
       return
-    if packet["type"] == "type_beat":
+    if packet["type"] in ["type_beat", "type_mixer"]:
       self.cl.eatBeat(packet)
     dump_beat_packet(packet)
 

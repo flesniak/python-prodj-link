@@ -12,6 +12,8 @@ import OpenGL.GL as gl
 from packets import Beatgrid, PlayStatePlaying, PlayStateStopped
 
 class GLWaveformWidget(QOpenGLWidget):
+  waveform_zoom_changed_signal = pyqtSignal(int)
+
   def __init__(self, parent=None):
     super().__init__(parent)
 
@@ -35,6 +37,8 @@ class GLWaveformWidget(QOpenGLWidget):
     self.baseline_height = 0.2
     self.position_marker_width = 0.3
 
+    self.waveform_zoom_changed_signal.connect(self.setZoom)
+
     self.update_interval = 0.04
     self.startTimer(self.update_interval*1000)
 
@@ -54,7 +58,7 @@ class GLWaveformWidget(QOpenGLWidget):
 
   def setData(self, waveform_data):
     with self.data_lock:
-      self.waveform_data = waveform_data[20:]
+      self.waveform_data = waveform_data
       self.update()
 
   def setBeatgridData(self, beatgrid_data):
@@ -88,6 +92,12 @@ class GLWaveformWidget(QOpenGLWidget):
     else:
       self.offset = 0
       self.pitch = 0
+
+  def wheelEvent(self, event):
+    if event.angleDelta().y() > 0 and self.zoom_seconds > 2:
+      self.waveform_zoom_changed_signal.emit(self.zoom_seconds-1)
+    elif event.angleDelta().y() < 0 and self.zoom_seconds < 15:
+      self.waveform_zoom_changed_signal.emit(self.zoom_seconds+1)
 
   # how many seconds to show left and right of the position marker
   def setZoom(self, seconds):
@@ -140,12 +150,6 @@ class GLWaveformWidget(QOpenGLWidget):
   def resizeGL(self, width, height):
     gl.glViewport(0, 0, width, height)
 
-  def wheelEvent(self, event):
-    if event.angleDelta().y() > 0 and self.zoom_seconds > 2:
-      self.setZoom(self.zoom_seconds-1)
-    elif event.angleDelta().y() < 0 and self.zoom_seconds < 15:
-      self.setZoom(self.zoom_seconds+1)
-
   def renderCrosshair(self):
     gl.glNewList(self.lists, gl.GL_COMPILE)
     gl.glBegin(gl.GL_LINES)
@@ -190,7 +194,7 @@ class GLWaveformWidget(QOpenGLWidget):
       gl.glDisable(gl.GL_MULTISAMPLE)
       gl.glBegin(gl.GL_LINES)
 
-      for beat in self.beatgrid_data["beats"]:
+      for beat in self.beatgrid_data:
         if beat["beat"] == 1:
           gl.glColor3f(1, 0, 0)
           height = 8

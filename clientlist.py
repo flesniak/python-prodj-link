@@ -1,14 +1,16 @@
 import time
 import logging
+from datetime import datetime
 
 class ClientList:
   def __init__(self, prodj):
     self.clients = []
     self.client_keepalive_callback = None
     self.client_change_callback = None
-    self.master_change_callback = None
     self.media_change_callback = None
+    self.log_played_tracks = True
     self.auto_request_beatgrid = True # to enable position detection
+    self.auto_track_download = False
     self.prodj = prodj
 
   def __len__():
@@ -39,24 +41,36 @@ class ClientList:
           p.track_id == track_id):
         p.metadata = metadata
 
+  def mediaChanged(self, player_number, slot):
+    logging.debug("Media %s in player %d changed", slot, player_number)
+    self.prodj.data.cleanup_stores_from_changed_media(player_number, slot)
+    if self.media_change_callback is not None:
+      self.media_change_callback(self, player_number, slot)
+
   def updatePositionByBeat(self, player_number, new_beat_count, new_play_state):
     c = self.getClient(player_number)
     #logging.debug("Track position p %d abs %f actual_pitch %.6f play_state %s beat %d", player_number, c.position if c.position is not None else -1, c.actual_pitch, new_play_state, new_beat_count)
     identifier = (c.loaded_player_number, c.loaded_slot, c.track_id)
-    if identifier in self.prodj.dbc.beatgrid_store:
+    if identifier in self.prodj.data.beatgrid_store:
       if new_beat_count > 0:
         if (c.play_state == "cued" and new_play_state == "cueing") or (c.play_state == "playing" and new_play_state == "paused") or (c.play_state == "paused" and new_play_state == "playing"):
           return # ignore absolute position when switching from cued to cueing
         if new_play_state != "cued": # when releasing cue scratch, the beat count is still +1
           new_beat_count -= 1
-        beatgrid = self.prodj.dbc.beatgrid_store[identifier]
-        if beatgrid is not None and len(beatgrid["beats"]) > new_beat_count:
-          c.position = beatgrid["beats"][new_beat_count]["time"] / 1000
+        beatgrid = self.prodj.data.beatgrid_store[identifier]
+        if beatgrid is not None and len(beatgrid) > new_beat_count:
+          c.position = beatgrid[new_beat_count]["time"] / 1000
       else:
         c.position = 0
     else:
       c.position = None
     c.position_timestamp = time.time()
+
+  def logPlayedTrackCallback(self, request, source_player_number, slot, item_id, reply):
+    if request != "metadata" or reply is None or len(reply) == 0:
+      return
+    with open("tracks.log", "a") as f:
+      f.write("{}: {} - {} ({})\n".format(datetime.now().strftime("%Y-%m-%d %H:%M:%S"), reply["artist"], reply["title"], reply["album"]))
 
   # adds client if it is not known yet, in any case it resets the ttl
   def eatKeepalive(self, keepalive_packet):
@@ -70,16 +84,16 @@ class ClientList:
       self.clients += [c]
       logging.info("New Player %d: %s, %s, %s", c.player_number, c.model, c.ip_addr, c.mac_addr)
       if self.client_keepalive_callback:
-        self.client_keepalive_callback(self, c.player_number)
+        self.client_keepalive_callback(c.player_number)
     else:
       n = keepalive_packet["player_number"]
       if c.player_number != n:
         logging.info("Player {} changed player number from {} to {}".format(c.ip_addr, c.player_number, n))
         c.player_number = n
         if self.client_keepalive_callback:
-          self.client_keepalive_callback(self, c.player_number)
+          self.client_keepalive_callback(c.player_number)
         if self.client_change_callback:
-          self.client_change_callback(self, c.player_number)
+          self.client_change_callback(c.player_number)
     c.updateTtl()
 
   # updates pitch/bpm/beat information for player if we do not receive status packets (e.g. no vcdj enabled)
@@ -88,8 +102,17 @@ class ClientList:
     if c is None: # packet from unknown client
       return
     c.updateTtl()
-    if not c.status_packet_received:
-      client_changed = False;
+    client_changed = False;
+    if beat_packet.type == "type_mixer":
+      for x in range(1,5):
+        player = self.getClient(x)
+        if player is not None:
+          on_air = beat_packet.ch_on_air[x-1] == 1
+          if player.on_air != on_air:
+            if self.client_change_callback:
+              self.client_change_callback(x)
+            player.on_air = on_air
+    elif beat_packet.type == "type_beat" and not c.status_packet_received:
       new_actual_pitch = beat_packet["pitch"]
       if c.actual_pitch != new_actual_pitch:
         c.actual_pitch = new_actual_pitch
@@ -102,8 +125,8 @@ class ClientList:
       if c.beat != new_beat:
         c.beat = new_beat
         client_changed = True
-      if self.client_change_callback and client_changed:
-        self.client_change_callback(self, c.player_number)
+    if self.client_change_callback and client_changed:
+      self.client_change_callback(c.player_number)
 
   # update all known player information
   def eatStatus(self, status_packet):
@@ -127,8 +150,7 @@ class ClientList:
       logging.info("Player %d Link Info: %s \"%s\", %d tracks, %d playlists, %d/%dMB free",
         c.player_number, status_packet["slot"], link_info["name"], link_info["track_count"], link_info["playlist_count"],
         link_info["bytes_free"]//1024//1024, link_info["bytes_total"]//1024//1024)
-      if self.media_change_callback is not None:
-        self.media_change_callback(self, c.player_number, status_packet["slot"])
+      self.mediaChanged(c.player_number, status_packet["slot"])
       return
     c.type = status_packet["type"] # cdj or djm
 
@@ -187,8 +209,7 @@ class ClientList:
           c.usb_info = {}
         else:
           self.prodj.vcdj.query_link_info(c.player_number, "usb")
-        if self.media_change_callback is not None:
-          self.media_change_callback(self, c.player_number, "usb")
+        self.mediaChanged(c.player_number, "usb")
       new_sd_state = status_packet["sd_state"]
       if c.sd_state != new_sd_state:
         c.sd_state = new_sd_state
@@ -196,11 +217,11 @@ class ClientList:
           c.sd_info = {}
         else:
           self.prodj.vcdj.query_link_info(c.player_number, "sd")
-        if self.media_change_callback is not None:
-          self.media_change_callback(self, c.player_number, "sd")
+        self.mediaChanged(c.player_number, "sd")
       c.track_number = status_packet["track_number"]
       c.loaded_player_number = status_packet["loaded_player_number"]
       c.loaded_slot = status_packet["loaded_slot"]
+      c.track_analyze_type = status_packet["track_analyze_type"]
 
       new_track_id = status_packet["track_id"]
       if c.track_id != new_track_id:
@@ -208,14 +229,19 @@ class ClientList:
         client_changed = True
         c.metadata = None
         c.position = None
-        if self.auto_request_beatgrid and c.track_id != 0:
-          self.prodj.dbc.get_beatgrid(c.loaded_player_number, c.loaded_slot, c.track_id)
+        if c.loaded_slot in ["usb", "sd"] and c.track_analyze_type == "rekordbox":
+          if self.log_played_tracks:
+            self.prodj.data.get_metadata(c.loaded_player_number, c.loaded_slot, c.track_id, self.logPlayedTrackCallback)
+          if self.auto_request_beatgrid and c.track_id != 0:
+            self.prodj.data.get_beatgrid(c.loaded_player_number, c.loaded_slot, c.track_id)
+          if self.auto_track_download:
+            logging.info("Automatic download of track in player %d", c.player_number)
+            self.prodj.data.get_mount_info(c.loaded_player_number, c.loaded_slot,
+              c.track_id, self.prodj.nfs.enqueue_download_from_mount_info)
 
     c.updateTtl()
     if self.client_change_callback and client_changed:
-      self.client_change_callback(self, c.player_number)
-    if self.master_change_callback and "master" in c.state and client_changed:
-      self.master_change_callback(self, c.player_number)
+      self.client_change_callback(c.player_number)
 
   # checks ttl and clears expired clients
   def gc(self):
@@ -227,7 +253,7 @@ class ClientList:
       else:
         logging.info("Player {} dropped due to timeout".format(client.player_number))
         if self.client_change_callback:
-          self.client_change_callback(self, client.player_number)
+          self.client_change_callback(client.player_number)
 
   # returns a list of ips of all clients (used to guess own ip)
   def getClientIps(self):
@@ -256,11 +282,13 @@ class Client:
     self.sd_info = {}
     self.loaded_player_number = 0
     self.loaded_slot = "empty"
+    self.track_analyze_type = "unknown"
     self.state = []
     self.track_number = None
-    self.track_id = None
+    self.track_id = 0
     self.position = None # position in track in seconds, 0 if not determinable
     self.position_timestamp = None
+    self.on_air = False
     # internal use
     self.metadata = None
     self.status_packet_received = False # ignore play state from beat packets
