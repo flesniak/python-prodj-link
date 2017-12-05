@@ -89,11 +89,13 @@ class ClientList:
       n = keepalive_packet["player_number"]
       if c.player_number != n:
         logging.info("Player {} changed player number from {} to {}".format(c.ip_addr, c.player_number, n))
+        old_player_number = c.player_number
         c.player_number = n
-        if self.client_keepalive_callback:
-          self.client_keepalive_callback(c.player_number)
-        if self.client_change_callback:
-          self.client_change_callback(c.player_number)
+        for pn in [old_player_number, c.player_number]:
+          if self.client_keepalive_callback:
+            self.client_keepalive_callback(pn)
+          if self.client_change_callback:
+            self.client_change_callback(pn)
     c.updateTtl()
 
   # updates pitch/bpm/beat information for player if we do not receive status packets (e.g. no vcdj enabled)
