@@ -341,7 +341,7 @@ class DBClient:
       raise dataprovider.FatalQueryError("DBClient: Failed to receive {} render reply after {} timeouts, {} parse errors".format(request_type, receive_timeouts, parse_errors))
 
     # basically, parse_metadata returns a single dict whereas parse_list returns a list of dicts
-    if request_type in ["metadata_request", "track_data_request"]:
+    if request_type in ["metadata_request", "mount_info_request", "track_info_request"]:
       parsed = self.parse_metadata(reply)
     else:
       parsed = self.parse_list(reply)
