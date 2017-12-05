@@ -270,7 +270,7 @@ class DBClient:
     if request_type == "root_menu_request":
       query["args"].append({"type": "int32", "value": 0})
       query["args"].append({"type": "int32", "value": 0xffffff})
-    elif request_type in ["metadata_request", "track_data_request"]:
+    elif request_type in ["metadata_request", "track_data_request", "track_info_request"]:
       query["args"].append({"type": "int32", "value": id_list[0]})
     elif request_type == "playlist_request":
       query["args"].append({"type": "int32", "value": sort_id})
@@ -519,7 +519,8 @@ class DBClient:
     elif request == "artwork":
       return self.query_blob(*params, "artwork_request")
     elif request == "waveform":
-      return self.query_blob(*params, "waveform_request", 1)[20:]
+      waveform = self.query_blob(*params, "waveform_request", 1)
+      return None if waveform is None else waveform[20:]
     elif request == "preview_waveform":
       return self.query_blob(*params, "preview_waveform_request")
     elif request == "beatgrid":
@@ -531,6 +532,8 @@ class DBClient:
       except (RangeError, FieldError) as e:
         raise dataprovider.FatalQueryError("DBClient: failed to parse beatgrid data: {}".format(e))
     elif request == "mount_info":
-      return self.query_list(*params[:2], None, params[2], "track_data_request")
+      return self.query_list(*params[:2], None, [params[2]], "mount_info_request")
+    elif request == "track_info":
+      return self.query_list(*params[:2], None, [params[2]], "track_info_request")
     else:
       raise dataprovider.FatalQueryError("DBClient: invalid request type {}".format(request))
