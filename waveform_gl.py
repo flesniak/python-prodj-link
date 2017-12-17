@@ -173,9 +173,9 @@ class GLWaveformWidget(QOpenGLWidget):
       gl.glEnable(gl.GL_MULTISAMPLE)
       gl.glBegin(gl.GL_LINES)
 
-      for x in range(0, len(self.waveform_data)):
-        height = self.waveform_data[x] & 0x1f
-        whiteness = self.waveform_data[x] >> 5
+      for x,v in enumerate(self.waveform_data):
+        height = v & 0x1f
+        whiteness = v >> 5
 
         gl.glColor3f(whiteness/8, whiteness/8, 1)
         gl.glVertex3f(x/self.waveform_lines_per_x, height, 0)
@@ -195,13 +195,13 @@ class GLWaveformWidget(QOpenGLWidget):
       gl.glBegin(gl.GL_LINES)
 
       for beat in self.beatgrid_data:
-        if beat["beat"] == 1:
+        if beat.beat == 1:
           gl.glColor3f(1, 0, 0)
           height = 8
         else:
           gl.glColor3f(1, 1, 1)
           height = 5
-        x = beat["time"]/1000
+        x = beat.time/1000
 
         gl.glVertex3f(x, self.viewport[1]-height, 0)
         gl.glVertex3f(x, self.viewport[1], 0)
@@ -249,6 +249,6 @@ if __name__ == '__main__':
       window.glWidget.setData(f.read()[20:])
     with open("stuff/beatgrid.bin", "rb") as f:
       beatgrid = Beatgrid.parse(f.read())
-      window.glWidget.setBeatgridData(beatgrid)
+      window.glWidget.setBeatgridData(beatgrid.beats)
     window.show()
     app.exec_()
