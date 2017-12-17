@@ -1,2 +1,2 @@
-- clear stores on player media change / player disconnect/timeout
 - fallback to db parser if database is unavailable
+- on air display when nexus mixer is connected
