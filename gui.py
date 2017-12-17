@@ -426,11 +426,13 @@ class Gui(QWidget):
     self.client_change_signal.emit(player_number)
 
   def client_change_slot(self, player_number):
-    if not player_number in self.players:
-      return
+    if not player_number in self.players: # if status packet arrives before keepalive, create a player as well
+      self.create_player(player_number)
     c = self.prodj.cl.getClient(player_number)
     if c is None:
       self.remove_player(player_number)
+      return
+    if c.type != "cdj":
       return
     self.players[player_number].setSpeed(c.bpm, c.pitch)
     self.players[player_number].setMaster("master" in c.state)
