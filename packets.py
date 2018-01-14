@@ -36,7 +36,8 @@ KeepAlivePacketSubtype = Enum(Int8ub,
   stype_mac = 0x2c,
   stype_ip = 0x32,
   stype_status = 0x36,
-  stype_change = 0x29
+  stype_change = 0x29,
+  stype_status_mixer = 0x00 # djm 900 nxs sends this stype on type_status
 )
 
 DeviceType = Enum(Int8ub,
