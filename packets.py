@@ -64,7 +64,7 @@ KeepAlivePacket = Struct(
   Embedded(Switch(this.type, {
     # type=0x0a, request for other players to propose a player number?
     "type_hello": Struct(
-      "u2" / Const(Int8ub, 1)),
+      "u2" / Default(Int8ub, 1)), # cdjs send 1, djm900nxs sends 3
     # type=0x04, publishing a proposed player number, check if anyone else has it? iteration goes 1..2..3
     "type_number": Struct(
       "proposed_player_number" / Int8ub,

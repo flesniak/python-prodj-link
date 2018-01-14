@@ -101,7 +101,7 @@ class ProDj(Thread):
       dump_packet_raw(data)
       return
     # both packet types give us enough information to store the client
-    if packet["subtype"] in ["stype_status", "stype_status_mixer", "stype_ip"]:
+    if packet["type"] in ["type_ip", "type_status", "type_change"]:
       self.cl.eatKeepalive(packet)
     if self.own_ip is None and len(self.cl.getClientIps()) > 0:
       self.own_ip = guess_own_iface(self.keepalive_sock, self.cl.getClientIps())
