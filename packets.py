@@ -114,13 +114,21 @@ Bpm = BpmAdapter(Int16ub)
 BeatPacketType = Enum(Int8ub,
   type_beat = 0x28,
   type_mixer = 0x03,
-  type_mixer_unknown = 0x04 # some kind of "hello" packet? only on init?
+  type_mixer_unknown = 0x04, # some kind of "hello" packet sent by djm900nxs2
+  type_fader_start = 0x02
 )
 
 BeatPacketSubtype = Enum(Int8ub,
   stype_beat = 0x3c,
   stype_mixer = 0x09,
-  stype_mixer_unknown = 0x40
+  stype_mixer_unknown = 0x40,
+  stype_fader_start = 0x04
+)
+
+FaderStartCommand = Enum(Int8ub,
+  start = 0,
+  stop = 1,
+  ignore = 2
 )
 
 # received on udp port 50001
@@ -157,10 +165,13 @@ BeatPacket = Struct(
       "u3" / Int16ub,
       "u4" / Int8ub,
       "u5" / Int16ub),
-    # type=0x04, unknown mixer beat info packet
+    # type=0x40, unknown mixer beat info packet
     "type_mixer_unknown": Struct(
       "u3" / Int8ub, # counts 0x14, 0x24, 0x34, 0x44
-      "player_number2" / Int8ub)
+      "player_number2" / Int8ub),
+    # type=0x04, 
+    "type_fader_start": Struct(
+      "player" / Array(4, FaderStartCommand))
   }))
 )
 

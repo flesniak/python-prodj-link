@@ -39,6 +39,7 @@ class ProDj(Thread):
     self.keepalive_sock.bind((self.keepalive_ip, self.keepalive_port))
     logging.info("Listening on {}:{} for keepalive packets".format(self.keepalive_ip, self.keepalive_port))
     self.beat_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    self.beat_sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
     self.beat_sock.bind((self.beat_ip, self.beat_port))
     logging.info("Listening on {}:{} for beat packets".format(self.beat_ip, self.beat_port))
     self.status_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)

@@ -89,3 +89,21 @@ class Vcdj(Thread):
     data = packets.StatusPacket.build(cmd)
     logging.debug("send load packet to %s struct %s", cl.ip_addr, str(cmd))
     self.prodj.status_sock.sendto(data, (cl.ip_addr, self.prodj.status_port))
+
+  # if start is True, start the player, otherwise stop the player
+  def command_fader_start_single(self, player_number, start=True):
+    player_commands = ["ignore"]*4
+    player_commands[player_number-1] = "start" if start is True else "stop"
+    self.command_fader_start(player_commands)
+
+  # player_commands is an array of size 4 containing "start", "stop" or "ignore"
+  def command_fader_start(self, player_commands):
+    cmd = {
+      "type": "type_fader_start",
+      "subtype": "stype_fader_start",
+      "model": self.model,
+      "player_number": self.player_number,
+      "player": player_commands
+    }
+    data = packets.BeatPacket.build(cmd)
+    self.prodj.beat_sock.sendto(data, (self.broadcast_addr, self.prodj.beat_port))
