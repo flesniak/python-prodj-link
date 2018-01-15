@@ -426,11 +426,13 @@ class Gui(QWidget):
     self.client_change_signal.emit(player_number)
 
   def client_change_slot(self, player_number):
-    if not player_number in self.players:
-      return
+    if not player_number in self.players: # if status packet arrives before keepalive, create a player as well
+      self.create_player(player_number)
     c = self.prodj.cl.getClient(player_number)
     if c is None:
       self.remove_player(player_number)
+      return
+    if c.type != "cdj":
       return
     self.players[player_number].setSpeed(c.bpm, c.pitch)
     self.players[player_number].setMaster("master" in c.state)
@@ -452,13 +454,20 @@ class Gui(QWidget):
     # track changed -> reload metadata
     if self.players[player_number].track_id != c.track_id:
       self.players[player_number].track_id = c.track_id # remember requested track id
-      if c.track_id != 0 and c.loaded_slot in ["sd", "usb"] and c.track_analyze_type == "rekordbox":
-        logging.info("Gui: track id of player %d changed to %d, requesting metadata", player_number, c.track_id)
-        self.prodj.data.get_metadata(c.loaded_player_number, c.loaded_slot, c.track_id, self.dbclient_callback)
-        # we do not get artwork yet because we need metadata to know the artwork_id
-        self.prodj.data.get_preview_waveform(c.loaded_player_number, c.loaded_slot, c.track_id, self.dbclient_callback)
-        self.prodj.data.get_beatgrid(c.loaded_player_number, c.loaded_slot, c.track_id, self.dbclient_callback)
-        self.prodj.data.get_waveform(c.loaded_player_number, c.loaded_slot, c.track_id, self.dbclient_callback)
+      if c.track_id != 0:
+        if c.loaded_slot in ["sd", "usb"] and c.track_analyze_type == "rekordbox":
+          logging.info("Gui: track id of player %d changed to %d, requesting metadata", player_number, c.track_id)
+          self.prodj.data.get_metadata(c.loaded_player_number, c.loaded_slot, c.track_id, self.dbclient_callback)
+          # we do not get artwork yet because we need metadata to know the artwork_id
+          self.prodj.data.get_preview_waveform(c.loaded_player_number, c.loaded_slot, c.track_id, self.dbclient_callback)
+          self.prodj.data.get_beatgrid(c.loaded_player_number, c.loaded_slot, c.track_id, self.dbclient_callback)
+          self.prodj.data.get_waveform(c.loaded_player_number, c.loaded_slot, c.track_id, self.dbclient_callback)
+        elif c.track_analyze_type == "file":
+          logging.info("Gui: player %d loaded bare file %d, requesting info", player_number, c.track_id)
+          self.prodj.data.get_track_info(c.loaded_player_number, c.loaded_slot, c.track_id, self.dbclient_callback)
+        else:
+          logging.warning("Gui: unable to handle track %d in player %d, no known metadata method", c.track_id, player_number)
+          self.players[player_number].unload()
       else:
         logging.info("Gui: track id of player %d changed to %d, unloading", player_number, c.track_id)
         self.players[player_number].unload()
@@ -490,6 +499,8 @@ class Gui(QWidget):
         self.players[player_number].preview_waveform.setData(reply)
       elif request == "beatgrid":
         self.players[player_number].waveform.setBeatgridData(reply)
+      elif request == "track_info":
+        self.players[player_number].setMetadata(reply["title"], reply["artist"], reply["album"])
       else:
         logging.warning("Gui: unhandled dbserver callback %s", request)
 

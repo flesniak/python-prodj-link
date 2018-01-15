@@ -114,7 +114,10 @@ class DataProvider(Thread):
     self._enqueue_request("beatgrid", self.beatgrid_store, (player_number, slot, track_id), callback)
 
   def get_mount_info(self, player_number, slot, track_id, callback=None):
-    self._enqueue_request("mount_info", None, (player_number, slot, [track_id]), callback)
+    self._enqueue_request("mount_info", None, (player_number, slot, track_id), callback)
+
+  def get_track_info(self, player_number, slot, track_id, callback=None):
+    self._enqueue_request("track_info", None, (player_number, slot, track_id), callback)
 
   def _enqueue_request(self, request, store, params, callback):
     player_number = params[0]

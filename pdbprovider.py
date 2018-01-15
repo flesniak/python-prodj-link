@@ -334,6 +334,6 @@ class PDBProvider:
     elif request == "beatgrid":
       return self.get_beatgrid(*params)
     elif request == "mount_info":
-      return self.get_mount_info(*params[:-1], params[-1][0])
+      return self.get_mount_info(*params)
     else:
       raise dataprovider.FatalQueryError("PDBProvider: invalid request type {}".format(request))

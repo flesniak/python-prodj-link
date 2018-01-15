@@ -112,12 +112,14 @@ Bpm = BpmAdapter(Int16ub)
 
 BeatPacketType = Enum(Int8ub,
   type_beat = 0x28,
-  type_mixer = 0x03
+  type_mixer = 0x03,
+  type_mixer_unknown = 0x04 # some kind of "hello" packet? only on init?
 )
 
 BeatPacketSubtype = Enum(Int8ub,
   stype_beat = 0x3c,
-  stype_mixer = 0x09
+  stype_mixer = 0x09,
+  stype_mixer_unknown = 0x40
 )
 
 # received on udp port 50001
@@ -148,12 +150,16 @@ BeatPacket = Struct(
       "beat" / Int8ub,
       Padding(2), # always 0 except when scratching 0xff
       "player_number2" / Int8ub),
-    # type=0x06, the unknown mixer beat info packet
+    # type=0x03, a nxs mixer status packet containing on_air data
     "type_mixer": Struct(
       "ch_on_air" / Array(4, Int8ub),
       "u3" / Int16ub,
       "u4" / Int8ub,
-      "u5" / Int16ub)
+      "u5" / Int16ub),
+    # type=0x04, unknown mixer beat info packet
+    "type_mixer_unknown": Struct(
+      "u3" / Int8ub, # counts 0x14, 0x24, 0x34, 0x44
+      "player_number2" / Int8ub)
   }))
 )
 
@@ -467,7 +473,7 @@ DBRequestType = Enum(DBFieldFixed("int16"),
   artwork_request = 0x2003,
   preview_waveform_request = 0x2004,
   folder_request = 0x2006, # wtf, one list request here? params: 0, 0xffffffff, 0
-  track_data_request = 0x2102, # contains absolute storage path (nfs) among other data
+  mount_info_request = 0x2102, # contains absolute storage path (nfs) among other data
   cues_request = 0x2104,
   track_info_request = 0x2202, # metadata of unanalyzed data (i.e. cd or folder view)
   beatgrid_request = 0x2204,

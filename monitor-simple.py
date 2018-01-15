@@ -13,8 +13,6 @@ default_loglevel=logging.DEBUG
 logging.basicConfig(level=default_loglevel, format='%(levelname)s: %(message)s')
 
 p = ProDj()
-p.set_client_keepalive_callback(print_clients)
-p.set_client_change_callback(print_clients)
 
 def print_clients(player_number):
   return
@@ -33,7 +31,7 @@ def print_menu(request, player_number, slot, reply):
   for entry in reply:
     logging.info("  {}".format(entry))
 
-def print_list(request, player_number, slot, query_ids, sort_mode, reply):
+def print_list(request, player_number, slot, query_ids, reply):
   logging.info("List entries:")
   for track in reply:
     s = ""
@@ -41,8 +39,8 @@ def print_list(request, player_number, slot, query_ids, sort_mode, reply):
       s += "{}: \"{}\" ".format(label, content)
     logging.info("  {}".format(s))
 
-# TODO replace with call to dbclient
-#p.set_metadata_change_callback(print_metadata)
+p.set_client_keepalive_callback(print_clients)
+p.set_client_change_callback(print_clients)
 
 try:
   p.start()
@@ -50,15 +48,15 @@ try:
   p.vcdj_set_player_number(5)
   p.vcdj_enable()
   time.sleep(5)
-  #p.dbc.get_root_menu(1, "usb", print_menu)
-  #p.dbc.get_titles(2, "usb", "album", print_list)
-  #p.dbc.get_titles_by_album(2, "usb", 16, "bpm", print_list)
-  #p.dbc.get_playlists(2, "usb", 0, print_list)
-  #p.dbc.get_playlist(2, "usb", 0, 12, "default", print_list)
-  #p.dbc.get_artists(2, "usb", "default", print_list)
-  #p.dbc.get_artists(2, "usb", "default", print_list)
+  p.data.get_root_menu(2, "usb", print_menu)
+  p.data.get_titles(2, "usb", "album", print_list)
+  #p.data.get_titles_by_album(2, "usb", 16, "bpm", print_list)
+  #p.data.get_playlists(2, "usb", 0, print_list)
+  #p.data.get_playlist(2, "usb", 0, 12, "default", print_list)
+  #p.data.get_artists(2, "usb", "default", print_list)
   #p.vcdj.command_load_track(1, 2, "usb", 650)
-  #p.vcdj.query_link_info(4, "usb")
+  #p.vcdj.query_link_info(2, "usb")
+  p.data.get_track_info(2, "usb", 0x7bc6, print_list)
   p.join()
 except KeyboardInterrupt:
   logging.info("Shutting down...")

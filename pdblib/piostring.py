@@ -19,5 +19,9 @@ PioString = FocusedSeq(1,
 )
 
 # parses a PioString relative to entry start using an str_idx array
+def OffsetPioString(index):
+  return Pointer(this.entry_start+index, PioString)
+
+# parses a PioString relative to entry start using an str_idx array
 def IndexedPioString(index):
   return Pointer(this.entry_start+this.str_idx[index], PioString)
