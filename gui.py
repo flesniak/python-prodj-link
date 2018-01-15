@@ -109,7 +109,9 @@ class PlayerWidget(QFrame):
 
   def __init__(self, player_number, parent):
     super().__init__(parent)
-    self.setFrameStyle(QFrame.Box | QFrame.Plain)
+    self.setObjectName("PlayerFrame")
+    self.setProperty("on_air", False)
+    self.setStyleSheet("#PlayerFrame { border: 3px solid white; } #PlayerFrame[on_air=true] { border: 3px solid red; }")
     self.labels = {}
     self.browse_dialog = None
     self.time_mode_remain = False
@@ -338,6 +340,12 @@ class PlayerWidget(QFrame):
       self.browse_dialog.close()
     event.accept()
 
+  def setOnAir(self, on_air):
+    self.setProperty("on_air", on_air)
+    self.style().unpolish(self);
+    self.style().polish(self);
+    self.update()
+
 class Gui(QWidget):
   keepalive_signal = pyqtSignal(int)
   client_change_signal = pyqtSignal(int)
@@ -440,6 +448,7 @@ class Gui(QWidget):
     self.players[player_number].beat_bar.setBeat(c.beat)
     self.players[player_number].waveform.setPosition(c.position, c.actual_pitch, c.play_state)
     self.players[player_number].setPlayState(c.play_state)
+    self.players[player_number].setOnAir(c.on_air)
     if c.metadata is not None and "duration" in c.metadata:
       self.players[player_number].setTime(c.position, c.metadata["duration"])
       self.players[player_number].setTotalTime(c.metadata["duration"])

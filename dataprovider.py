@@ -144,9 +144,12 @@ class DataProvider(Thread):
   def _handle_request(self, request, store, params, callback):
     #logging.debug("DataProvider: handling %s request params %s", request, str(params))
     reply = None
+    answered_by_store = False
     if store is not None:
       logging.debug("DataProvider: trying request %s %s from store", request, str(params))
       reply = self._handle_request_from_store(store, params)
+      if reply is not None:
+        answered_by_store = True
     if self.pdb_enabled and reply is None:
       try:
         logging.debug("DataProvider: trying request %s %s from pdb", request, str(params))
@@ -166,8 +169,7 @@ class DataProvider(Thread):
     if request == "metadata":
       self.prodj.cl.storeMetadataByLoadedTrack(*params, reply)
 
-    # TODO: do not store if request was answered by store
-    if store is not None:
+    if store is not None and answered_by_store == False:
       store[params] = reply
 
     # TODO: synchronous mode

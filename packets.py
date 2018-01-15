@@ -36,7 +36,8 @@ KeepAlivePacketSubtype = Enum(Int8ub,
   stype_mac = 0x2c,
   stype_ip = 0x32,
   stype_status = 0x36,
-  stype_change = 0x29
+  stype_change = 0x29,
+  stype_status_mixer = 0x00 # djm 900 nxs sends this stype on type_status
 )
 
 DeviceType = Enum(Int8ub,
@@ -63,7 +64,7 @@ KeepAlivePacket = Struct(
   Embedded(Switch(this.type, {
     # type=0x0a, request for other players to propose a player number?
     "type_hello": Struct(
-      "u2" / Const(Int8ub, 1)),
+      "u2" / Default(Int8ub, 1)), # cdjs send 1, djm900nxs sends 3
     # type=0x04, publishing a proposed player number, check if anyone else has it? iteration goes 1..2..3
     "type_number": Struct(
       "proposed_player_number" / Int8ub,
