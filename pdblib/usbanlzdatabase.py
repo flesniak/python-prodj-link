@@ -9,22 +9,22 @@ class UsbAnlzDatabase(dict):
 
   def get_beatgrid(self):
     if not "beatgrid" in self:
-      raise KeyError("UsbAnlzDatabase: no beatgrid found".format(key_id))
+      raise KeyError("UsbAnlzDatabase: no beatgrid found")
     return self["beatgrid"]
 
   def get_cue_points(self):
     if not "cue_points" in self:
-      raise KeyError("UsbAnlzDatabase: no cue points found".format(key_id))
+      raise KeyError("UsbAnlzDatabase: no cue points found")
     return self["cue_points"]
 
   def get_waveform(self):
     if not "waveform" in self:
-      raise KeyError("UsbAnlzDatabase: no waveform found".format(key_id))
+      raise KeyError("UsbAnlzDatabase: no waveform found")
     return self["waveform"]
 
   def get_preview_waveform(self):
     if not "preview_waveform" in self:
-      raise KeyError("UsbAnlzDatabase: no preview waveform found".format(key_id))
+      raise KeyError("UsbAnlzDatabase: no preview waveform found")
     return self["preview_waveform"]
 
   def collect_entries(self, tag, target):

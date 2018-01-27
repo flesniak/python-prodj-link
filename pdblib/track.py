@@ -5,7 +5,7 @@ TRACK_ENTRY_MAGIC = 0x24
 
 Track = Struct(
   "entry_start" / Tell,
-  "magic" / Const(Int16ul, TRACK_ENTRY_MAGIC),
+  "magic" / Const(TRACK_ENTRY_MAGIC, Int16ul),
   "index_shift" / Int16ul, # the index inside the page <<5 (0x00, 0x20, 0x40, ...)
   "bitmask" / Int32ul,
   "sample_rate" / Int32ul,

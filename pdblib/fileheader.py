@@ -9,7 +9,7 @@ FileHeaderEntry = Struct(
 
 FileHeader = Struct(
   Padding(4), # always 0
-  "page_size" / Const(Int32ul, 4096),
+  "page_size" / Const(4096, Int32ul),
   "page_entries" / Int32ul, # FileHeaderEntry follow, usually 20
   "next_unused_page" / Int32ul, # even unreferenced -> not used as any "empty_candidate", points "out of file"
   "unknown1" / Int32ul, # (5,4,4,1,1,1...)
