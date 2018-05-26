@@ -30,9 +30,10 @@ AnlzTagQuantize = Struct(
 
 AnlzTagQuantize2 = Struct(
   Padding(4),
-  "u1" / Const(0x01000002, Int32ub),
-  "entries" / PrefixedArray(Int32ub, AnlzQuantizeTick),
-  "u2" / Int32ub,
+  "u1" / Const(0x01000002, Int32ub), # maybe this encodes the count of "bpm" objects below
+  Padding(4),
+  "bpm" / Array(2, AnlzQuantizeTick),
+  "entry_count" / Int32ub, # 680
   "u3" / Int32ub,
   "u4" / Int32ub,
   "u5" / Int32ub,

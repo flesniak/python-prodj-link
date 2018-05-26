@@ -132,7 +132,7 @@ MountMntRes = Struct(
 )
 
 RpcCall = Struct(
-  "rpcvers" / Const(Int32ub, 2),
+  "rpcvers" / Const(2, Int32ub),
   "prog" / RpcProgram,
   "vers" / Default(Int32ub, 2),
   "proc" / Switch(this.prog, {

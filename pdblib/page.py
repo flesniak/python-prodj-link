@@ -16,7 +16,7 @@ StrangePage = Struct(
   "strange_header" / Struct(
     "index" / Int32ul, # page index (same as header?)
     "next_index" / Int32ul, # index of next page containing real data or 0x3ffffff if next page empty
-    Const(Int32ul, 0x3fffffff),
+    Const(0x3fffffff, Int32ul),
     Padding(4),
     "entry_count" / Int16ul, # number of 4-byte values
     "u2" / Int16ul, # always 8191?

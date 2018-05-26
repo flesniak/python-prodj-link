@@ -53,11 +53,11 @@ PlayerNumberAssignment = Enum(Int8ub,
 
 # received on udp port 50000
 KeepAlivePacket = Struct(
-  "magic" / Const(String(10), b'Qspt1WmJOL'),
+  "magic" / Const(b'Qspt1WmJOL', String(10)),
   "type" / KeepAlivePacketType, # pairs with subtype
   Padding(1),
   "model" / Padded(20, CString(encoding="ascii")),
-  "u1" / Const(Int8ub, 1),
+  "u1" / Const(1, Int8ub),
   "device_type" / Default(DeviceType, "cdj"),
   Padding(1),
   "subtype" / KeepAlivePacketSubtype,
@@ -114,23 +114,31 @@ Bpm = BpmAdapter(Int16ub)
 BeatPacketType = Enum(Int8ub,
   type_beat = 0x28,
   type_mixer = 0x03,
-  type_mixer_unknown = 0x04 # some kind of "hello" packet? only on init?
+  type_mixer_unknown = 0x04, # some kind of "hello" packet sent by djm900nxs2
+  type_fader_start = 0x02
 )
 
 BeatPacketSubtype = Enum(Int8ub,
   stype_beat = 0x3c,
   stype_mixer = 0x09,
-  stype_mixer_unknown = 0x40
+  stype_mixer_unknown = 0x40,
+  stype_fader_start = 0x04
+)
+
+FaderStartCommand = Enum(Int8ub,
+  start = 0,
+  stop = 1,
+  ignore = 2
 )
 
 # received on udp port 50001
 BeatPacket = Struct(
-  "magic" / Const(String(10), b'Qspt1WmJOL'),
+  "magic" / Const(b'Qspt1WmJOL', String(10)),
   "type" / BeatPacketType, # pairs with subtype
   "model" / Padded(20, CString(encoding="ascii")),
   "u1" / Default(Int16ub, 256), # 256 for cdjs, 257 for rekordbox
   "player_number" / Int8ub,
-  "u2" / Const(Int8ub, 0),
+  "u2" / Const(0, Int8ub),
   "subtype" / BeatPacketSubtype,
   Embedded(Switch(this.type, {
     # type=0x28, the standard beat info packet
@@ -157,10 +165,13 @@ BeatPacket = Struct(
       "u3" / Int16ub,
       "u4" / Int8ub,
       "u5" / Int16ub),
-    # type=0x04, unknown mixer beat info packet
+    # type=0x40, unknown mixer beat info packet
     "type_mixer_unknown": Struct(
       "u3" / Int8ub, # counts 0x14, 0x24, 0x34, 0x44
-      "player_number2" / Int8ub)
+      "player_number2" / Int8ub),
+    # type=0x04,
+    "type_fader_start": Struct(
+      "player" / Array(4, FaderStartCommand))
   }))
 )
 
@@ -243,10 +254,10 @@ StateMask = FlagsEnum(StateMaskAdapter(Int16ub),
 
 # received on udp port 50002
 StatusPacket = Struct(
-  "magic" / Const(String(10), b'Qspt1WmJOL'),
+  "magic" / Const(b'Qspt1WmJOL', String(10)),
   "type" / StatusPacketType,
   "model" / Padded(20, CString(encoding="ascii")),
-  "u1" / Const(Int8ub, 1),
+  "u1" / Const(1, Int8ub),
   "u2" / Default(Int8ub, 4), # some kind of revision? 3 for cdj2000nx, 4 for xdj1000. 1 for djm/rekordbox, 0 for link query
   "player_number" / Int8ub, # 0x11 for rekordbox
   # 34 bytes until now
@@ -322,7 +333,7 @@ StatusPacket = Struct(
       Padding(2),
       "load_player_number" / Int8ub, # 0x11 for rekordbox
       "load_slot" / PlayerSlot,
-      "u5" / Const(Int16ub, 0x100),
+      "u5" / Const(0x100, Int16ub),
       "load_track_id" / Int32ub,
       "u6" / Default(Int32ub, 0x32),
       Padding(16),
@@ -365,8 +376,8 @@ StatusPacket = Struct(
 
 DBServerQueryPort = 12523
 DBServerQuery = Struct(
-  "magic" / Const(Int32ub, 0x0f),
-  "query" / Const(CString(encoding="ascii"), "RemoteDBServer")
+  "magic" / Const(0x0f, Int32ub),
+  "query" / Const("RemoteDBServer", CString(encoding="ascii"))
 )
 DBServerReply = Int16ub
 
@@ -498,7 +509,7 @@ DBRequestType = Enum(DBFieldFixed("int16"),
 )
 
 DBMessage = Struct(
-  "magic" / Const(DBFieldFixed("int32"), 0x872349ae),
+  "magic" / Const(0x872349ae, DBFieldFixed("int32")),
   "transaction_id" / Default(DBFieldFixed("int32"), 1),
   "type" / DBRequestType,
   "argument_count" / Rebuild(DBFieldFixed("int8"), len_(this.args)),

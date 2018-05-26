@@ -5,7 +5,7 @@ ALBUM_ENTRY_MAGIC = 0x80
 
 Album = Struct(
   "entry_start" / Tell,
-  "magic" / Const(Int16ul, ALBUM_ENTRY_MAGIC),
+  "magic" / Const(ALBUM_ENTRY_MAGIC, Int16ul),
   "index_shift" / Int16ul,
   Padding(4),
   "album_artist_id" / Int32ul,
