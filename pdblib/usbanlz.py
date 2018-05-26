@@ -24,13 +24,13 @@ AnlzQuantizeTick = Struct(
 
 AnlzTagQuantize = Struct(
   Padding(4),
-  "unknown" / Const(Int32ub, 0x80000),
+  "unknown" / Const(0x80000, Int32ub),
   "entries" / PrefixedArray(Int32ub, AnlzQuantizeTick)
 )
 
 AnlzTagQuantize2 = Struct(
   Padding(4),
-  "u1" / Const(Int32ub, 0x01000002),
+  "u1" / Const(0x01000002, Int32ub),
   "entries" / PrefixedArray(Int32ub, AnlzQuantizeTick),
   "u2" / Int32ub,
   "u3" / Int32ub,
@@ -42,14 +42,13 @@ AnlzTagQuantize2 = Struct(
 
 AnlzTagWaveform = Struct(
   "payload_size" / Int32ub, # is 0 for some tag types
-  "unknown" / Const(Int32ub, 0x10000),
+  "unknown" / Const(0x10000, Int32ub),
   "entries" / Array(this.payload_size, Int8ub)
 )
-
 AnlzTagBigWaveform = Struct(
-  "u1" / Const(Int32ub, 1),
+  "u1" / Const(1, Int32ub),
   "payload_size" / Int32ub,
-  "u2" / Const(Int32ub, 0x960000),
+  "u2" / Const(0x960000, Int32ub),
   "entries" / Array(this.payload_size, Int8ub)
 )
 
@@ -66,17 +65,17 @@ AnlzCuePointStatus = Enum(Int32ub,
 # unfortunately, this can't be embedded into AnlzTag due to the recursive
 # dependency between AnlzTag and AnlzTagCueObject
 AnlzCuePoint = Struct(
-  "type" / Const(String(4, encoding="ascii"), "PCPT"),
+  "type" / Const("PCPT", String(4, encoding="ascii")),
   "head_size" / Int32ub,
   "tag_size" / Int32ub,
   "hotcue_number" / Int32ub, # 0 for memory
   "status" / AnlzCuePointStatus,
-  "u1" / Const(Int32ub, 0x10000),
+  "u1" / Const(0x10000, Int32ub),
   "order_first" / Int16ub, # 0xffff for first cue, 0,1,3 for next
   "order_last" / Int16ub, # 1,2,3 for first, second, third cue, 0xffff for last
   "type" / AnlzCuePointType,
   Padding(1),
-  "u3" / Const(Int16ub, 1000),
+  "u3" / Const(1000, Int16ub),
   "time" / Int32ub,
   "time_end" / Default(Int32ub, -1),
   Padding(16)
@@ -95,14 +94,14 @@ AnlzTagCueObject = Struct(
 )
 
 AnlzCuePoint2 = Struct(
-  "type" / Const(String(4, encoding="ascii"), "PCP2"),
+  "type" / Const("PCP2", String(4, encoding="ascii")),
   "head_size" / Int32ub,
   "tag_size" / Int32ub,
   "hotcue_number" / Int32ub, # 0 for memory
-  "u2" / Const(Int32ub, 0x010003e8),
+  "u2" / Const(0x010003e8, Int32ub),
   "time" / Int32ub,
   "time_end" / Default(Int32ub, -1),
-  "u1" / Const(Int32ub, 0x10000),
+  "u1" / Const(0x10000, Int32ub),
   Padding(56)
 )
 
@@ -130,7 +129,7 @@ AnlzTag = Struct(
 )
 
 AnlzFile = Struct(
-  "type" / Const(String(4, encoding="ascii"), "PMAI"),
+  "type" / Const("PMAI", String(4, encoding="ascii")),
   "head_size" / Int32ub,
   "file_size" / Int32ub,
   "u1" / Int32ub,

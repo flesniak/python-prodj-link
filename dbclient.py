@@ -2,7 +2,7 @@ import socket
 import packets
 import logging
 from select import select
-from construct import FieldError, RangeError, MappingError, byte2int
+from construct import RangeError, MappingError, byte2int
 import dataprovider
 
 metadata_type = {
@@ -288,7 +288,7 @@ class DBClient:
 
     try:
       reply = self.receive_dbmessage(sock)
-    except (RangeError, FieldError, MappingError, KeyError) as e:
+    except (RangeError, MappingError, KeyError) as e:
       logging.error("DBClient: parsing %s query failed on player %d failed: %s", query["type"], player_number, str(e))
       return None
     if reply is None or reply["type"] != "success":

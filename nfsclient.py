@@ -3,7 +3,6 @@ import time
 import os
 from select import select
 from packets_nfs import *
-from construct import FieldError
 
 import logging
 from threading import Event, Thread
