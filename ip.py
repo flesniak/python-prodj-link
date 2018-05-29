@@ -1,32 +1,27 @@
 import fcntl
 import socket
+import netifaces as ni
 from ipaddress import IPv4Network
 import struct
 import logging
 
-def get_ip_linux(sock, interface):
-  return socket.inet_ntoa(
-    fcntl.ioctl(
-      sock.fileno(),
-      0x8915, # SIOCGIFADDR
-      struct.pack('256s', interface.encode('ascii'))
-    )[20:24])
+def get_ip_address(addrs):
+  if ni.AF_INET in addrs:
+    return addrs[ni.AF_INET][0]['addr']
 
-def get_netmask_linux(sock, interface):
-  return socket.inet_ntoa(
-    fcntl.ioctl(
-      sock.fileno(),
-      0x891b, # SIOCGIFNETMASK
-      struct.pack('256s', interface.encode('ascii'))
-    )[20:24])
+  return '127.0.0.1'
 
-def get_mac_linux(sock, interface):
-  return ':'.join("{:02x}".format(x) for x in
-    fcntl.ioctl(
-      sock.fileno(),
-      0x8927, # SIOCGIFHWADDR
-      struct.pack('256s', interface.encode('ascii'))
-    )[18:24])
+def get_netmask(addrs):
+  if ni.AF_INET in addrs:
+    return addrs[ni.AF_INET][0]['netmask']
+
+  return '255.255.255.0'
+
+def get_mac_address(addrs):
+  if ni.AF_LINK in addrs:
+    return addrs[ni.AF_LINK][0]['addr']
+
+  return ''
 
 #https://stackoverflow.com/questions/819355/how-can-i-check-if-an-ip-is-in-a-network-in-python
 def address_is_in_network(ip, net_n_bits):
@@ -41,9 +36,10 @@ def guess_own_iface(sock, match_ips):
     return None
   for idx, iface in socket.if_nameindex():
     try:
-      ip = get_ip_linux(sock, iface)
-      netmask = get_netmask_linux(sock, iface)
-      mac = get_mac_linux(sock, iface)
+      addr = ni.ifaddresses(iface)
+      ip = get_ip_address(addr)
+      netmask = get_netmask(addr)
+      mac = get_mac_address(addr)
     except OSError as e:
       if e.errno == 99:
         logging.warning("{} has no IPv4 address".format(iface))
