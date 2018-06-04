@@ -64,15 +64,20 @@ class NfsClient(Thread):
     rpccall = {
       "xid": self.getXid(),
       "type": "call",
-      "prog": prog,
-      "proc": proc,
-      "vers": vers,
-      "cred": {
-        "flavor": "unix",
-        "stamp": self.rpc_auth_stamp
-      },
-      "verf": {
-        "flavor": "null",
+      "content": {
+        "prog": prog,
+        "proc": proc,
+        "vers": vers,
+        "cred": {
+          "flavor": "unix",
+          "content": {
+            "stamp": self.rpc_auth_stamp
+          }
+        },
+        "verf": {
+          "flavor": "null",
+          "content": None
+        }
       }
     }
     rpcdata = RpcMsg.build(rpccall)
@@ -94,11 +99,11 @@ class NfsClient(Thread):
     if receive_timeouts >= self.max_receive_timeout_count:
       raise RuntimeError("RpcCall failed after {} timeouts".format(receive_timeouts))
 
-    if rpcreply["reply_stat"] != "accepted":
-      raise RuntimeError("RPC call denied: "+rpcreply["reject_stat"])
-    if rpcreply["accept_stat"] != "success":
-      raise RuntimeError("RPC call unsuccessful: "+rpcreply["accept_stat"])
-    return rpcreply["content"]
+    if rpcreply.content.reply_stat != "accepted":
+      raise RuntimeError("RPC call denied: "+rpcreply.content.reject_stat)
+    if rpcreply.content.content.accept_stat != "success":
+      raise RuntimeError("RPC call unsuccessful: "+rpcreply.content.content.accept_stat)
+    return rpcreply.content.content.content
 
   def PortmapCall(self, ip, proc, data):
     return self.RpcCall(self.getPortmapSock(), (ip, PortmapPort), "portmap", PortmapVersion, proc, data)
@@ -120,17 +125,17 @@ class NfsClient(Thread):
     data = MountMntArgs.build(path)
     reply = self.RpcCall(sock, host, "mount", MountVersion, "mnt", data)
     result = MountMntRes.parse(reply)
-    if result["status"] != 0:
-      raise RuntimeError("MountMnt failed with error {}".format(result["status"]))
-    return result["fhandle"]
+    if result.status != 0:
+      raise RuntimeError("MountMnt failed with error {}".format(result.status))
+    return result.fhandle
 
   def NfsCall(self, sock, host, proc, data):
     nfsdata = getNfsCallStruct(proc).build(data)
     reply = self.RpcCall(sock, host, "nfs", NfsVersion, proc, nfsdata)
     nfsreply = getNfsResStruct(proc).parse(reply)
-    if nfsreply["status"] != "ok":
-      raise RuntimeError("NFS call failed: "+nfsreply["status"])
-    return nfsreply["content"]
+    if nfsreply.status != "ok":
+      raise RuntimeError("NFS call failed: "+nfsreply.status)
+    return nfsreply.content
 
   def NfsLookup(self, sock, host, name, fhandle):
     nfscall = {
@@ -160,7 +165,7 @@ class NfsClient(Thread):
     logging.info("NfsClient: starting file download ip %s port %d path %s", *host, src_path)
     args = self.NfsLookupPath(sock, host, mount_handle, src_path)
 
-    size = args["attrs"]["size"]
+    size = args.attrs.size
     fhandle = args["fhandle"]
     offset = 0
     progress = -1
@@ -173,7 +178,7 @@ class NfsClient(Thread):
       remaining = size-offset
       chunk = self.download_chunk_size if remaining > self.download_chunk_size else remaining
       reply = self.NfsReadData(sock, host, fhandle, offset, chunk)
-      data = reply["data"]
+      data = reply.data
       if len(data) == 0:
         raise RuntimeError("NFS read data returned zero bytes")
       write_handler(data)

@@ -1,4 +1,4 @@
-from construct import Sequence, Struct, Int8ul, Int16ul, Int32ul, Embedded, Switch, Const, Array, Padded, Padding, Pass, Computed, Tell, Pointer, this, Seek, Bitwise, Flag, ByteSwapped, BitsSwapped, FocusedSeq
+from construct import Sequence, Struct, Int8ul, Int16ul, Int32ul, Embedded, Switch, Const, Array, Padded, Padding, Pass, Computed, Tell, Pointer, this, Seek, Bitwise, Flag, ByteSwapped, BitsSwapped, FocusedSeq, RepeatUntil
 from .pagetype import PageTypeEnum
 from .track import Track
 from .artist import Artist
@@ -25,7 +25,7 @@ StrangePage = Struct(
   Padding(20)
 )
 
-ReverseIndexedEntry = FocusedSeq(1,
+ReverseIndexedEntry = FocusedSeq("entry",
   "entry_offset" / Int16ul,
   "entry" / Pointer(this._._.entries_start+this.entry_offset,
     Switch(lambda ctx: "strange" if ctx._._.is_strange_page else ctx._._.page_type, {
@@ -44,26 +44,20 @@ ReverseIndexedEntry = FocusedSeq(1,
   )
 )
 
-# unfortunately, the entry_enabled field contains even unexistant entries:
+# unfortunately, the entry_enabled field contains unexistant entries for the last entry
 # entry_enabled[:-1] matches revidx[:-1],
 # but len(entry_enabled)==16 while len(revidx)<=16
 
-FirstReverseIndexArray = Struct(
-  "entries" / Array(this._._.entry_count%16, ReverseIndexedEntry),
-  "entry_enabled" / ByteSwapped(Bitwise(Array(16, Flag))), # may start with unexistant entries, see above!
-  "entry_enabled_override" / ByteSwapped(Bitwise(Array(16, Flag))) # may start with unexistant entries, see above!
-)
-
-FullReverseIndexArray = Struct(
-  "entries" / Array(16, ReverseIndexedEntry),
+ReverseIndexArray = Struct(
+  "entry_count" / Computed(lambda ctx: min([16, ctx._.entry_count-16*ctx._._index])),
+  Seek(-4-2*this.entry_count, 1), # jump back the size of this struct
+  "entries" / Array(this.entry_count, ReverseIndexedEntry),
   "entry_enabled" / ByteSwapped(Bitwise(Array(16, Flag))),
-  "entry_enabled_override" / ByteSwapped(Bitwise(Array(16, Flag)))
+  "entry_enabled_override" / ByteSwapped(Bitwise(Array(16, Flag))),
+  Seek(-36 if this.entry_count == 16 else 0, 1) # jump back once again for the next read or 0 if finished
 )
 
-PageEndHeader = Sequence(
-  FirstReverseIndexArray,
-  Embedded(Array(this._.entry_count//16, FullReverseIndexArray))
-)
+PageFooter = RepeatUntil(lambda x,lst,ctx: len(lst)*16 > ctx.entry_count, ReverseIndexArray)
 
 PageHeader = Struct( # 40 bytes
   Padding(4), # always 0
@@ -72,7 +66,7 @@ PageHeader = Struct( # 40 bytes
   "next_index" / Int32ul, # in units of 4096 bytes, finally points to empty page, even outside of file
   "u1" / Int32ul, # sequence number (0->1: 8->13, 1->2: 22, 2->3: 27)
   Padding(4),
-  "real_entry_count" / Int8ul,
+  "real_entry_count" / Int8ul, 
   "u3" / Int8ul, # a bitmask (1st track: 32)
   "u4" / Int16ul, # 25600 for strange blocks
   "free_size" / Int16ul, # excluding data at page end
@@ -96,7 +90,7 @@ AlignedPage = Struct(
   "entries_start" / Tell, # reverse index is relative to this position
   # this expression jumps to the end of the section and parses the reverse index
   # TODO: calculation does not work on block_playlist_map
-  "entry_list" / Pointer(this.page_start+4096-4*(this.entry_count//16+1)-this.entry_count*2, PageEndHeader),
-  "page_end" / Tell,
-  Seek(this.page_start+0x1000) # DEBUG: always jump to next page
+  "entry_list" / Pointer(this.page_start+4096, PageFooter), # jump to page end, PageFooter seeks backwards itself
+  Seek(this.page_start+0x1000), # always jump to next page
+  "page_end" / Tell
 )

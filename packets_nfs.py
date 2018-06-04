@@ -1,4 +1,4 @@
-from construct import Aligned, Byte, Bytes, Const, Default, Embedded, Enum, GreedyBytes, If, Int32ub, Pass, PascalString, Prefixed, Struct, Switch, this
+from construct import Bytes, Const, Default, Enum, FocusedSeq, GreedyBytes, If, Int32ub, Pass, PascalString, Prefixed, Struct, Switch, this
 
 RpcMsgType = Enum(Int32ub,
   call = 0,
@@ -51,12 +51,12 @@ RpcAuthDes = Pass
 
 RpcOpaqueAuth = Struct(
   "flavor" / Default(RpcAuthFlavor, "null"),
-  Embedded(Prefixed(Int32ub, Switch(this.flavor, {
+  "content" / Prefixed(Int32ub, Switch(this.flavor, {
     "null": Pass,
     "unix": RpcAuthUnix,
     "short": RpcAuthShort,
     "des": RpcAuthDes
-  })))
+  }))
 )
 
 PortmapPort = 111
@@ -151,10 +151,10 @@ RpcMismatchInfo = Struct(
 
 RpcRejectedReply = Struct(
   "reject_stat" / RpcRejectStat,
-  Embedded(Switch(this.stat, {
+  "content" / Switch(this.reject_stat, {
     "rpc_mismatch": RpcMismatchInfo,
     "auth_error": RpcAuthStat
-  }))
+  })
 )
 
 RpcAcceptedReply = Struct(
@@ -170,19 +170,19 @@ RpcAcceptedReply = Struct(
 
 RpcReply = Struct(
   "reply_stat" / RpcReplyStat,
-  Embedded(Switch(this.reply_stat, {
+  "content" / Switch(this.reply_stat, {
     "accepted": RpcAcceptedReply,
     "denied": RpcRejectedReply
-  }))
+  })
 )
 
 RpcMsg = Struct(
   "xid" / Int32ub,
   "type" / RpcMsgType,
-  Embedded(Switch(this.type, {
+  "content" / Switch(this.type, {
     "call": RpcCall,
     "reply": RpcReply
-  }))
+  })
 )
 
 PortmapProc = Struct
@@ -278,8 +278,10 @@ NfsDiropRes = Struct(
 
 NfsFileopRes = Struct(
   "attrs" / NfsFattr,
-  "data" / PascalString(Int32ub)
-  #"data" / Prefixed(Int32ub, Byte)
+  "data" / FocusedSeq("data",
+    "length" / Int32ub,
+    "data" / Bytes(this.length)
+  )
 )
 
 def getNfsResStruct(procedure):

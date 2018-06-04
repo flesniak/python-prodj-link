@@ -74,19 +74,19 @@ class ClientList:
 
   # adds client if it is not known yet, in any case it resets the ttl
   def eatKeepalive(self, keepalive_packet):
-    c = next((x for x in self.clients if x.ip_addr == keepalive_packet["ip_addr"]), None)
+    c = next((x for x in self.clients if x.ip_addr == keepalive_packet.content.ip_addr), None)
     if c is None:
       c = Client()
-      c.model = keepalive_packet["model"]
-      c.ip_addr = keepalive_packet["ip_addr"]
-      c.mac_addr = keepalive_packet["mac_addr"]
-      c.player_number = keepalive_packet["player_number"]
+      c.model = keepalive_packet.model
+      c.ip_addr = keepalive_packet.content.ip_addr
+      c.mac_addr = keepalive_packet.content.mac_addr
+      c.player_number = keepalive_packet.content.player_number
       self.clients += [c]
       logging.info("New Player %d: %s, %s, %s", c.player_number, c.model, c.ip_addr, c.mac_addr)
       if self.client_keepalive_callback:
         self.client_keepalive_callback(c.player_number)
     else:
-      n = keepalive_packet["player_number"]
+      n = keepalive_packet.content.player_number
       if c.player_number != n:
         logging.info("Player {} changed player number from {} to {}".format(c.ip_addr, c.player_number, n))
         old_player_number = c.player_number
@@ -100,7 +100,7 @@ class ClientList:
 
   # updates pitch/bpm/beat information for player if we do not receive status packets (e.g. no vcdj enabled)
   def eatBeat(self, beat_packet):
-    c = self.getClient(beat_packet["player_number"])
+    c = self.getClient(beat_packet.player_number)
     if c is None: # packet from unknown client
       return
     c.updateTtl()
@@ -115,15 +115,15 @@ class ClientList:
               self.client_change_callback(x)
             player.on_air = on_air
     elif beat_packet.type == "type_beat" and not c.status_packet_received:
-      new_actual_pitch = beat_packet["pitch"]
+      new_actual_pitch = beat_packet.content.pitch
       if c.actual_pitch != new_actual_pitch:
         c.actual_pitch = new_actual_pitch
         client_changed = True
-      new_bpm = beat_packet["bpm"]
+      new_bpm = beat_packet.content.bpm
       if c.bpm != new_bpm:
         c.bpm = new_bpm
         client_changed = True
-      new_beat = beat_packet["beat"]
+      new_beat = beat_packet.content.beat
       if c.beat != new_beat:
         c.beat = new_beat
         client_changed = True
@@ -132,53 +132,53 @@ class ClientList:
 
   # update all known player information
   def eatStatus(self, status_packet):
-    if status_packet["type"] not in ["cdj", "djm", "link_reply"]:
-      logging.info("Received %s status packet from player %d, ignoring", status_packet["type"], status_packet["player_number"])
+    if status_packet.type not in ["cdj", "djm", "link_reply"]:
+      logging.info("Received %s status packet from player %d, ignoring", status_packet.type, status_packet.player_number)
       return
-    c = self.getClient(status_packet["player_number"])
+    c = self.getClient(status_packet.player_number)
     if c is None: # packet from unknown client
       return
     client_changed = False
     c.status_packet_received = True
 
-    if status_packet["type"] == "link_reply":
-      link_info = { key: status_packet[key] for key in ["name", "track_count", "playlist_count", "bytes_total", "bytes_free", "date"] }
-      if status_packet["slot"] == "usb":
+    if status_packet.type == "link_reply":
+      link_info = { key: status_packet.content[key] for key in ["name", "track_count", "playlist_count", "bytes_total", "bytes_free", "date"] }
+      if status_packet.content.slot == "usb":
         c.usb_info = link_info
-      elif status_packet["slot"] == "sd":
+      elif status_packet.content.slot == "sd":
         c.sd_info = link_info
       else:
-        logging.warning("Received link info for %s not implemented", status_packet["slot"])
+        logging.warning("Received link info for %s not implemented", status_packet.content.slot)
       logging.info("Player %d Link Info: %s \"%s\", %d tracks, %d playlists, %d/%dMB free",
-        c.player_number, status_packet["slot"], link_info["name"], link_info["track_count"], link_info["playlist_count"],
+        c.player_number, status_packet.content.slot, link_info["name"], link_info["track_count"], link_info["playlist_count"],
         link_info["bytes_free"]//1024//1024, link_info["bytes_total"]//1024//1024)
-      self.mediaChanged(c.player_number, status_packet["slot"])
+      self.mediaChanged(c.player_number, status_packet.content.slot)
       return
-    c.type = status_packet["type"] # cdj or djm
+    c.type = status_packet.type # cdj or djm
 
-    new_bpm = status_packet["bpm"] if status_packet["bpm"] != 655.35 else "-"
+    new_bpm = status_packet.content.bpm if status_packet.content.bpm != 655.35 else "-"
     if c.bpm != new_bpm:
       c.bpm = new_bpm
       client_changed = True
 
-    new_pitch = status_packet["physical_pitch"]
+    new_pitch = status_packet.content.physical_pitch
     if c.pitch != new_pitch:
       c.pitch = new_pitch
       client_changed = True
 
-    new_beat = status_packet["beat"] if status_packet["beat"] != 0xffffffff else 0
+    new_beat = status_packet.content.beat if status_packet.content.beat != 0xffffffff else 0
     if c.beat != new_beat:
       c.beat = new_beat
       client_changed = True
 
-    new_state = [x for x in ["on_air","sync","master","play"] if status_packet["state"][x]==True]
+    new_state = [x for x in ["on_air","sync","master","play"] if status_packet.content.state[x]==True]
     if c.state != new_state:
       c.state = new_state
       client_changed = True
 
     if c.type == "cdj":
-      new_beat_count = status_packet["beat_count"] if status_packet["beat_count"] != 0xffffffff else 0
-      new_play_state = status_packet["play_state"]
+      new_beat_count = status_packet.content.beat_count if status_packet.content.beat_count != 0xffffffff else 0
+      new_play_state = status_packet.content.play_state
       if new_beat_count != c.beat_count or new_play_state != c.play_state:
         self.updatePositionByBeat(c.player_number, new_beat_count, new_play_state) # position tracking, set new absolute grid value
       else: # otherwise, increment by pitch
@@ -192,19 +192,19 @@ class ClientList:
         c.play_state = new_play_state
         client_changed = True
 
-      c.fw = status_packet["firmware"]
+      c.fw = status_packet.content.firmware
 
-      new_actual_pitch = status_packet["actual_pitch"]
+      new_actual_pitch = status_packet.content.actual_pitch
       if c.actual_pitch != new_actual_pitch:
         c.actual_pitch = new_actual_pitch
         client_changed = True
 
-      new_cue_distance = status_packet["cue_distance"] if status_packet["cue_distance"] != 511 else "-"
+      new_cue_distance = status_packet.content.cue_distance if status_packet.content.cue_distance != 511 else "-"
       if c.cue_distance != new_cue_distance:
         c.cue_distance = new_cue_distance
         client_changed = True
 
-      new_usb_state = status_packet["usb_state"]
+      new_usb_state = status_packet.content.usb_state
       if c.usb_state != new_usb_state:
         c.usb_state = new_usb_state
         if new_usb_state != "loaded":
@@ -212,7 +212,7 @@ class ClientList:
         else:
           self.prodj.vcdj.query_link_info(c.player_number, "usb")
         self.mediaChanged(c.player_number, "usb")
-      new_sd_state = status_packet["sd_state"]
+      new_sd_state = status_packet.content.sd_state
       if c.sd_state != new_sd_state:
         c.sd_state = new_sd_state
         if new_sd_state != "loaded":
@@ -220,12 +220,12 @@ class ClientList:
         else:
           self.prodj.vcdj.query_link_info(c.player_number, "sd")
         self.mediaChanged(c.player_number, "sd")
-      c.track_number = status_packet["track_number"]
-      c.loaded_player_number = status_packet["loaded_player_number"]
-      c.loaded_slot = status_packet["loaded_slot"]
-      c.track_analyze_type = status_packet["track_analyze_type"]
+      c.track_number = status_packet.content.track_number
+      c.loaded_player_number = status_packet.content.loaded_player_number
+      c.loaded_slot = status_packet.content.loaded_slot
+      c.track_analyze_type = status_packet.content.track_analyze_type
 
-      new_track_id = status_packet["track_id"]
+      new_track_id = status_packet.content.track_id
       if c.track_id != new_track_id:
         c.track_id = new_track_id
         client_changed = True
