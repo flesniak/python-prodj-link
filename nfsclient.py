@@ -3,6 +3,7 @@ import time
 import os
 from select import select
 from packets_nfs import *
+from construct import Aligned
 
 import logging
 from threading import Event, Thread
