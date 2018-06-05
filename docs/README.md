@@ -10,21 +10,28 @@ The Qt GUI is useful to perform light shows and react to events in the music.
 
 ## Getting Started
 
-These instructions will get you a copy of the project up and running on your local machine for development and testing purposes. See deployment for notes on how to deploy the project on a live system.
+These instructions describe necessary work to be done before being able to run the project.
 
 ### Prerequisites
 
-python-prodj-link is written in Python 3. It requires [Construct](https://pypi.python.org/pypi/construct) and [PyQt5](https://pypi.python.org/pypi/PyQt5)
+python-prodj-link is written in Python 3. It requires [Construct](https://pypi.python.org/pypi/construct) **(Version 2.8)** and [PyQt5](https://pypi.python.org/pypi/PyQt5)
 Use pip or your distributions package management to install these, i.e. on Arch Linux:
 
 ```
 pacman -S python-construct python-pyqt5
 ```
 
+**Note:** Construct is currently (June 2018) undergoing severe API changes.
+Starting with version 2.9, the new API requires some internal changes in this project.
+The branch construct-v2.9 contains an updated version which is adapted to newer construct versions.
+The construct project warns of possible future API changes, thus this version may break with future versions of construct.
+
 ### Network configuration
 
-You need to be on the same Ethernet network as the players and a DHCP server must be running.
-The players will aquire IPs using DHCP.
+You need to be on the same Ethernet network as the players
+The players will aquire IPs using DHCP if a server is available, otherwise they fall back to IPv4 autoconfiguration.
+If there is no DHCP server on your network, make sure you assign a IP address inside 169.254.0.0/16 to yourself, for example using NetworkManager or avahi-autoipd.
+
 You can test your setup using wireshark or tcpdump to see if you receive keepalive broadcast on port 50000.
 
 ## Usage
@@ -58,9 +65,17 @@ Be careful when using it in an live environment!
 
 If you experience any errors or have additional features, feel free to open an issue or pull request.
 As I do only own XDJ-1000 players, I can rarely test the scripts against other players.
-I have already experienced some problems with CDJ-2000NXS2, but I don't have access to one for further testing.
+I have already **successfully tested** the script against the following players/mixers:
 
-Please include debug output when reporting bugs.
+* Pioneer CDJ 2000
+* Pioneer CDJ 2000 Nexus
+* Pioneer CDJ 2000 NXS2
+* Pioneer XDJ 1000
+* Pioneer DJM 900 Nexus
+* Pioneer DJM 900 NXS2
+
+It may occur that I cannot parse some network packets that I have not seen yet, especially on players other than my XDJ-1000s or if Rekordbox is involved.
+Please include debug output when reporting bugs and a network dump (i.e. wireshark) if possible.
 
 ## Acknowledgments
 
