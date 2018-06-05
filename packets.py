@@ -2,10 +2,7 @@
 # https://github.com/brunchboy/dysentery
 # https://bitbucket.org/awwright/libpdjl
 
-from construct import Adapter, Array, Byte, Const, CString, Default, Embedded, Enum, ExprAdapter, FlagsEnum, FocusedSeq, GreedyBytes, GreedyRange, Int8ub, Int16ub, Int32ub, Int64ub, Int16ul, Int32ul, Padded, Padding, Pass, PascalString, Prefixed, Rebuild, String, Struct, Subconstruct, Switch, this, len_
-
-MacAddr = Array(6, Byte)
-IpAddr = Array(4, Byte)
+from construct import Adapter, Array, Byte, Const, CString, Default, Enum, ExprAdapter, FlagsEnum, FocusedSeq, GreedyBytes, GreedyRange, Int8ub, Int16ub, Int32ub, Int64ub, Int16ul, Int32ul, Padded, Padding, Pass, PascalString, String, Prefixed, Rebuild, Struct, Subconstruct, Switch, this, len_
 
 class IpAddrAdapter(Adapter):
   def _encode(self, obj, context):
@@ -51,9 +48,11 @@ PlayerNumberAssignment = Enum(Int8ub,
   manual = 2
 )
 
+UdpMagic = Const("Qspt1WmJOL", String(10, encoding="ascii"))
+
 # received on udp port 50000
 KeepAlivePacket = Struct(
-  "magic" / Const(b'Qspt1WmJOL', String(10)),
+  "magic" / UdpMagic,
   "type" / KeepAlivePacketType, # pairs with subtype
   Padding(1),
   "model" / Padded(20, CString(encoding="ascii")),
@@ -61,7 +60,7 @@ KeepAlivePacket = Struct(
   "device_type" / Default(DeviceType, "cdj"),
   Padding(1),
   "subtype" / KeepAlivePacketSubtype,
-  Embedded(Switch(this.type, {
+  "content" / Switch(this.type, {
     # type=0x0a, request for other players to propose a player number?
     "type_hello": Struct(
       "u2" / Default(Int8ub, 1)), # cdjs send 1, djm900nxs sends 3
@@ -94,7 +93,7 @@ KeepAlivePacket = Struct(
     "type_change": Struct( # when changing player number
       "old_player_number" / Int8ub,
       "ip_addr" / IpAddr)
-  }))
+  })
 )
 
 class PitchAdapter(Adapter):
@@ -133,14 +132,14 @@ FaderStartCommand = Enum(Int8ub,
 
 # received on udp port 50001
 BeatPacket = Struct(
-  "magic" / Const(b'Qspt1WmJOL', String(10)),
+  "magic" / UdpMagic,
   "type" / BeatPacketType, # pairs with subtype
   "model" / Padded(20, CString(encoding="ascii")),
   "u1" / Default(Int16ub, 256), # 256 for cdjs, 257 for rekordbox
   "player_number" / Int8ub,
   "u2" / Const(0, Int8ub),
   "subtype" / BeatPacketSubtype,
-  Embedded(Switch(this.type, {
+  "content" / Switch(this.type, {
     # type=0x28, the standard beat info packet
     "type_beat": Struct(
       # distances in ms to the next beat, 2nd next beat, next bar...
@@ -172,7 +171,7 @@ BeatPacket = Struct(
     # type=0x04,
     "type_fader_start": Struct(
       "player" / Array(4, FaderStartCommand))
-  }))
+  })
 )
 
 StatusPacketType = Enum(Int8ub,
@@ -254,14 +253,14 @@ StateMask = FlagsEnum(StateMaskAdapter(Int16ub),
 
 # received on udp port 50002
 StatusPacket = Struct(
-  "magic" / Const(b'Qspt1WmJOL', String(10)),
+  "magic" / UdpMagic,
   "type" / StatusPacketType,
   "model" / Padded(20, CString(encoding="ascii")),
   "u1" / Const(1, Int8ub),
   "u2" / Default(Int8ub, 4), # some kind of revision? 3 for cdj2000nx, 4 for xdj1000. 1 for djm/rekordbox, 0 for link query
   "player_number" / Int8ub, # 0x11 for rekordbox
   # 34 bytes until now
-  Embedded(Switch(this.type, {
+  "extra" / Switch(this.type, {
     "link_query": Struct(
       "u3" / Default(Int16ub, 0x0c),
       "source_ip" / IpAddr),
@@ -269,11 +268,11 @@ StatusPacket = Struct(
     "link_reply": Struct("payload_size" / Int16ub), # always 0x9c
   }, default=Struct(
     "u3" / Default(Int16ub, 0xf8), # b0 cdj2000nxs, f8 xdj1000, 14 djm, 34/38 rekordbox, 104 rdbx_reply
-    "player_number2" / Int8ub, # equal to player_number
+    "player_number2" / Rebuild(Int8ub, this._.player_number), # equal to player_number
     "u4" / Default(Int8ub, 0) # 1 cdj2000nxs or 0 xdj1000, 0 for rekordbox))
-  ))),
+  )),
   # default: 38 bytes until now
-  Embedded(Switch(this.type, {
+  "content" / Switch(this.type, {
     "cdj": Struct(
       "activity" / Int16ub, # 0 when idle, 1 when playing, 0xc0 for rekordbox
       "loaded_player_number" / Int8ub, # player number of loaded track, own number if local track
@@ -371,7 +370,7 @@ StatusPacket = Struct(
       Padding(2),
       "name" / String(256, encoding="utf-16-be")
     ),
-  }))
+  })
 )
 
 DBServerQueryPort = 12523
@@ -395,10 +394,9 @@ DBField = Struct(
     "int8": Int8ub,
     "int16": Int16ub,
     "int32": Int32ub,
-    "string" : FocusedSeq(0, PascalString(
-        ExprAdapter(Int32ub, encoder=lambda obj,ctx: obj//2+1, decoder=lambda obj,ctx: (obj-1)*2),
-        encoding="utf-16-be"),
-      Padding(2)),
+    "string" : FocusedSeq("str",
+      "str" / PascalString(ExprAdapter(Int32ub, encoder=lambda obj,ctx: obj//2+1, decoder=lambda obj,ctx: (obj-1)*2), encoding="utf-16-be"),
+      "pad" / Padding(2)),
     "binary": Prefixed(Int32ub, GreedyBytes) # parses to byte string
   })
 )

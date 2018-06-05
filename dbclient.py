@@ -2,7 +2,7 @@ import socket
 import packets
 import logging
 from select import select
-from construct import RangeError, MappingError, byte2int
+from construct import MappingError, StreamError, RangeError, byte2int
 import dataprovider
 
 metadata_type = {
@@ -244,7 +244,7 @@ class DBClient:
       data += new_data
       try:
         return packets.DBMessage.parse(data)
-      except RangeError as e:
+      except (StreamError, RangeError) as e:
         logging.debug("DBClient: Received %d bytes but parsing failed, trying to receive more", len(data))
         parse_errors += 1
     raise dataprovider.TemporaryQueryError("Failed to receive dbmessage after {} tries and {} timeouts".format(parse_errors, receive_timeouts))
@@ -328,7 +328,7 @@ class DBClient:
       data += new_data
       try:
         reply = packets.ManyDBMessages.parse(data)
-      except (RangeError, FieldError, MappingError, KeyError, TypeError) as e:
+      except (RangeError, MappingError, KeyError, TypeError) as e:
         logging.debug("DBClient: failed to parse %s render reply (%d bytes), trying to receive more", request_type, len(data))
         parse_errors += 1
       else:
@@ -369,7 +369,7 @@ class DBClient:
     self.socksnd(sock, data)
     try:
       reply = self.receive_dbmessage(sock)
-    except (RangeError, FieldError, MappingError, KeyError, TypeError) as e:
+    except (RangeError, MappingError, KeyError, TypeError) as e:
       logging.error("DBClient: %s query parse error: %s", request_type, str(e))
       return None
     if reply is None:

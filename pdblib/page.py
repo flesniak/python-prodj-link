@@ -72,7 +72,7 @@ PageHeader = Struct( # 40 bytes
   "next_index" / Int32ul, # in units of 4096 bytes, finally points to empty page, even outside of file
   "u1" / Int32ul, # sequence number (0->1: 8->13, 1->2: 22, 2->3: 27)
   Padding(4),
-  "real_entry_count" / Int8ul,
+  "real_entry_count" / Int8ul, 
   "u3" / Int8ul, # a bitmask (1st track: 32)
   "u4" / Int16ul, # 25600 for strange blocks
   "free_size" / Int16ul, # excluding data at page end

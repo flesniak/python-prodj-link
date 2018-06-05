@@ -45,9 +45,11 @@ class Vcdj(Thread):
       "type": "type_status",
       "subtype": "stype_status",
       "model": self.model,
-      "player_number": self.player_number,
-      "ip_addr": self.ip_addr,
-      "mac_addr": self.mac_addr
+      "content": {
+        "player_number": self.player_number,
+        "ip_addr": self.ip_addr,
+        "mac_addr": self.mac_addr
+      }
     }
     #logging.debug("send keepalive data: %s", str(data))
     raw = packets.KeepAlivePacket.build(data)
@@ -63,9 +65,13 @@ class Vcdj(Thread):
       "type": "link_query",
       "model": self.model,
       "player_number": self.player_number,
-      "source_ip": self.ip_addr,
-      "remote_player_number": player_number,
-      "slot": slot_id
+      "extra": {
+        "source_ip": self.ip_addr
+      },
+      "content": {
+        "remote_player_number": player_number,
+        "slot": slot_id
+      }
     }
     data = packets.StatusPacket.build(cmd)
     logging.debug("query link info to %s struct %s", cl.ip_addr, str(cmd))
@@ -81,10 +87,12 @@ class Vcdj(Thread):
       "type": "load_cmd",
       "model": self.model,
       "player_number": self.player_number, # our player number -> we receive confirmation packet
-      "player_number2": self.player_number, # our player number -> we receive confirmation packet
-      "load_player_number": load_player_number,
-      "load_slot": load_slot_id,
-      "load_track_id": load_track_id
+      "extra": {},
+      "content": {
+        "load_player_number": load_player_number,
+        "load_slot": load_slot_id,
+        "load_track_id": load_track_id
+      }
     }
     data = packets.StatusPacket.build(cmd)
     logging.debug("send load packet to %s struct %s", cl.ip_addr, str(cmd))
