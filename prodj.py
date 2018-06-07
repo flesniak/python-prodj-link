@@ -105,7 +105,7 @@ class ProDj(Thread):
     if packet["type"] in ["type_ip", "type_status", "type_change"]:
       self.cl.eatKeepalive(packet)
     if self.own_ip is None and len(self.cl.getClientIps()) > 0:
-      self.own_ip = guess_own_iface(self.keepalive_sock, self.cl.getClientIps())
+      self.own_ip = guess_own_iface(self.cl.getClientIps())
       if self.own_ip is not None:
         logging.info("Guessed own interface {} ip {} mask {} mac {}".format(*self.own_ip))
         self.vcdj_set_iface()
