@@ -19,6 +19,8 @@ Use pip or your distributions package management to install these, i.e. on Arch 
 
 ```
 pacman -S python-construct python-pyqt5 python-netifaces
+pip3 install construct==2.8.22 
+pip3 install PyOpenGL
 ```
 
 **Note:** Construct is currently (June 2018) undergoing severe API changes.
