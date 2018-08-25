@@ -234,7 +234,11 @@ class NfsClient(Thread):
   # download path from player with ip after trying to mount slot
   # this call blocks until the download is finished and returns the downloaded bytes
   def enqueue_buffer_download(self, ip, slot, src_path):
-    self.enqueue_download(ip, slot, src_path, dst_path=None, sync=True, callback=None)
+    try:
+      self.enqueue_download(ip, slot, src_path, dst_path=None, sync=True, callback=None)
+    except RuntimeError as e:
+      logging.warning("NfsClient: returning empty buffer because: {}".format(e))
+      return None
     return self.download_buffer
 
   # can be used as a callback for DataProvider.get_mount_info
