@@ -62,8 +62,9 @@ class PDBProvider:
     dat = self.prodj.nfs.enqueue_buffer_download(player.ip_addr, slot, anlz_path)
     ext = self.prodj.nfs.enqueue_buffer_download(player.ip_addr, slot, anlz_path.replace("DAT", "EXT"))
     db = UsbAnlzDatabase()
-    db.load_dat_buffer(dat)
-    db.load_ext_buffer(ext)
+    if dat is not None and ext is not None:
+      db.load_dat_buffer(dat)
+      db.load_ext_buffer(ext)
     return db
 
   def get_anlz(self, player_number, slot, track_id):
@@ -119,7 +120,11 @@ class PDBProvider:
 
   def get_waveform(self, player_number, slot, track_id):
     db = self.get_anlz(player_number, slot, track_id)
-    return db.get_waveform()
+    try:
+      return db.get_waveform()
+    except KeyError as e:
+      logging.warning("PDBProvider: No waveform for {}, returning empty data".format((player_number, slot, track_id)))
+      return None
 
   def get_preview_waveform(self, player_number, slot, track_id):
     db = self.get_anlz(player_number, slot, track_id)
