@@ -109,7 +109,7 @@ class ClientList:
       for x in range(1,5):
         player = self.getClient(x)
         if player is not None:
-          on_air = beat_packet.ch_on_air[x-1] == 1
+          on_air = beat_packet.content.ch_on_air[x-1] == 1
           if player.on_air != on_air:
             if self.client_change_callback:
               self.client_change_callback(x)
