@@ -115,7 +115,11 @@ class PDBProvider:
     if player is None:
       raise dataprovider.FatalQueryError("PDBProvider: player {} not found in clientlist".format(player_number))
     db = self.get_db(player_number, slot)
-    artwork = db.get_artwork(artwork_id)
+    try:
+      artwork = db.get_artwork(artwork_id)
+    except KeyError as e:
+      logging.warning("PDBProvider: No artwork for {}, returning empty data".format((player_number, slot, track_id)))
+      return None
     return self.prodj.nfs.enqueue_buffer_download(player.ip_addr, slot, artwork.path)
 
   def get_waveform(self, player_number, slot, track_id):
@@ -129,13 +133,21 @@ class PDBProvider:
   def get_preview_waveform(self, player_number, slot, track_id):
     db = self.get_anlz(player_number, slot, track_id)
     waveform_spread = b""
-    for line in db.get_preview_waveform():
-      waveform_spread += bytes([line & 0x1f, line>>5])
+    try:
+      for line in db.get_preview_waveform():
+        waveform_spread += bytes([line & 0x1f, line>>5])
+    except KeyError as e:
+      logging.warning("PDBProvider: No preview waveform for {}, returning empty data".format((player_number, slot, track_id)))
+      return None
     return waveform_spread
 
   def get_beatgrid(self, player_number, slot, track_id):
     db = self.get_anlz(player_number, slot, track_id)
-    return db.get_beatgrid()
+    try:
+      return db.get_beatgrid()
+    except KeyError as e:
+      logging.warning("PDBProvider: No beatgrid for {}, returning empty data".format((player_number, slot, track_id)))
+      return None
 
   def get_mount_info(self, player_number, slot, track_id):
     db = self.get_db(player_number, slot)
