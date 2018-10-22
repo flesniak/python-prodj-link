@@ -495,7 +495,8 @@ class Gui(QWidget):
         if len(reply) == 0:
           logging.warning("Gui: empty metadata received")
           continue
-        self.players[player_number].setMetadata(reply["title"], reply["artist"], reply["album"])
+        if self.keys_exists(reply):
+          self.players[player_number].setMetadata(reply["title"], reply["artist"], reply["album"])
         if "artwork_id" in reply and reply["artwork_id"] != 0:
           self.prodj.data.get_artwork(source_player_number, slot, reply["artwork_id"], self.dbclient_callback)
         else:
@@ -509,9 +510,21 @@ class Gui(QWidget):
       elif request == "beatgrid":
         self.players[player_number].waveform.setBeatgridData(reply)
       elif request == "track_info":
-        self.players[player_number].setMetadata(reply["title"], reply["artist"], reply["album"])
+        if self.keys_exists(reply):
+          self.players[player_number].setMetadata(reply["title"], reply["artist"], reply["album"])
       else:
         logging.warning("Gui: unhandled dbserver callback %s", request)
+
+  def keys_exists(self, reply):
+    if "title" not in reply.keys():
+      logging.debug("title not found in tracks info")
+    elif "artist" not in reply.keys():
+      logging.debug("artist not found in tracks info")
+    elif "album" not in reply.keys():
+      logging.debug("album not found in tracks info")
+    else:
+      return True
+    return False
 
   def media_callback(self, cl, player_number, slot):
     if not player_number in self.players:
