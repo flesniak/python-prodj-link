@@ -510,6 +510,9 @@ class Gui(QWidget):
         self.players[player_number].waveform.setBeatgridData(reply)
       elif request == "track_info":
         self.players[player_number].setMetadata(reply["title"], reply["artist"], reply["album"])
+        self.players[player_number].setArtwork(None) # no artwork for unanalyzed tracks
+        self.players[player_number].waveform.clear()
+        self.players[player_number].preview_waveform.clear()
       else:
         logging.warning("Gui: unhandled dbserver callback %s", request)
 
