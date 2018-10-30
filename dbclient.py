@@ -295,8 +295,8 @@ class DBClient:
       logging.error("DBClient: %s failed on player %d (got %s)", query["type"], player_number, "NONE" if reply is None else reply["type"])
       return None
     entry_count = reply["args"][1]["value"]
-    if entry_count == 0:
-      logging.warning("DBClient: %s empty (0 entries)", request_type)
+    if entry_count == 0 or entry_count == 0xffffffff:
+      logging.warning("DBClient: %s empty (request returned %d entries)", request_type, entry_count)
       return []
     logging.debug("DBClient: query_list %s: %d entries available", request_type, entry_count)
 
