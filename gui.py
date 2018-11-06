@@ -364,6 +364,8 @@ class Gui(QWidget):
     self.layout = QGridLayout(self)
     # "xy" = player 1 + 2 in the first row
     # "yx" = player 1 + 2 in the first column
+    # "xx" = player 1 + 4 in the first row
+    # "yy" = player 2 + 3 in the first row
     self.layout_mode = "xy"
     self.create_player(0)
 
@@ -376,6 +378,10 @@ class Gui(QWidget):
       return (player_number-1)//2, (player_number-1)%2
     elif self.layout_mode == "yx":
       return (player_number-1)%2, (player_number-1)//2
+    elif self.layout_mode == "xx":
+      return 1 if player_number in [1,4] else 0, 0 if player_number in [3,4] else 1
+    elif self.layout_mode == "yy":
+      return 1 if player_number in [2,3] else 0, 0 if player_number in [3,4] else 1
     else:
       raise Exception("Unknown Gui layout mode {}".format(str(layout_mode)))
 
