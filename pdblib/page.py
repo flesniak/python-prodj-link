@@ -72,16 +72,17 @@ PageHeader = Struct( # 40 bytes
   "next_index" / Int32ul, # in units of 4096 bytes, finally points to empty page, even outside of file
   "u1" / Int32ul, # sequence number (0->1: 8->13, 1->2: 22, 2->3: 27)
   Padding(4),
-  "real_entry_count" / Int8ul, 
+  "real_entry_count" / Int8ul,
   "u3" / Int8ul, # a bitmask (1st track: 32)
-  "u4" / Int16ul, # 25600 for strange blocks
+  "u4" / Int8ul, # often 0, sometimes larger, esp. for pages with high real_entry_count (e.g. 12 for 101 entries)
+  "u5" / Int8ul, # strange pages: 0x44, 0x64; otherwise seen: 0x24, 0x34
   "free_size" / Int16ul, # excluding data at page end
   "payload_size" / Int16ul,
   "u7" / Int16ul, # (0->1: 2)
   "alternative_entry_count" / Int16ul, # usually <= entry_count except for playlist_map?
   "u9" / Int16ul, # 1004 for strange blocks, 0 otherwise
   "u10" / Int16ul, # always 0 except 1 for synchistory, entry count for strange pages?
-  "is_strange_page" / Computed(lambda ctx: ctx.index != 0 and ctx.u9 == 1004),
+  "is_strange_page" / Computed(lambda ctx: ctx.index != 0 and ctx.u5 & 0x40),
   "is_empty_page" / Computed(lambda ctx: ctx.index == 0 and ctx.u9 == 0),
   # this is fishy: artwork and playlist_map pages have much more entries than set in real_entry_count
   # so use the alternative_entry_count if applicable, but ignore if it is 8191
