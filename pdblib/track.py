@@ -43,7 +43,7 @@ Track = Struct(
   "str_u3" / IndexedPioString(3), # strange strings, often zero length, sometimes low binary values 0x01/0x02 as content
   "str_u4" / IndexedPioString(4), # strange strings, often zero length, sometimes low binary values 0x01/0x02 as content
   "message" / IndexedPioString(5),
-  "unknown_switch" / IndexedPioString(6), # "ON" or empty
+  "kuvo_public" / IndexedPioString(6), # "ON" or empty
   "autoload_hotcues" / IndexedPioString(7), # "ON" or empty
   "str_u5" / IndexedPioString(8), # 8
   "str_u6" / IndexedPioString(9), # empty

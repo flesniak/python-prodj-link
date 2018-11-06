@@ -1,5 +1,3 @@
-#!/usr/bin/python3
-
 from construct import Array, Const, Default, Enum, GreedyRange, Int8ub, Int16ub, Int32ub, Padding, PrefixedArray, PaddedString, Struct, Switch, this
 
 # file format from https://reverseengineering.stackexchange.com/questions/4311/help-reversing-a-edb-database-file-for-pioneers-rekordbox-software
