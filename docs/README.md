@@ -14,7 +14,12 @@ These instructions describe necessary work to be done before being able to run t
 
 ### Prerequisites
 
-python-prodj-link is written in Python 3. It requires [Construct](https://pypi.python.org/pypi/construct) **(Version 2.8)**, [PyQt5](https://pypi.python.org/pypi/PyQt5) and [netifaces](https://pypi.org/project/netifaces)
+python-prodj-link is written in Python 3. It requires
+[Construct](https://pypi.python.org/pypi/construct) **(Version 2.8)**,
+[PyQt5](https://pypi.python.org/pypi/PyQt5),
+[PyOpenGL](https://pypi.org/project/PyOpenGL/), and
+[netifaces](https://pypi.org/project/netifaces).
+
 Use pip or your distributions package management to install these, i.e. on Arch Linux:
 
 ```
