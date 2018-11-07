@@ -366,24 +366,34 @@ class Gui(QWidget):
     # "yx" = player 1 + 2 in the first column
     # "xx" = player 1 + 4 in the first row
     # "yy" = player 2 + 3 in the first row
-    self.layout_mode = "xy"
+    self.layout_mode = "yy"
+    self.layouts = {
+      "xy": [(0,0), (0,1), (1,0), (1,1)],
+      "yx": [(0,0), (1,0), (0,1), (1,1)],
+      "xx": [(0,0), (1,0), (1,1), (0,1)],
+      "yy": [(1,0), (0,0), (0,1), (1,1)]
+    }
     self.create_player(0)
 
     self.show()
 
-  def get_layout_coordinates(self, player_number):
-    if player_number == 0:
-      return 0, 0
-    if self.layout_mode == "xy":
-      return (player_number-1)//2, (player_number-1)%2
-    elif self.layout_mode == "yx":
-      return (player_number-1)%2, (player_number-1)//2
-    elif self.layout_mode == "xx":
-      return 1 if player_number in [1,4] else 0, 0 if player_number in [3,4] else 1
-    elif self.layout_mode == "yy":
-      return 1 if player_number in [2,3] else 0, 0 if player_number in [3,4] else 1
-    else:
-      raise Exception("Unknown Gui layout mode {}".format(str(layout_mode)))
+  def get_layout_coordinates(self, widget_number):
+    if widget_number == 0:
+      return 0,0
+    if widget_number > 4:
+      raise Exception("Unhandled widget number {}".format(widget_number))
+    if not self.layout_mode in self.layouts:
+      raise Exception("Unknown Gui layout mode {}".format(self.layout_mode))
+    return self.layouts[self.layout_mode][widget_number-1]
+
+  def update_player_layout(self):
+    n = 1
+    for player in sorted(self.players.values(), key=lambda x: x.player_number):
+      x,y = self.get_layout_coordinates(n)
+      if self.layout.itemAtPosition(x, y) != player:
+        self.layout.removeWidget(player)
+        self.layout.addWidget(player, x, y)
+      n = n+1
 
   def connect_linked_player_controls(self, player_number):
     for pn, p in self.players.items():
@@ -402,30 +412,29 @@ class Gui(QWidget):
     if len(self.players) == 1 and 0 in self.players:
       logging.debug("Gui: reassigning default player 0 to player %d", player_number)
       self.players[0].setPlayerNumber(player_number)
-      self.layout.removeWidget(self.players[0])
       self.players = {player_number: self.players[0]}
     else:
       logging.info("Gui: Creating player {}".format(player_number))
       self.players[player_number] = PlayerWidget(player_number, self)
     self.connect_linked_player_controls(player_number)
     self.players[player_number].show()
-    self.layout.addWidget(self.players[player_number], *self.get_layout_coordinates(player_number))
+    self.update_player_layout()
     return self.players[player_number]
 
   def remove_player(self, player_number):
     if not player_number in self.players:
       return
-    self.layout.removeWidget(self.players[player_number])
+    player = self.players[player_number]
     if len(self.players) == 1:
       logging.info("All players gone, resetting last player to 0")
-      self.players = {0: self.players[player_number]}
+      self.players = {0: player}
       self.players[0].setPlayerNumber(0)
       self.players[0].reset()
-      self.layout.addWidget(self.players[0], *self.get_layout_coordinates(0))
     else:
-      self.players[player_number].hide()
-      self.players[player_number].deleteLater()
+      player.hide()
+      player.deleteLater()
       del self.players[player_number]
+    self.update_player_layout()
     logging.info("Gui: Removed player {}".format(player_number))
 
   # has to be called using a signal, otherwise windows are created standalone
