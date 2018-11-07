@@ -393,9 +393,12 @@ class Gui(QWidget):
         self.players[player_number].time_mode_remain_changed_signal.connect(p.setTimeMode, type = Qt.UniqueConnection | Qt.AutoConnection)
         p.time_mode_remain_changed_signal.connect(self.players[player_number].setTimeMode, type = Qt.UniqueConnection | Qt.AutoConnection)
 
+  # return widget of a player or create it if it does not exist yet
   def create_player(self, player_number):
     if player_number in self.players:
-      return
+      return self.players[player_number]
+    if player_number not in range(0,5):
+      return None
     if len(self.players) == 1 and 0 in self.players:
       logging.debug("Gui: reassigning default player 0 to player %d", player_number)
       self.players[0].setPlayerNumber(player_number)
@@ -407,6 +410,7 @@ class Gui(QWidget):
     self.connect_linked_player_controls(player_number)
     self.players[player_number].show()
     self.layout.addWidget(self.players[player_number], *self.get_layout_coordinates(player_number))
+    return self.players[player_number]
 
   def remove_player(self, player_number):
     if not player_number in self.players:
@@ -429,46 +433,45 @@ class Gui(QWidget):
     self.keepalive_signal.emit(player_number)
 
   def keepalive_slot(self, player_number):
-    if player_number not in range(1,5):
-      return
-    if not player_number in self.players: # on new keepalive, create player
-      self.create_player(player_number)
+    player = self.create_player(player_number)
     c = self.prodj.cl.getClient(player_number)
-    self.players[player_number].setPlayerInfo(c.model, c.ip_addr)
+    if c is not None and player is not None:
+      player.setPlayerInfo(c.model, c.ip_addr)
 
   def client_change_callback(self, player_number):
     self.client_change_signal.emit(player_number)
 
   def client_change_slot(self, player_number):
-    if not player_number in self.players: # if status packet arrives before keepalive, create a player as well
-      self.create_player(player_number)
+    player = self.create_player(player_number)
+    if player is None:
+      return
     c = self.prodj.cl.getClient(player_number)
     if c is None:
       self.remove_player(player_number)
       return
     if c.type != "cdj":
       return
-    self.players[player_number].setSpeed(c.bpm, c.pitch)
-    self.players[player_number].setMaster("master" in c.state)
-    self.players[player_number].setSync("sync" in c.state)
-    self.players[player_number].beat_bar.setBeat(c.beat)
-    self.players[player_number].waveform.setPosition(c.position, c.actual_pitch, c.play_state)
-    self.players[player_number].setPlayState(c.play_state)
-    self.players[player_number].setOnAir(c.on_air)
+    player.setSpeed(c.bpm, c.pitch)
+    player.setMaster("master" in c.state)
+    player.setSync("sync" in c.state)
+    player.beat_bar.setBeat(c.beat)
+    player.waveform.setPosition(c.position, c.actual_pitch, c.play_state)
+    player.setPlayState(c.play_state)
+    player.setOnAir(c.on_air)
     if c.metadata is not None and "duration" in c.metadata:
-      self.players[player_number].setTime(c.position, c.metadata["duration"])
-      self.players[player_number].setTotalTime(c.metadata["duration"])
+      player.setTime(c.position, c.metadata["duration"])
+      player.setTotalTime(c.metadata["duration"])
       if c.position is not None:
-        self.players[player_number].preview_waveform.setPosition(c.position/c.metadata["duration"])
+        player.preview_waveform.setPosition(c.position/c.metadata["duration"])
     else:
-      self.players[player_number].setTime(c.position, None)
-      self.players[player_number].setTotalTime(None)
+      player.setTime(c.position, None)
+      player.setTotalTime(None)
     if len(c.fw) > 0:
-      self.players[player_number].setPlayerInfo(c.model, c.ip_addr, c.fw)
+      player.setPlayerInfo(c.model, c.ip_addr, c.fw)
 
     # track changed -> reload metadata
-    if self.players[player_number].track_id != c.track_id:
-      self.players[player_number].track_id = c.track_id # remember requested track id
+    if player.track_id != c.track_id:
+      player.track_id = c.track_id # remember requested track id
       if c.track_id != 0:
         if c.loaded_slot in ["sd", "usb"] and c.track_analyze_type == "rekordbox":
           logging.info("Gui: track id of player %d changed to %d, requesting metadata", player_number, c.track_id)
@@ -482,10 +485,10 @@ class Gui(QWidget):
           self.prodj.data.get_track_info(c.loaded_player_number, c.loaded_slot, c.track_id, self.dbclient_callback)
         else:
           logging.warning("Gui: unable to handle track %d in player %d, no known metadata method", c.track_id, player_number)
-          self.players[player_number].unload()
+          player.unload()
       else:
         logging.info("Gui: track id of player %d changed to %d, unloading", player_number, c.track_id)
-        self.players[player_number].unload()
+        player.unload()
 
   def dbclient_callback(self, request, source_player_number, slot, item_id, reply):
     if request == "artwork":
@@ -496,29 +499,30 @@ class Gui(QWidget):
       player_number = client.player_number if client is not None else None
       if not player_number in self.players or reply is None:
         continue
+      player = self.players[player_number]
       logging.debug("Gui: dbclient_callback %s source player %d to widget player %d", request, source_player_number, player_number)
       if request == "metadata":
         if len(reply) == 0:
           logging.warning("Gui: empty metadata received")
           continue
-        self.players[player_number].setMetadata(reply["title"], reply["artist"], reply["album"])
+        player.setMetadata(reply["title"], reply["artist"], reply["album"])
         if "artwork_id" in reply and reply["artwork_id"] != 0:
           self.prodj.data.get_artwork(source_player_number, slot, reply["artwork_id"], self.dbclient_callback)
         else:
-          self.players[player_number].setArtwork(None)
+          player.setArtwork(None)
       elif request == "artwork":
-        self.players[player_number].setArtwork(reply)
+        player.setArtwork(reply)
       elif request == "waveform":
-        self.players[player_number].waveform.setData(reply)
+        player.waveform.setData(reply)
       elif request == "preview_waveform":
-        self.players[player_number].preview_waveform.setData(reply)
+        player.preview_waveform.setData(reply)
       elif request == "beatgrid":
-        self.players[player_number].waveform.setBeatgridData(reply)
+        player.waveform.setBeatgridData(reply)
       elif request == "track_info":
-        self.players[player_number].setMetadata(reply["title"], reply["artist"], reply["album"])
-        self.players[player_number].setArtwork(None) # no artwork for unanalyzed tracks
-        self.players[player_number].waveform.clear()
-        self.players[player_number].preview_waveform.clear()
+        player.setMetadata(reply["title"], reply["artist"], reply["album"])
+        player.setArtwork(None) # no artwork for unanalyzed tracks
+        player.waveform.clear()
+        player.preview_waveform.clear()
       else:
         logging.warning("Gui: unhandled dbserver callback %s", request)
 
