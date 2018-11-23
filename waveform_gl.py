@@ -114,7 +114,7 @@ class GLWaveformWidget(QOpenGLWidget):
     logging.debug("Renderer \"{}\" OpenGL \"{}\"".format(
       gl.glGetString(gl.GL_RENDERER).decode("ascii"),
       gl.glGetString(gl.GL_VERSION).decode("ascii")))
-    gl.glClearColor(0,0,0,0)
+    gl.glClearColor(0,0,0,255)
     gl.glShadeModel(gl.GL_FLAT)
     gl.glEnable(gl.GL_DEPTH_TEST)
     gl.glEnable(gl.GL_CULL_FACE)
