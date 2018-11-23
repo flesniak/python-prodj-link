@@ -97,10 +97,10 @@ AnlzCuePoint2 = Struct(
   "head_size" / Int32ub,
   "tag_size" / Int32ub,
   "hotcue_number" / Int32ub, # 0 for memory
-  "u2" / Const(0x010003e8, Int32ub),
+  "u2" / Int32ub, # spotted: 0x010003e8 0x020003e8
   "time" / Int32ub,
   "time_end" / Default(Int32ub, -1),
-  "u1" / Const(0x10000, Int32ub),
+  "u1" / Int32ub, # spotted: 0x00010000 0x00010247
   Padding(56)
 )
 
@@ -124,7 +124,7 @@ AnlzTag = Struct(
     "PWV3": AnlzTagBigWaveform, # seen in EXT files
     "PCOB": AnlzTagCueObject,
     "PCO2": AnlzTagCueObject2 # seen in EXT files
-  }, default=Padding(this._.tag_size-12))
+  }, default=Padding(this.tag_size-12))
 )
 
 AnlzFile = Struct(
