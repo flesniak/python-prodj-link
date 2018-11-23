@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 
 # NOTE: This module suffers bad timing!
 # Use the alsaseq implementation if possible.
