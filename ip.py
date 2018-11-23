@@ -18,6 +18,8 @@ def guess_own_iface(match_ips):
 
     mac = ifa[ni.AF_LINK][0]['addr']
     for addr in ifa[ni.AF_INET]:
+      if 'addr' not in addr or 'netmask' not in addr:
+        continue
       net = IPv4Network(addr['addr']+"/"+addr['netmask'], strict=False)
       if any([IPv4Address(ip) in net for ip in match_ips]):
         return iface, addr['addr'], addr['netmask'], mac
