@@ -8,8 +8,9 @@ from PyQt5.QtCore import pyqtSignal, QSize, Qt
 from PyQt5.QtWidgets import QApplication, QHBoxLayout, QOpenGLWidget, QSlider, QWidget
 from PyQt5.QtGui import QSurfaceFormat
 import OpenGL.GL as gl
-
-from packets import Beatgrid, PlayStatePlaying, PlayStateStopped
+from blue_map import blue_map
+from packets import PlayStatePlaying, PlayStateStopped
+from pdblib import UsbAnlzDatabase
 
 class GLWaveformWidget(QOpenGLWidget):
   waveform_zoom_changed_signal = pyqtSignal(int)
@@ -152,14 +153,21 @@ class GLWaveformWidget(QOpenGLWidget):
 
   def renderCrosshair(self):
     gl.glNewList(self.lists, gl.GL_COMPILE)
-    gl.glBegin(gl.GL_LINES)
+    gl.glBegin(gl.GL_QUADS)
     # white baseline
     gl.glColor3f(1, 1, 1)
-    gl.glVertex3f(-1*self.viewport[0], 0, -1)
-    gl.glVertex3f(self.viewport[0], 0, -1)
+    gl.glVertex3f(-1*self.viewport[0], -1, -1)
+    gl.glVertex3f(self.viewport[0], -1, -1)
+    gl.glVertex3f(self.viewport[0], 1, -1)
+    gl.glVertex3f(-1*self.viewport[0], 1, -1)
+    gl.glEnd()
+
+    gl.glBegin(gl.GL_QUADS)
     # red position marker
     gl.glColor3f(1, 0, 0)
     gl.glVertex3f(0, -1*self.viewport[1], 1)
+    gl.glVertex3f(.5, -1*self.viewport[1], 1)
+    gl.glVertex3f(.5, self.viewport[1], 1)
     gl.glVertex3f(0, self.viewport[1], 1)
     gl.glEnd()
     gl.glEndList()
@@ -171,17 +179,19 @@ class GLWaveformWidget(QOpenGLWidget):
 
       gl.glNewList(self.lists+1, gl.GL_COMPILE)
       gl.glEnable(gl.GL_MULTISAMPLE)
-      gl.glBegin(gl.GL_LINES)
 
       for x,v in enumerate(self.waveform_data):
         height = v & 0x1f
         whiteness = v >> 5
 
-        gl.glColor3f(whiteness/8, whiteness/8, 1)
-        gl.glVertex3f(x/self.waveform_lines_per_x, height, 0)
-        gl.glVertex3f(x/self.waveform_lines_per_x, -height, 0)
+        gl.glBegin(gl.GL_QUADS)
+        gl.glColor3ub(blue_map[7-whiteness][0], blue_map[7-whiteness][1], blue_map[7-whiteness][2])
+        gl.glVertex3f(x/self.waveform_lines_per_x, -height-1, 0)
+        gl.glVertex3f((x+1)/self.waveform_lines_per_x, -height-1, 0)
+        gl.glVertex3f((x+1)/self.waveform_lines_per_x, height+1, 0)
+        gl.glVertex3f(x/self.waveform_lines_per_x, height+1, 0)
+        gl.glEnd()
 
-      gl.glEnd()
       gl.glEndList()
       self.waveform_data = None # delete data after rendering
 
@@ -212,12 +222,40 @@ class GLWaveformWidget(QOpenGLWidget):
       gl.glEndList()
       self.beatgrid_data = None # delete data after rendering
 
+class GLColorWaveformWidget(GLWaveformWidget):
+  def renderWaveform(self):
+    with self.data_lock:
+      if self.waveform_data is None:
+        return
+
+      gl.glNewList(self.lists+1, gl.GL_COMPILE)
+      gl.glEnable(gl.GL_MULTISAMPLE)
+
+      for x,v in enumerate(self.waveform_data):
+        height = ((v >> 2) & 0x1F)
+        blue = ((v >> 7) & 0x07) / 7
+        green = ((v >> 10) & 0x07) / 7
+        red = ((v >> 13) & 0x07) / 7
+
+        gl.glBegin(gl.GL_QUADS)
+        gl.glColor3f(red, green, blue)
+        gl.glVertex3f(x/self.waveform_lines_per_x, -height-1, 0)
+        gl.glVertex3f((x+1)/self.waveform_lines_per_x, -height-1, 0)
+        gl.glVertex3f((x+1)/self.waveform_lines_per_x, height+1, 0)
+        gl.glVertex3f(x/self.waveform_lines_per_x, height+1, 0)
+        gl.glEnd()
+
+      gl.glEndList()
+      self.waveform_data = None # delete data after rendering
+
+
 class Window(QWidget):
   def __init__(self):
     super(Window, self).__init__()
 
     self.setWindowTitle("GL Waveform Test")
-    self.glWidget = GLWaveformWidget()
+    # self.glWidget = GLWaveformWidget()
+    self.glWidget = GLColorWaveformWidget()
 
     self.timeSlider = QSlider(Qt.Vertical)
     self.timeSlider.setRange(0, 300)
@@ -245,10 +283,18 @@ class Window(QWidget):
 if __name__ == '__main__':
     app = QApplication([])
     window = Window()
-    with open("stuff/waveform.bin", "rb") as f:
-      window.glWidget.setData(f.read()[20:])
-    with open("stuff/beatgrid.bin", "rb") as f:
-      beatgrid = Beatgrid.parse(f.read())
-      window.glWidget.setBeatgridData(beatgrid.beats)
+
+    with open("stuff/a/ANLZ0000.DAT", "rb") as f:
+      dat = f.read()
+    with open("stuff/a/ANLZ0000.EXT", "rb") as f:
+      ext = f.read()
+    db = UsbAnlzDatabase()
+    if dat is not None and ext is not None:
+      db.load_dat_buffer(dat)
+      db.load_ext_buffer(ext)
+      # window.glWidget.setData(db.get_waveform())
+      window.glWidget.setData(db.get_color_waveform())
+      window.glWidget.setBeatgridData(db.get_beatgrid())
+
     window.show()
     app.exec_()

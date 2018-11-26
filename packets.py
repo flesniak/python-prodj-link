@@ -490,6 +490,8 @@ DBRequestType = Enum(DBFieldFixed("int16"),
   unknown1_request = 0x2504, # issued when loading track, reply 0x4502, contains lots of 0 and some data at end
   waveform_request = 0x2904,
   unknown2_request = 0x2b04, # issued when loading track, reply 0x4e02, no render request
+  color_preview_waveform_request = 0x2c04, # nxs2 ext request, seen with PWV4, PWV5, PVB2 PQT2
+  color_waveform_request = 0x2c04,
   render = 0x3000,
   unknown3_request = 0x3100, # issued when loading track, reply 0x4000 with 0 items, never seen >0 items
   success = 0x4000,
@@ -503,7 +505,9 @@ DBRequestType = Enum(DBFieldFixed("int16"),
   beatgrid = 0x4602,
   cues = 0x4702,
   waveform = 0x4a02,
-  unknown2 = 0x4e02
+  unknown2 = 0x4e02,
+  color_preview_waveform = 0x4f02, # nxs2 ext response
+  color_waveform = 0x4f02,
 )
 
 DBMessage = Struct(

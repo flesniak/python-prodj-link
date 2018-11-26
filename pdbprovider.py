@@ -118,7 +118,7 @@ class PDBProvider:
     try:
       artwork = db.get_artwork(artwork_id)
     except KeyError as e:
-      logging.warning("PDBProvider: No artwork for {}, returning empty data".format((player_number, slot, track_id)))
+      logging.warning("PDBProvider: No artwork for {}, returning empty data".format((player_number, slot, artwork_id)))
       return None
     return self.prodj.nfs.enqueue_buffer_download(player.ip_addr, slot, artwork.path)
 
@@ -140,6 +140,22 @@ class PDBProvider:
       logging.warning("PDBProvider: No preview waveform for {}, returning empty data".format((player_number, slot, track_id)))
       return None
     return waveform_spread
+
+  def get_color_waveform(self, player_number, slot, track_id):
+    db = self.get_anlz(player_number, slot, track_id)
+    try:
+      return db.get_color_waveform()
+    except KeyError as e:
+      logging.warning("PDBProvider: No color waveform for {}, returning empty data".format((player_number, slot, track_id)))
+      return None
+
+  def get_color_preview_waveform(self, player_number, slot, track_id):
+    db = self.get_anlz(player_number, slot, track_id)
+    try:
+      return db.get_color_preview_waveform()
+    except KeyError as e:
+      logging.warning("PDBProvider: No color preview waveform for {}, returning empty data".format((player_number, slot, track_id)))
+      return None
 
   def get_beatgrid(self, player_number, slot, track_id):
     db = self.get_anlz(player_number, slot, track_id)
@@ -348,6 +364,10 @@ class PDBProvider:
       return self.get_waveform(*params)
     elif request == "preview_waveform":
       return self.get_preview_waveform(*params)
+    elif request == "color_waveform":
+      return self.get_color_waveform(*params)
+    elif request == "color_preview_waveform":
+      return self.get_color_preview_waveform(*params)
     elif request == "beatgrid":
       return self.get_beatgrid(*params)
     elif request == "mount_info":
