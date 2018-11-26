@@ -1,4 +1,4 @@
-from construct import Array, Const, Default, Enum, GreedyRange, Int8ub, Int16ub, Int32ub, Padding, PrefixedArray, PaddedString, Struct, Switch, this
+from construct import Array, Const, Default, Enum, GreedyRange, Int8ub, Int16ub, Int32ub, Padding, PrefixedArray, PaddedString, Struct, Switch, this, Int8sb
 
 # file format from https://reverseengineering.stackexchange.com/questions/4311/help-reversing-a-edb-database-file-for-pioneers-rekordbox-software
 
@@ -49,6 +49,18 @@ AnlzTagBigWaveform = Struct(
   "payload_size" / Int32ub,
   "u2" / Const(0x960000, Int32ub),
   "entries" / Array(this.payload_size, Int8ub)
+)
+AnlzTagColorWaveform = Struct(
+  "payload_word_size" / Const(0x06, Int32ub),
+  "payload_size" / Int32ub,
+  "unknown" / Const(0x00, Int32ub),
+  "entries" / Array(this.payload_word_size * this.payload_size, Int8sb), # See doubts about signed in ColorPreviewWaveformWidget
+)
+AnlzTagColorBigWaveform = Struct(
+  "payload_word_size" / Const(0x02, Int32ub),
+  "payload_size" / Int32ub,
+  "unknown" / Int32ub,
+  "entries" / Array(this.payload_size, Int16ub),
 )
 
 AnlzCuePointType = Enum(Int8ub,
@@ -121,9 +133,11 @@ AnlzTag = Struct(
     "PQTZ": AnlzTagQuantize,
     "PWAV": AnlzTagWaveform,
     "PWV2": AnlzTagWaveform,
+    "PCOB": AnlzTagCueObject, # seen in both DAT and EXT files
     "PWV3": AnlzTagBigWaveform, # seen in EXT files
-    "PCOB": AnlzTagCueObject,
-    "PCO2": AnlzTagCueObject2 # seen in EXT files
+    "PWV4": AnlzTagColorWaveform, # seen in EXT files
+    "PWV5": AnlzTagColorBigWaveform, # seen in EXT files
+    "PCO2": AnlzTagCueObject2, # seen in EXT files
   }, default=Padding(this.tag_size-12))
 )
 

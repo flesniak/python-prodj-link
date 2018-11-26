@@ -4,6 +4,7 @@ import logging
 from select import select
 from construct import MappingError, StreamError, RangeError, byte2int
 import dataprovider
+from pdblib.usbanlz import AnlzTag
 
 metadata_type = {
   0x0000: "mount_path",
@@ -364,6 +365,12 @@ class DBClient:
     elif request_type == "preview_waveform_request":
       query["args"].insert(1, {"type": "int32", "value": 4})
       query["args"].append({"type": "int32", "value": 0})
+    if request_type == "color_waveform_request":
+      query["args"].append({"type": "int32", "value": 0x35565750})  # 5VWP
+      query["args"].append({"type": "int32", "value": 0x00545845 }) #  TXE
+    elif request_type == "color_preview_waveform_request":
+      query["args"].append({"type": "int32", "value": 0x34565750})  # 4VWP
+      query["args"].append({"type": "int32", "value": 0x00545845 }) #  TXE
     logging.debug("DBClient: {} query {}".format(request_type, query))
     data = packets.DBMessage.build(query)
     self.socksnd(sock, data)
@@ -523,6 +530,12 @@ class DBClient:
       return None if waveform is None else waveform[20:]
     elif request == "preview_waveform":
       return self.query_blob(*params, "preview_waveform_request")
+    elif request == "color_waveform":
+      blob = self.query_blob(*params, "color_waveform_request", 1)
+      return None if blob is None else AnlzTag.parse(blob[4:]).content.entries
+    elif request == "color_preview_waveform":
+      blob = self.query_blob(*params, "color_preview_waveform_request")
+      return None if blob is None else AnlzTag.parse(blob[4:]).content.entries
     elif request == "beatgrid":
       reply = self.query_blob(*params, "beatgrid_request")
       if reply is None:
