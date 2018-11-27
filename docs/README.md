@@ -17,16 +17,16 @@ These instructions describe necessary work to be done before being able to run t
 python-prodj-link is written in Python 3. It requires
 [Construct](https://pypi.python.org/pypi/construct) **(Version 2.8)**,
 [PyQt5](https://pypi.python.org/pypi/PyQt5),
-[PyOpenGL](https://pypi.org/project/PyOpenGL/), and
+[PyOpenGL](https://pypi.org/project/PyOpenGL/) and
 [netifaces](https://pypi.org/project/netifaces).
 
-Use pip or your distributions package management to install these, i.e. on Arch Linux:
+Use your distributions package management to install these, e.g. on Arch Linux:
 
 ```
 pacman -S python-construct python-pyqt5 python-netifaces python-opengl
 ```
 
-Alternatively, you can also use pip to install dependencies or get python-construct in version 2.8:
+Alternatively, you can use pip to install dependencies or get python-construct in version 2.8:
 ```
 pip3 install construct==2.8.22
 pip3 install PyOpenGL
