@@ -18,8 +18,12 @@ python-prodj-link is written in Python 3. It requires [Construct](https://pypi.p
 Use pip or your distributions package management to install these, i.e. on Arch Linux:
 
 ```
-pacman -S python-construct python-pyqt5 python-netifaces
-pip3 install construct==2.8.22 
+pacman -S python-construct python-pyqt5 python-netifaces python-opengl
+```
+
+Alternatively, you can also use pip to install dependencies or get python-construct in version 2.8:
+```
+pip3 install construct==2.8.22
 pip3 install PyOpenGL
 ```
 
