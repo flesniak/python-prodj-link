@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 
+import sys
+from threading import Lock
 from PyQt5.QtWidgets import QApplication, QHBoxLayout
-
 from PyQt5.QtWidgets import QWidget
 from PyQt5.QtGui import QColor, QPainter, QPixmap
 from PyQt5.QtCore import pyqtSignal, Qt, QSize
-from threading import Lock
+
 from pdblib import UsbAnlzDatabase
 from waveform_blue_map import blue_map
 
@@ -22,14 +23,18 @@ class PreviewWaveformWidget(QWidget):
     self.pixmap_lock = Lock()
     self.position = 0 # relative, between 0 and 1
     self.redraw_signal.connect(self.update)
+    self.colored_render_blue_only = False
 
   def clear(self):
     self.setData(None)
 
-  def setData(self, data):
+  def setData(self, data, colored=False):
     with self.pixmap_lock:
       self.data = data
-      self.pixmap = self.drawPreviewWaveformPixmap()
+      if colored:
+        self.pixmap = self.drawColoredPreviewWaveformPixmap()
+      else:
+        self.pixmap = self.drawPreviewWaveformPixmap()
     self.redraw_signal.emit()
 
   def sizeHint(self):
@@ -75,18 +80,7 @@ class PreviewWaveformWidget(QWidget):
     painter.end()
     return pixmap
 
-class ColorPreviewWaveformWidget(PreviewWaveformWidget):
-  def __init__(self, parent):
-    super().__init__(parent)
-    # self.pixmap_width = 1200
-    # self.pixmap_height = 34
-    # self.setMinimumSize(self.pixmap_width, self.pixmap_height)
-    self.show_color = False
-
-  def showColor(self, color):
-    self.show_color = color
-
-  def drawPreviewWaveformPixmap(self):
+  def drawColoredPreviewWaveformPixmap(self):
     if self.data is None:
       return None
     pixmap = QPixmap(self.pixmap_width, self.pixmap_height)
@@ -130,7 +124,7 @@ class ColorPreviewWaveformWidget(PreviewWaveformWidget):
         # front waveform height is d5
         front_height = d5
 
-        if self.show_color: # color
+        if not self.colored_render_blue_only: # color
           if back_height > 0:
             red = d3 / back_height * 255
             green = d4 / back_height * 255
@@ -145,10 +139,7 @@ class ColorPreviewWaveformWidget(PreviewWaveformWidget):
           color = 0
           if steepness > 0 and blueness > 0:
             color = min(int((blueness * (127 / steepness)) / 16), 7)
-
-          red = blue_map[color][0]
-          green = blue_map[color][1]
-          blue = blue_map[color][2]
+          red, green, blue = blue_map[color]
 
         back_height = int(back_height * hr)
         front_height = int(front_height * hr)
@@ -176,8 +167,7 @@ class Window(QWidget):
     super(Window, self).__init__()
 
     self.setWindowTitle("Preview Waveform Test")
-    self.previewWidget = ColorPreviewWaveformWidget(self)
-    # self.previewWidget = PreviewWaveformWidget(self)
+    self.previewWidget = PreviewWaveformWidget(self)
 
     mainLayout = QHBoxLayout()
     mainLayout.addWidget(self.previewWidget)
@@ -187,16 +177,23 @@ if __name__ == '__main__':
     app = QApplication([])
     window = Window()
 
-    with open("stuff/a/ANLZ0000.DAT", "rb") as f:
+    base_path = sys.argv[1]
+    colored = len(sys.argv) > 2 and sys.argv[2] == "color"
+    with open(base_path+"/ANLZ0000.DAT", "rb") as f:
       dat = f.read()
-    with open("stuff/a/ANLZ0000.EXT", "rb") as f:
+    with open(base_path+"/ANLZ0000.EXT", "rb") as f:
       ext = f.read()
     db = UsbAnlzDatabase()
     if dat is not None and ext is not None:
       db.load_dat_buffer(dat)
       db.load_ext_buffer(ext)
-      window.previewWidget.setData(db.get_color_preview_waveform())
-      # window.previewWidget.setData(db.get_preview_waveform())
+      if colored:
+        window.previewWidget.setData(db.get_color_preview_waveform(), True)
+      else:
+        waveform_spread = b""
+        for line in db.get_preview_waveform():
+          waveform_spread += bytes([line & 0x1f, line>>5])
+        window.previewWidget.setData(waveform_spread)
 
     window.show()
     app.exec_()

@@ -3,11 +3,11 @@
 import sys
 import logging
 from threading import Lock
-
 from PyQt5.QtCore import pyqtSignal, QSize, Qt
 from PyQt5.QtWidgets import QApplication, QHBoxLayout, QOpenGLWidget, QSlider, QWidget
 from PyQt5.QtGui import QSurfaceFormat
 import OpenGL.GL as gl
+
 from packets import PlayStatePlaying, PlayStateStopped
 from pdblib import UsbAnlzDatabase
 from waveform_blue_map import blue_map
@@ -28,6 +28,7 @@ class GLWaveformWidget(QOpenGLWidget):
     self.clearLists = False
     self.waveform_data = None # if not none, it will be rendered and deleted (to None)
     self.beatgrid_data = None # if not none, it will be rendered and deleted (to None)
+    self.waveform_colored = False
     self.data_lock = Lock()
     self.time_offset = 0
     self.zoom_seconds = 4
@@ -57,9 +58,10 @@ class GLWaveformWidget(QOpenGLWidget):
         self.clearLists = True
         self.update()
 
-  def setData(self, waveform_data):
+  def setData(self, waveform_data, colored=False):
     with self.data_lock:
       self.waveform_data = waveform_data
+      self.waveform_colored = colored
       self.update()
 
   def setBeatgridData(self, beatgrid_data):
@@ -180,20 +182,41 @@ class GLWaveformWidget(QOpenGLWidget):
       gl.glNewList(self.lists+1, gl.GL_COMPILE)
       gl.glEnable(gl.GL_MULTISAMPLE)
 
-      for x,v in enumerate(self.waveform_data):
-        height = v & 0x1f
-        whiteness = v >> 5
-
-        gl.glBegin(gl.GL_QUADS)
-        gl.glColor3ub(blue_map[7-whiteness][0], blue_map[7-whiteness][1], blue_map[7-whiteness][2])
-        gl.glVertex3f(x/self.waveform_lines_per_x, -height-1, 0)
-        gl.glVertex3f((x+1)/self.waveform_lines_per_x, -height-1, 0)
-        gl.glVertex3f((x+1)/self.waveform_lines_per_x, height+1, 0)
-        gl.glVertex3f(x/self.waveform_lines_per_x, height+1, 0)
-        gl.glEnd()
+      if self.waveform_colored:
+        self.renderColoredQuads()
+      else:
+        self.renderMonochromeQuads()
 
       gl.glEndList()
       self.waveform_data = None # delete data after rendering
+
+  def renderMonochromeQuads(self):
+    for x,v in enumerate(self.waveform_data):
+      height = v & 0x1f
+      whiteness = v >> 5
+
+      gl.glBegin(gl.GL_QUADS)
+      gl.glColor3ub(*blue_map[7-whiteness])
+      gl.glVertex3f(x/self.waveform_lines_per_x, -height-1, 0)
+      gl.glVertex3f((x+1)/self.waveform_lines_per_x, -height-1, 0)
+      gl.glVertex3f((x+1)/self.waveform_lines_per_x, height+1, 0)
+      gl.glVertex3f(x/self.waveform_lines_per_x, height+1, 0)
+      gl.glEnd()
+
+  def renderColoredQuads(self):
+    for x,v in enumerate(self.waveform_data):
+      height = ((v >> 2) & 0x1F)
+      blue = ((v >> 7) & 0x07) / 7
+      green = ((v >> 10) & 0x07) / 7
+      red = ((v >> 13) & 0x07) / 7
+
+      gl.glBegin(gl.GL_QUADS)
+      gl.glColor3f(red, green, blue)
+      gl.glVertex3f(x/self.waveform_lines_per_x, -height-1, 0)
+      gl.glVertex3f((x+1)/self.waveform_lines_per_x, -height-1, 0)
+      gl.glVertex3f((x+1)/self.waveform_lines_per_x, height+1, 0)
+      gl.glVertex3f(x/self.waveform_lines_per_x, height+1, 0)
+      gl.glEnd()
 
   def renderBeatgrid(self):
     with self.data_lock:
@@ -222,40 +245,12 @@ class GLWaveformWidget(QOpenGLWidget):
       gl.glEndList()
       self.beatgrid_data = None # delete data after rendering
 
-class GLColorWaveformWidget(GLWaveformWidget):
-  def renderWaveform(self):
-    with self.data_lock:
-      if self.waveform_data is None:
-        return
-
-      gl.glNewList(self.lists+1, gl.GL_COMPILE)
-      gl.glEnable(gl.GL_MULTISAMPLE)
-
-      for x,v in enumerate(self.waveform_data):
-        height = ((v >> 2) & 0x1F)
-        blue = ((v >> 7) & 0x07) / 7
-        green = ((v >> 10) & 0x07) / 7
-        red = ((v >> 13) & 0x07) / 7
-
-        gl.glBegin(gl.GL_QUADS)
-        gl.glColor3f(red, green, blue)
-        gl.glVertex3f(x/self.waveform_lines_per_x, -height-1, 0)
-        gl.glVertex3f((x+1)/self.waveform_lines_per_x, -height-1, 0)
-        gl.glVertex3f((x+1)/self.waveform_lines_per_x, height+1, 0)
-        gl.glVertex3f(x/self.waveform_lines_per_x, height+1, 0)
-        gl.glEnd()
-
-      gl.glEndList()
-      self.waveform_data = None # delete data after rendering
-
-
 class Window(QWidget):
   def __init__(self):
     super(Window, self).__init__()
 
     self.setWindowTitle("GL Waveform Test")
-    # self.glWidget = GLWaveformWidget()
-    self.glWidget = GLColorWaveformWidget()
+    self.glWidget = GLWaveformWidget()
 
     self.timeSlider = QSlider(Qt.Vertical)
     self.timeSlider.setRange(0, 300)
@@ -284,16 +279,20 @@ if __name__ == '__main__':
     app = QApplication([])
     window = Window()
 
-    with open("stuff/a/ANLZ0000.DAT", "rb") as f:
+    base_path = sys.argv[1]
+    colored = len(sys.argv) > 2 and sys.argv[2] == "color"
+    with open(base_path+"/ANLZ0000.DAT", "rb") as f:
       dat = f.read()
-    with open("stuff/a/ANLZ0000.EXT", "rb") as f:
+    with open(base_path+"/ANLZ0000.EXT", "rb") as f:
       ext = f.read()
     db = UsbAnlzDatabase()
     if dat is not None and ext is not None:
       db.load_dat_buffer(dat)
       db.load_ext_buffer(ext)
-      # window.glWidget.setData(db.get_waveform())
-      window.glWidget.setData(db.get_color_waveform())
+      if colored:
+        window.glWidget.setData(db.get_color_waveform(), True)
+      else:
+        window.glWidget.setData(db.get_waveform(), False)
       window.glWidget.setBeatgridData(db.get_beatgrid())
 
     window.show()
