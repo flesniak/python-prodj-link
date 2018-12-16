@@ -366,11 +366,13 @@ class DBClient:
       query["args"].insert(1, {"type": "int32", "value": 4})
       query["args"].append({"type": "int32", "value": 0})
     if request_type == "color_waveform_request":
-      query["args"].append({"type": "int32", "value": 0x35565750})  # 5VWP
-      query["args"].append({"type": "int32", "value": 0x00545845 }) #  TXE
+      query["type"] = "nxs2_ext_request"
+      query["args"].append({"type": "int32", "value": packets.Nxs2RequestIds["5VWP"]})
+      query["args"].append({"type": "int32", "value": packets.Nxs2RequestIds["TXE"]})
     elif request_type == "color_preview_waveform_request":
-      query["args"].append({"type": "int32", "value": 0x34565750})  # 4VWP
-      query["args"].append({"type": "int32", "value": 0x00545845 }) #  TXE
+      query["type"] = "nxs2_ext_request"
+      query["args"].append({"type": "int32", "value": packets.Nxs2RequestIds["4VWP"]})
+      query["args"].append({"type": "int32", "value": packets.Nxs2RequestIds["TXE"]})
     logging.debug("DBClient: {} query {}".format(request_type, query))
     data = packets.DBMessage.build(query)
     self.socksnd(sock, data)
