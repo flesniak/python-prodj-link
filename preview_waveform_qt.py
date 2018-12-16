@@ -6,9 +6,8 @@ from PyQt5.QtWidgets import QWidget
 from PyQt5.QtGui import QColor, QPainter, QPixmap
 from PyQt5.QtCore import pyqtSignal, Qt, QSize
 from threading import Lock
-from blue_map import blue_map
 from pdblib import UsbAnlzDatabase
-
+from waveform_blue_map import blue_map
 
 class PreviewWaveformWidget(QWidget):
   redraw_signal = pyqtSignal()
@@ -67,8 +66,8 @@ class PreviewWaveformWidget(QWidget):
         height = self.data[2*x]-2 # only seen from 2..23
         height = height if height > 0 else 0
         # self.data[2*x+1] only seen from 1..6
-        blue = blue_map[2] if self.data[2*x+1] > 3 else blue_map[6]
-        painter.setPen(QColor(blue[0], blue[1], blue[2]))
+        color = blue_map[2] if self.data[2*x+1] > 3 else blue_map[6]
+        painter.setPen(QColor(*color))
         painter.drawLine(x, 31, x, 31-height)
     # base line
     painter.setPen(Qt.white)
