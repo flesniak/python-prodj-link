@@ -13,11 +13,10 @@ from gui import Gui
 
 parser = argparse.ArgumentParser(description='Python ProDJ Link')
 parser.add_argument('--disable-pdb', dest='enable_pdb', action='store_false', help='Disable PDB provider')
-parser.add_argument('--nxs2-blue', dest='nxs2_blue', action='store_true', help='Show NXS2 blue waveform previews')
-parser.add_argument('--nxs2-color ', dest='nxs2_color', action='store_true', help='Show NXS2 color waveforms')
+parser.add_argument('--color-preview', action='store_true', help='Show NXS2 colored preview waveforms')
+parser.add_argument('--color-waveform', action='store_true', help='Show NXS2 colored big waveforms')
+parser.add_argument('-c', '--color', action='store_true', help='Shortcut for --colored-preview and --color-waveform')
 args = parser.parse_args()
-
-print(args.nxs2_color)
 
 default_loglevel=0
 default_loglevel=logging.DEBUG
@@ -28,7 +27,7 @@ logging.basicConfig(level=default_loglevel, format='%(levelname)s: %(message)s')
 
 prodj = ProDj(enable_pdb=args.enable_pdb)
 app = QApplication([])
-gui = Gui(prodj, show_color_waveform=args.nxs2_color, show_nxs2_waveform=args.nxs2_blue)
+gui = Gui(prodj, show_color_waveform=args.color_waveform or args.color, show_color_preview=args.color_preview or args.color)
 
 pal = app.palette()
 pal.setColor(QPalette.Window, Qt.black)

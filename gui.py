@@ -52,8 +52,8 @@ class PlayerWidget(QFrame):
     self.labels = {}
     self.browse_dialog = None
     self.time_mode_remain = False
-    self.show_nxs2_waveform = parent.show_nxs2_waveform
     self.show_color_waveform = parent.show_color_waveform
+    self.show_color_preview = parent.show_color_preview
 
     # metadata and player info
     self.labels["title"] = QLabel(self)
@@ -290,7 +290,7 @@ class Gui(QWidget):
   keepalive_signal = pyqtSignal(int)
   client_change_signal = pyqtSignal(int)
 
-  def __init__(self, prodj, show_nxs2_waveform=False, show_color_waveform=False):
+  def __init__(self, prodj, show_color_waveform=False, show_color_preview=False):
     super().__init__()
     self.prodj = prodj
     self.setWindowTitle('Pioneer ProDJ Link Monitor')
@@ -300,8 +300,8 @@ class Gui(QWidget):
     self.keepalive_signal.connect(self.keepalive_slot)
     self.client_change_signal.connect(self.client_change_slot)
 
-    self.show_nxs2_waveform = show_nxs2_waveform or show_color_waveform
     self.show_color_waveform = show_color_waveform
+    self.show_color_preview = show_color_preview
 
     self.players = {}
     self.layout = QGridLayout(self)
@@ -428,7 +428,7 @@ class Gui(QWidget):
         if c.loaded_slot in ["sd", "usb"] and c.track_analyze_type == "rekordbox":
           logging.info("Gui: track id of player %d changed to %d, requesting metadata", player_number, c.track_id)
           self.prodj.data.get_metadata(c.loaded_player_number, c.loaded_slot, c.track_id, self.dbclient_callback)
-          if self.show_nxs2_waveform:
+          if self.show_color_preview:
             self.prodj.data.get_color_preview_waveform(c.loaded_player_number, c.loaded_slot, c.track_id, self.dbclient_callback)
           else:
             self.prodj.data.get_preview_waveform(c.loaded_player_number, c.loaded_slot, c.track_id, self.dbclient_callback)
