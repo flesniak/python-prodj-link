@@ -1,82 +1,19 @@
+import sys
 import logging
+import math
+from threading import Lock
 from PyQt5.QtWidgets import QFrame, QGridLayout, QLabel, QPushButton, QSizePolicy, QHBoxLayout, QVBoxLayout, QWidget
 from PyQt5.QtGui import QColor, QPainter, QPixmap
 from PyQt5.QtCore import pyqtSignal, Qt, QSize
-import sys
-import math
-from threading import Lock
 
 from gui_browser import Browser, printableField
 from waveform_gl import GLWaveformWidget
+from preview_waveform_qt import PreviewWaveformWidget
 
 class ClickableLabel(QLabel):
   clicked = pyqtSignal()
   def mousePressEvent(self, event):
     self.clicked.emit()
-
-class PreviewWaveformWidget(QWidget):
-  redraw_signal = pyqtSignal()
-
-  def __init__(self, parent):
-    super().__init__(parent)
-    self.pixmap_width = 400
-    self.pixmap_height = 34
-    self.setMinimumSize(self.pixmap_width, self.pixmap_height)
-    self.data = None
-    self.pixmap = None
-    self.pixmap_lock = Lock()
-    self.position = 0 # relative, between 0 and 1
-    self.redraw_signal.connect(self.update)
-
-  def clear(self):
-    self.setData(None)
-
-  def setData(self, data):
-    with self.pixmap_lock:
-      self.data = data
-      self.pixmap = self.drawPreviewWaveformPixmap()
-    self.redraw_signal.emit()
-
-  def sizeHint(self):
-    return QSize(self.pixmap_width, self.pixmap_height)
-
-  def heightForWidth(self, width):
-    return width*self.pixmap_height//self.pixmap_width
-
-  def setPosition(self, relative):
-    if relative != self.position:
-      self.position = relative
-      self.redraw_signal.emit()
-
-  def paintEvent(self, e):
-    painter = QPainter()
-    painter.begin(self)
-    with self.pixmap_lock:
-      if self.pixmap is not None:
-        scaled_pixmap = self.pixmap.scaled(self.size(), Qt.KeepAspectRatio)
-        painter.drawPixmap(0, 0, scaled_pixmap)
-        painter.fillRect(self.position*scaled_pixmap.width(), 0, 2, scaled_pixmap.height(), Qt.red)
-    painter.end()
-
-  def drawPreviewWaveformPixmap(self):
-    if self.data is None:
-      return None
-    pixmap = QPixmap(self.pixmap_width, self.pixmap_height)
-    pixmap.fill(Qt.black)
-    painter = QPainter()
-    painter.begin(pixmap)
-    painter.setBrush(Qt.SolidPattern)
-    if self.data and len(self.data) >= self.pixmap_width*2:
-      for x in range(0, self.pixmap_width):
-        height = self.data[2*x] # only seen from 2..23
-        whiteness = self.data[2*x+1]+1 # only seen from 1..6
-        painter.setPen(QColor(36*whiteness, 36*whiteness, 255))
-        painter.drawLine(x, 31, x, 31-height)
-    # base line
-    painter.setPen(Qt.white)
-    painter.drawLine(0,33,399,33)
-    painter.end()
-    return pixmap
 
 class BeatBarWidget(QWidget):
   def __init__(self, parent):
@@ -115,6 +52,8 @@ class PlayerWidget(QFrame):
     self.labels = {}
     self.browse_dialog = None
     self.time_mode_remain = False
+    self.show_color_waveform = parent.show_color_waveform
+    self.show_color_preview = parent.show_color_preview
 
     # metadata and player info
     self.labels["title"] = QLabel(self)
@@ -236,6 +175,7 @@ class PlayerWidget(QFrame):
     layout.addWidget(bpm_box, 0, 3, 4, 1)
     layout.addWidget(self.waveform, 4, 0, 1, 4)
     layout.addWidget(self.preview_waveform, 5, 0, 1, 4)
+
     layout.setColumnStretch(1, 2)
 
     self.reset()
@@ -350,7 +290,7 @@ class Gui(QWidget):
   keepalive_signal = pyqtSignal(int)
   client_change_signal = pyqtSignal(int)
 
-  def __init__(self, prodj):
+  def __init__(self, prodj, show_color_waveform=False, show_color_preview=False):
     super().__init__()
     self.prodj = prodj
     self.setWindowTitle('Pioneer ProDJ Link Monitor')
@@ -359,6 +299,9 @@ class Gui(QWidget):
 
     self.keepalive_signal.connect(self.keepalive_slot)
     self.client_change_signal.connect(self.client_change_slot)
+
+    self.show_color_waveform = show_color_waveform
+    self.show_color_preview = show_color_preview
 
     self.players = {}
     self.layout = QGridLayout(self)
@@ -485,10 +428,16 @@ class Gui(QWidget):
         if c.loaded_slot in ["sd", "usb"] and c.track_analyze_type == "rekordbox":
           logging.info("Gui: track id of player %d changed to %d, requesting metadata", player_number, c.track_id)
           self.prodj.data.get_metadata(c.loaded_player_number, c.loaded_slot, c.track_id, self.dbclient_callback)
-          # we do not get artwork yet because we need metadata to know the artwork_id
-          self.prodj.data.get_preview_waveform(c.loaded_player_number, c.loaded_slot, c.track_id, self.dbclient_callback)
+          if self.show_color_preview:
+            self.prodj.data.get_color_preview_waveform(c.loaded_player_number, c.loaded_slot, c.track_id, self.dbclient_callback)
+          else:
+            self.prodj.data.get_preview_waveform(c.loaded_player_number, c.loaded_slot, c.track_id, self.dbclient_callback)
+          if self.show_color_waveform:
+            self.prodj.data.get_color_waveform(c.loaded_player_number, c.loaded_slot, c.track_id, self.dbclient_callback)
+          else:
+            self.prodj.data.get_waveform(c.loaded_player_number, c.loaded_slot, c.track_id, self.dbclient_callback)
           self.prodj.data.get_beatgrid(c.loaded_player_number, c.loaded_slot, c.track_id, self.dbclient_callback)
-          self.prodj.data.get_waveform(c.loaded_player_number, c.loaded_slot, c.track_id, self.dbclient_callback)
+          # we do not get artwork yet because we need metadata to know the artwork_id
         elif c.track_analyze_type == "file":
           logging.info("Gui: player %d loaded bare file %d, requesting info", player_number, c.track_id)
           self.prodj.data.get_track_info(c.loaded_player_number, c.loaded_slot, c.track_id, self.dbclient_callback)
@@ -522,9 +471,13 @@ class Gui(QWidget):
       elif request == "artwork":
         player.setArtwork(reply)
       elif request == "waveform":
-        player.waveform.setData(reply)
+        player.waveform.setData(reply, False)
       elif request == "preview_waveform":
         player.preview_waveform.setData(reply)
+      elif request == "color_waveform":
+        player.waveform.setData(reply, True)
+      elif request == "color_preview_waveform":
+        player.preview_waveform.setData(reply, True)
       elif request == "beatgrid":
         player.waveform.setBeatgridData(reply)
       elif request == "track_info":

@@ -13,12 +13,12 @@ class FatalQueryError(Exception):
   pass
 
 class DataProvider(Thread):
-  def __init__(self, prodj):
+  def __init__(self, prodj, enable_pdb=True):
     super().__init__()
     self.prodj = prodj
     self.queue = Queue()
 
-    self.pdb_enabled = True
+    self.pdb_enabled = enable_pdb
     self.pdb = PDBProvider(prodj)
 
     self.dbc_enabled = True
@@ -34,6 +34,8 @@ class DataProvider(Thread):
     self.artwork_store = DataStore() # map of player_number,slot,artwork_id: artwork_data
     self.waveform_store = DataStore() # map of player_number,slot,track_id: waveform_data
     self.preview_waveform_store = DataStore() # map of player_number,slot,track_id: preview_waveform_data
+    self.color_waveform_store = DataStore() # map of player_number,slot,track_id: color_waveform_data
+    self.color_preview_waveform_store = DataStore() # map of player_number,slot,track_id: color_preview_waveform_data
     self.beatgrid_store = DataStore() # map of player_number,slot,track_id: beatgrid_data
 
   def start(self):
@@ -47,6 +49,8 @@ class DataProvider(Thread):
     self.artwork_store.stop()
     self.waveform_store.stop()
     self.preview_waveform_store.stop()
+    self.color_waveform_store.stop()
+    self.color_preview_waveform_store.stop()
     self.beatgrid_store.stop()
     self.join()
 
@@ -55,6 +59,8 @@ class DataProvider(Thread):
     self.artwork_store.removeByPlayerSlot(player_number, slot)
     self.waveform_store.removeByPlayerSlot(player_number, slot)
     self.preview_waveform_store.removeByPlayerSlot(player_number, slot)
+    self.color_waveform_store.removeByPlayerSlot(player_number, slot)
+    self.color_preview_waveform_store.removeByPlayerSlot(player_number, slot)
     self.beatgrid_store.removeByPlayerSlot(player_number, slot)
     self.pdb.cleanup_stores_from_changed_media(player_number, slot)
 
@@ -109,6 +115,12 @@ class DataProvider(Thread):
 
   def get_preview_waveform(self, player_number, slot, track_id, callback=None):
     self._enqueue_request("preview_waveform", self.preview_waveform_store, (player_number, slot, track_id), callback)
+
+  def get_color_waveform(self, player_number, slot, track_id, callback=None):
+    self._enqueue_request("color_waveform", self.color_waveform_store, (player_number, slot, track_id), callback)
+
+  def get_color_preview_waveform(self, player_number, slot, track_id, callback=None):
+    self._enqueue_request("color_preview_waveform", self.color_preview_waveform_store, (player_number, slot, track_id), callback)
 
   def get_beatgrid(self, player_number, slot, track_id, callback=None):
     self._enqueue_request("beatgrid", self.beatgrid_store, (player_number, slot, track_id), callback)

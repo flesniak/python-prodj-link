@@ -27,6 +27,16 @@ class UsbAnlzDatabase(dict):
       raise KeyError("UsbAnlzDatabase: no preview waveform found")
     return self["preview_waveform"]
 
+  def get_color_preview_waveform(self):
+    if not "color_preview_waveform" in self:
+      raise KeyError("UsbAnlzDatabase: no color preview waveform found")
+    return self["color_preview_waveform"]
+
+  def get_color_waveform(self):
+    if not "color_waveform" in self:
+      raise KeyError("UsbAnlzDatabase: no color waveform found")
+    return self["color_waveform"]
+
   def collect_entries(self, tag, target):
     obj = next((t for t in self.parsed.tags if t.type == tag), None)
     if obj is None:
@@ -51,6 +61,10 @@ class UsbAnlzDatabase(dict):
   def _parse_ext(self):
     logging.debug("UsbAnlzDatabase: Loaded %d tags", len(self.parsed.tags))
     self.collect_entries("PWV3", "waveform")
+    self.collect_entries("PWV4", "color_preview_waveform")
+    self.collect_entries("PWV5", "color_waveform")
+    # TODO: collect PCOB here as well?
+    # self.collect_entries("PCOB", "cue_points")
     self.parsed = None
 
   def load_dat_buffer(self, data):
