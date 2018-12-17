@@ -61,10 +61,13 @@ class PlayerWidget(QFrame):
     self.labels["title"].setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
     self.labels["artist"] = QLabel(self)
     self.labels["artist"].setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
+    self.labels["artist"].setStyleSheet("QLabel { color: white; }")
     self.labels["album"] = QLabel(self)
     self.labels["album"].setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
+    self.labels["album"].setStyleSheet("QLabel { color: white; }")
     self.labels["info"] = QLabel(self)
     self.labels["info"].setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
+    self.labels["info"].setStyleSheet("QLabel { color: white; }")
 
     # artwork and player number
     self.labels["player_number"] = QLabel(self)
