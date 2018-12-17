@@ -298,7 +298,7 @@ class DBClient:
     entry_count = reply["args"][1]["value"]
     if entry_count == 0 or entry_count == 0xffffffff:
       logging.warning("DBClient: %s empty (request returned %d entries)", request_type, entry_count)
-      return []
+      return None
     logging.debug("DBClient: query_list %s: %d entries available", request_type, entry_count)
 
     # i could successfully receive hundreds of entries at once on xdj 1000
