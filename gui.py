@@ -309,7 +309,7 @@ class Gui(QWidget):
     # "yx" = player 1 + 2 in the first column
     # "xx" = player 1 + 4 in the first row
     # "yy" = player 2 + 3 in the first row
-    self.layout_mode = "yy"
+    self.layout_mode = "xy"
     self.layouts = {
       "xy": [(0,0), (0,1), (1,0), (1,1)],
       "yx": [(0,0), (1,0), (0,1), (1,1)],
