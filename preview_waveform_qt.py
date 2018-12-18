@@ -17,7 +17,9 @@ class PreviewWaveformWidget(QWidget):
     super().__init__(parent)
     self.pixmap_width = 400
     self.pixmap_height = 34
-    self.setMinimumSize(self.pixmap_width, self.pixmap_height)
+    self.top_offset = 4
+    self.total_height = self.pixmap_height + self.top_offset
+    self.setMinimumSize(self.pixmap_width, self.total_height)
     self.data = None
     self.pixmap = None
     self.pixmap_lock = Lock()
@@ -38,10 +40,10 @@ class PreviewWaveformWidget(QWidget):
     self.redraw_signal.emit()
 
   def sizeHint(self):
-    return QSize(self.pixmap_width, self.pixmap_height)
+    return QSize(self.pixmap_width, self.total_height)
 
   def heightForWidth(self, width):
-    return width*self.pixmap_height//self.pixmap_width
+    return width*self.total_height//self.pixmap_width
 
   def setPosition(self, relative):
     if relative != self.position:
@@ -54,8 +56,13 @@ class PreviewWaveformWidget(QWidget):
     with self.pixmap_lock:
       if self.pixmap is not None:
         scaled_pixmap = self.pixmap.scaled(self.size(), Qt.KeepAspectRatio)
-        painter.drawPixmap(0, 0, scaled_pixmap)
-        painter.fillRect(self.position*scaled_pixmap.width(), 0, 2, scaled_pixmap.height(), Qt.red)
+        painter.drawPixmap(0, self.top_offset, scaled_pixmap)
+        height = scaled_pixmap.height() + self.top_offset
+        marker_position = self.position*scaled_pixmap.width()
+        painter.fillRect(marker_position-1, 0, 3, height, Qt.black)
+        painter.fillRect(marker_position-3, 0, 7, 7, Qt.black)
+        painter.fillRect(marker_position-2, 1, 5, 5, Qt.white)
+        painter.fillRect(marker_position, 1, 1, height, Qt.white)
     painter.end()
 
   def drawPreviewWaveformPixmap(self):
