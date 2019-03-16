@@ -18,10 +18,10 @@ class OwnIpStatus(Enum):
   acquired = 3
 
 class ProDj(Thread):
-  def __init__(self, enable_pdb=True):
+  def __init__(self):
     super().__init__()
     self.cl = ClientList(self)
-    self.data = DataProvider(self, enable_pdb=enable_pdb)
+    self.data = DataProvider(self)
     self.vcdj = Vcdj(self)
     self.nfs = NfsClient(self)
     self.keepalive_ip = "0.0.0.0"
