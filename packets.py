@@ -318,8 +318,9 @@ StatusPacket = Struct(
       "physical_pitch2" / Pitch,
       "actual_pitch2" / Pitch,
       "packet_count" / Default(Int32ub, 0), # permanently increasing
-      "u12" / Default(Int8ub, 0x0f), # 0x0f=nexus, 0x05=non-nexus player
-      Padding(7)),
+      "is_nexus" / Default(Int8ub, 0x0f), # 0x0f=nexus, 0x05=non-nexus player
+      Padding(3)),
+      # 4 bytes padding for 2000nxs or newer, cdj2000 does not have this
     "djm": Struct(
       "state" / StateMask,
       "physical_pitch" / Pitch,
