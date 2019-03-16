@@ -10,7 +10,6 @@ import argparse
 from prodj import ProDj
 from gui import Gui
 
-
 parser = argparse.ArgumentParser(description='Python ProDJ Link')
 parser.add_argument('--disable-pdb', dest='enable_pdb', action='store_false', help='Disable PDB provider')
 parser.add_argument('--color-preview', action='store_true', help='Show NXS2 colored preview waveforms')
