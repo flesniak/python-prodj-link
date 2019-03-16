@@ -183,24 +183,40 @@ class Window(QWidget):
 if __name__ == '__main__':
     app = QApplication([])
     window = Window()
+    base_path = "."
+    dat = None
+    ext = None
 
-    base_path = sys.argv[1]
+    if len(sys.argv) > 1:
+      base_path = sys.argv[1]
     colored = len(sys.argv) > 2 and sys.argv[2] == "color"
-    with open(base_path+"/ANLZ0000.DAT", "rb") as f:
-      dat = f.read()
-    with open(base_path+"/ANLZ0000.EXT", "rb") as f:
-      ext = f.read()
+    try:
+      with open(base_path+"/ANLZ0000.DAT", "rb") as f:
+        dat = f.read()
+    except FileNotFoundError as e:
+      print("No DAT file loaded")
+    try:
+      with open(base_path+"/ANLZ0000.EXT", "rb") as f:
+        ext = f.read()
+    except FileNotFoundError as e:
+      print("No EXT file loaded")
+    if dat is None and ext is None:
+      print("Error: No ANLZ files loaded")
+      sys.exit(1)
     db = UsbAnlzDatabase()
-    if dat is not None and ext is not None:
+    #if dat is not None and ext is not None:
+    if dat is not None:
       db.load_dat_buffer(dat)
+    if ext is not None:
       db.load_ext_buffer(ext)
-      if colored:
-        window.previewWidget.setData(db.get_color_preview_waveform(), True)
-      else:
-        waveform_spread = b""
-        for line in db.get_preview_waveform():
-          waveform_spread += bytes([line & 0x1f, line>>5])
-        window.previewWidget.setData(waveform_spread)
+    if colored:
+      window.previewWidget.setData(db.get_color_preview_waveform(), True)
+    else:
+      waveform_spread = b""
+      for line in db.get_preview_waveform():
+        waveform_spread += bytes([line & 0x1f, line>>5])
+      window.previewWidget.setData(waveform_spread)
+    window.previewWidget.setPosition(0.2)
 
     window.show()
     app.exec_()
