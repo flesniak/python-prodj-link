@@ -13,12 +13,12 @@ class FatalQueryError(Exception):
   pass
 
 class DataProvider(Thread):
-  def __init__(self, prodj, enable_pdb=True):
+  def __init__(self, prodj):
     super().__init__()
     self.prodj = prodj
     self.queue = Queue()
 
-    self.pdb_enabled = enable_pdb
+    self.pdb_enabled = True
     self.pdb = PDBProvider(prodj)
 
     self.dbc_enabled = True
