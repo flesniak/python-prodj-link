@@ -76,6 +76,11 @@ class ClientList:
   def eatKeepalive(self, keepalive_packet):
     c = next((x for x in self.clients if x.ip_addr == keepalive_packet.content.ip_addr), None)
     if c is None:
+      conflicting_client = next((x for x in self.clients if x.player_number == keepalive_packet.content.player_number), None)
+      if conflicting_client is not None:
+        logging.warning("New Player %d (%s), but already used by %s, ignoring keepalive",
+          keepalive_packet.content.player_number, keepalive_packet.content.ip_addr, conflicting_client.ip_addr)
+        return
       c = Client()
       c.model = keepalive_packet.model
       c.ip_addr = keepalive_packet.content.ip_addr
@@ -85,7 +90,8 @@ class ClientList:
       logging.info("New Player %d: %s, %s, %s", c.player_number, c.model, c.ip_addr, c.mac_addr)
       if self.client_keepalive_callback:
         self.client_keepalive_callback(c.player_number)
-    else:
+    # type_change packets don't contain the new player number, thus wait for the next regular packet to change number
+    elif keepalive_packet.type != "type_change":
       n = keepalive_packet.content.player_number
       if c.player_number != n:
         logging.info("Player {} changed player number from {} to {}".format(c.ip_addr, c.player_number, n))
