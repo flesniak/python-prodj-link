@@ -39,7 +39,7 @@ The construct project warns of possible future API changes, thus this version ma
 
 ### Testing
 ```
-python3 packets_test.py
+python3 test_runner.py
 ```
 
 ### Network configuration

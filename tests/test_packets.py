@@ -3,8 +3,7 @@ from packets import DBField
 from construct import Container
 
 
-class TestPackets(unittest.TestCase):
-
+class PacketsTestCase(unittest.TestCase):
     def test_string_parsing(self):
         field = DBField.parse(
             b"\x26\x00\x00\x00\x0a\xff\xfa\x00\x48\x00\x49\x00" +
@@ -26,7 +25,3 @@ class TestPackets(unittest.TestCase):
             field,
             Container(type='string')(value="\ufffaPLAYLIST\ufffb"),
         )
-
-
-if __name__ == '__main__':
-    unittest.main()
