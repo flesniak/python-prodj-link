@@ -37,6 +37,11 @@ Starting with version 2.9, the new API requires some internal changes in this pr
 The branch construct-v2.9 contains an updated version which is adapted to newer construct versions.
 The construct project warns of possible future API changes, thus this version may break with future versions of construct.
 
+### Testing
+```
+python3 test_runner.py
+```
+
 ### Network configuration
 
 You need to be on the same Ethernet network as the players
