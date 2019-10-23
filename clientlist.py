@@ -76,6 +76,11 @@ class ClientList:
   def eatKeepalive(self, keepalive_packet):
     c = next((x for x in self.clients if x.ip_addr == keepalive_packet.content.ip_addr), None)
     if c is None:
+      conflicting_client = next((x for x in self.clients if x.player_number == keepalive_packet.content.player_number), None)
+      if conflicting_client is not None:
+        logging.warning("New Player %d (%s), but already used by %s, ignoring keepalive",
+          keepalive_packet.content.player_number, keepalive_packet.content.ip_addr, conflicting_client.ip_addr)
+        return
       c = Client()
       c.model = keepalive_packet.model
       c.ip_addr = keepalive_packet.content.ip_addr
@@ -85,7 +90,8 @@ class ClientList:
       logging.info("New Player %d: %s, %s, %s", c.player_number, c.model, c.ip_addr, c.mac_addr)
       if self.client_keepalive_callback:
         self.client_keepalive_callback(c.player_number)
-    else:
+    # type_change packets don't contain the new player number, thus wait for the next regular packet to change number
+    elif keepalive_packet.type != "type_change":
       n = keepalive_packet.content.player_number
       if c.player_number != n:
         logging.info("Player {} changed player number from {} to {}".format(c.ip_addr, c.player_number, n))
@@ -114,7 +120,7 @@ class ClientList:
             if self.client_change_callback:
               self.client_change_callback(x)
             player.on_air = on_air
-    elif beat_packet.type == "type_beat" and not c.status_packet_received:
+    elif beat_packet.type == "type_beat" and (not c.status_packet_received or c.model == "CDJ-2000"):
       new_actual_pitch = beat_packet.content.pitch
       if c.actual_pitch != new_actual_pitch:
         c.actual_pitch = new_actual_pitch
@@ -167,7 +173,7 @@ class ClientList:
       client_changed = True
 
     new_beat = status_packet.content.beat if status_packet.content.beat != 0xffffffff else 0
-    if c.beat != new_beat:
+    if c.beat != new_beat and new_beat != 0:
       c.beat = new_beat
       client_changed = True
 
@@ -274,7 +280,7 @@ class Client:
     self.bpm = None
     self.pitch = 1
     self.actual_pitch = 1
-    self.beat = None
+    self.beat = 0
     self.beat_count = None
     self.cue_distance = None
     self.play_state = "no_track"

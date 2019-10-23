@@ -444,6 +444,12 @@ class Gui(QWidget):
         elif c.track_analyze_type == "file":
           logging.info("Gui: player %d loaded bare file %d, requesting info", player_number, c.track_id)
           self.prodj.data.get_track_info(c.loaded_player_number, c.loaded_slot, c.track_id, self.dbclient_callback)
+        elif c.track_analyze_type == "cd":
+          logging.info("Gui: player %d loaded cd track %d", player_number, c.track_id)
+          player.setMetadata(f"Track {c.track_id}", "CD", "")
+          player.setArtwork(None) # no artwork for unanalyzed tracks
+          player.waveform.clear()
+          player.preview_waveform.clear()
         else:
           logging.warning("Gui: unable to handle track %d in player %d, no known metadata method", c.track_id, player_number)
           player.unload()
