@@ -87,7 +87,7 @@ class Vcdj(Thread):
       "type": "load_cmd",
       "model": self.model,
       "player_number": self.player_number, # our player number -> we receive confirmation packet
-      "extra": {},
+      "extra": None,
       "content": {
         "load_player_number": load_player_number,
         "load_slot": load_slot_id,

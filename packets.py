@@ -2,19 +2,19 @@
 # https://github.com/brunchboy/dysentery
 # https://bitbucket.org/awwright/libpdjl
 
-from construct import Adapter, Array, Byte, Const, CString, Default, Enum, ExprAdapter, FlagsEnum, FocusedSeq, GreedyBytes, GreedyRange, Int8ub, Int16ub, Int32ub, Int64ub, Int16ul, Int32ul, Padded, Padding, Pass, PascalString, String, Prefixed, Rebuild, Struct, Subconstruct, Switch, this, len_
+from construct import Adapter, Array, Byte, Const, CString, Default, Enum, ExprAdapter, FlagsEnum, FocusedSeq, GreedyBytes, GreedyRange, Int8ub, Int16ub, Int32ub, Int64ub, Int16ul, Int32ul, Padded, Padding, Pass, PascalString, PaddedString, Prefixed, Rebuild, Struct, Subconstruct, Switch, this, len_
 
 class IpAddrAdapter(Adapter):
-  def _encode(self, obj, context):
+  def _encode(self, obj, context, path):
     return list(map(int, obj.split(".")))
-  def _decode(self, obj, context):
+  def _decode(self, obj, context, path):
     return ".".join("{}".format(x) for x in obj)
 IpAddr = IpAddrAdapter(Byte[4])
 
 class MacAddrAdapter(Adapter):
-  def _encode(self, obj, context):
+  def _encode(self, obj, context, path):
     return list(int(x,16) for x in obj.split(":"))
-  def _decode(self, obj, context):
+  def _decode(self, obj, context, path):
     return ":".join("{:02x}".format(x) for x in obj)
 MacAddr = MacAddrAdapter(Byte[6])
 
@@ -48,7 +48,7 @@ PlayerNumberAssignment = Enum(Int8ub,
   manual = 2
 )
 
-UdpMagic = Const("Qspt1WmJOL", String(10, encoding="ascii"))
+UdpMagic = Const("Qspt1WmJOL", PaddedString(10, encoding="ascii"))
 
 # received on udp port 50000
 KeepAlivePacket = Struct(
@@ -97,16 +97,16 @@ KeepAlivePacket = Struct(
 )
 
 class PitchAdapter(Adapter):
-  def _encode(self, obj, context):
+  def _encode(self, obj, context, path):
     return obj*0x100000
-  def _decode(self, obj, context):
+  def _decode(self, obj, context, path):
     return obj/0x100000
 Pitch = PitchAdapter(Int32ub)
 
 class BpmAdapter(Adapter):
-  def _encode(self, obj, context):
+  def _encode(self, obj, context, path):
     return obj*100
-  def _decode(self, obj, context):
+  def _decode(self, obj, context, path):
     return obj/100
 Bpm = BpmAdapter(Int16ub)
 
@@ -241,9 +241,9 @@ BpmState = Enum(Int16ub,
 )
 
 class StateMaskAdapter(Adapter):
-  def _encode(self, obj, context):
+  def _encode(self, obj, context, path):
     return obj | 0x84 # add bits which are always 1
-  def _decode(self, obj, context):
+  def _decode(self, obj, context, path):
     return obj
 StateMask = FlagsEnum(StateMaskAdapter(Int16ub),
   on_air = 8,
@@ -294,7 +294,7 @@ StatusPacket = Struct(
       "sd_state" / Default(StorageIndicator, "not_loaded"), # having "loaded" makes them try to mount nfs
       "link_available" / Default(Int32ub, 1), # may be cd state
       "play_state" / Default(PlayState, "no_track"),
-      "firmware" / String(4, encoding="ascii"),
+      "firmware" / PaddedString(4, encoding="ascii"),
       # 0x80
       Padding(4), # always zero
       "tempo_master_count" / Default(Int32ub, 0), # how often a player changed its tempo master
@@ -356,9 +356,9 @@ StatusPacket = Struct(
       "source_player_number" / Int8ub,
       Padding(3),
       "slot" / PlayerSlot,
-      "name" / String(64, encoding="utf-16-be"),
-      "date" / String(24, encoding="utf-16-be"),
-      "u5" / String(32, encoding="utf-16-be"), # "1000" as string? model?
+      "name" / PaddedString(64, encoding="utf-16-be"),
+      "date" / PaddedString(24, encoding="utf-16-be"),
+      "u5" / PaddedString(32, encoding="utf-16-be"), # "1000" as string? model?
       "track_count" / Int32ub,
       "u6" / Default(Int16ub, 0), # also seen 0x200
       "u7" / Default(Int16ub, 0x101),
@@ -369,7 +369,7 @@ StatusPacket = Struct(
     "rekordbox_hello": Pass,
     "rekordbox_reply": Struct(
       Padding(2),
-      "name" / String(256, encoding="utf-16-be")
+      "name" / PaddedString(256, encoding="utf-16-be")
     ),
   })
 )
@@ -406,9 +406,9 @@ class DBFieldFixedAdapter(Adapter):
   def __init__(self, subcon, ftype):
     self.ftype = ftype
     super().__init__(subcon)
-  def _encode(self, obj, context):
+  def _encode(self, obj, context, path):
     return {"type": self.ftype, "value": obj}
-  def _decode(self, obj, context):
+  def _decode(self, obj, context, path):
     if obj["type"] != self.ftype:
       raise TypeError("Parsed type {} but expected {}".format(obj["type"], self.ftype))
     return obj["value"]

@@ -1,10 +1,10 @@
-from construct import Array, Const, Default, Enum, GreedyRange, Int8sb, Int8ub, Int16ub, Int32ub, Padding, PrefixedArray, String, Struct, Switch, this
+from construct import Array, Const, Default, Enum, GreedyRange, Int8sb, Int8ub, Int16ub, Int32ub, Padding, PrefixedArray, PaddedString, Struct, Switch, this
 
 # file format from https://reverseengineering.stackexchange.com/questions/4311/help-reversing-a-edb-database-file-for-pioneers-rekordbox-software
 
 AnlzTagPath = Struct(
   "payload_size" / Int32ub, # is 0 for some tag types
-  "path" / String(this.payload_size-2, encoding="utf-16-be"),
+  "path" / PaddedString(this.payload_size-2, encoding="utf-16-be"),
   Padding(2)
 )
 
@@ -76,7 +76,7 @@ AnlzCuePointStatus = Enum(Int32ub,
 # unfortunately, this can't be embedded into AnlzTag due to the recursive
 # dependency between AnlzTag and AnlzTagCueObject
 AnlzCuePoint = Struct(
-  "type" / Const("PCPT", String(4, encoding="ascii")),
+  "type" / Const("PCPT", PaddedString(4, encoding="ascii")),
   "head_size" / Int32ub,
   "tag_size" / Int32ub,
   "hotcue_number" / Int32ub, # 0 for memory
@@ -105,7 +105,7 @@ AnlzTagCueObject = Struct(
 )
 
 AnlzCuePoint2 = Struct(
-  "type" / Const("PCP2", String(4, encoding="ascii")),
+  "type" / Const("PCP2", PaddedString(4, encoding="ascii")),
   "head_size" / Int32ub,
   "tag_size" / Int32ub,
   "hotcue_number" / Int32ub, # 0 for memory
@@ -124,7 +124,7 @@ AnlzTagCueObject2 = Struct(
 )
 
 AnlzTag = Struct(
-  "type" / String(4, encoding="ascii"),
+  "type" / PaddedString(4, encoding="ascii"),
   "head_size" / Int32ub,
   "tag_size" / Int32ub,
   "content" / Switch(this.type, {
@@ -142,7 +142,7 @@ AnlzTag = Struct(
 )
 
 AnlzFile = Struct(
-  "type" / Const("PMAI", String(4, encoding="ascii")),
+  "type" / Const("PMAI", PaddedString(4, encoding="ascii")),
   "head_size" / Int32ub,
   "file_size" / Int32ub,
   "u1" / Int32ub,
