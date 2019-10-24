@@ -15,7 +15,7 @@ These instructions describe necessary work to be done before being able to run t
 ### Prerequisites
 
 python-prodj-link is written in Python 3. It requires
-[Construct](https://pypi.python.org/pypi/construct) **(Version 2.8)**,
+[Construct](https://pypi.python.org/pypi/construct) **(Version 2.9 or later)**,
 [PyQt5](https://pypi.python.org/pypi/PyQt5),
 [PyOpenGL](https://pypi.org/project/PyOpenGL/) and
 [netifaces](https://pypi.org/project/netifaces).
@@ -26,16 +26,15 @@ Use your distributions package management to install these, e.g. on Arch Linux:
 pacman -S python-construct python-pyqt5 python-netifaces python-opengl
 ```
 
-Alternatively, you can use pip to install dependencies or get python-construct in version 2.8:
+Alternatively, you can use pip to install the required dependencies, preferrably in a virtualenv:
 ```
-pip3 install construct==2.8.22
-pip3 install PyOpenGL
+python3 -m virtualenv venv
+venv/bin/pip install -r requirements.txt
+venv/bin/python3
 ```
 
-**Note:** Construct is currently (June 2018) undergoing severe API changes.
-Starting with version 2.9, the new API requires some internal changes in this project.
-The branch construct-v2.9 contains an updated version which is adapted to newer construct versions.
-The construct project warns of possible future API changes, thus this version may break with future versions of construct.
+**Note:** Construct v2.9 changed a lot of its internal APIs.
+If you still need to use version 2.8, you can find an unmaintained version in the branch [construct-compat](../../../tree/construct-compat).
 
 ### Testing
 ```
@@ -80,7 +79,6 @@ It can freeze your players, although that has not happened to me with the recent
 Be careful when using it in an live environment!
 
 If you experience any errors or have additional features, feel free to open an issue or pull request.
-As I do only own XDJ-1000 players, I can rarely test the scripts against other players.
 I have already **successfully tested** the script against the following players/mixers:
 
 * Pioneer CDJ 2000
