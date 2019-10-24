@@ -7,8 +7,8 @@ from PyQt5.QtWidgets import QWidget
 from PyQt5.QtGui import QColor, QPainter, QPixmap
 from PyQt5.QtCore import pyqtSignal, Qt, QSize
 
-from pdblib import UsbAnlzDatabase
-from waveform_blue_map import blue_map
+from prodj.pdblib.usbanlzdatabase import UsbAnlzDatabase
+from .waveform_blue_map import blue_map
 
 class PreviewWaveformWidget(QWidget):
   redraw_signal = pyqtSignal()

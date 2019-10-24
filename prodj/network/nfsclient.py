@@ -1,13 +1,13 @@
+import logging
+import os
 import socket
 import time
-import os
-from select import select
-from packets_nfs import *
 from construct import Aligned
-
-import logging
-from threading import Event, Thread
 from queue import Empty, Queue
+from select import select
+from threading import Event, Thread
+
+from .packets_nfs import *
 
 class ReceiveTimeout(Exception):
   pass

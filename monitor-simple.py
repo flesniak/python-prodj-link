@@ -3,7 +3,7 @@
 import logging
 import time
 
-from prodj import ProDj
+from prodj.core.prodj import ProDj
 
 default_loglevel=0
 default_loglevel=logging.DEBUG

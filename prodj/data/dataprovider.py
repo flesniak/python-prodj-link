@@ -2,9 +2,10 @@ import logging
 import time
 from threading import Thread
 from queue import Empty, Queue
-from datastore import DataStore
-from dbclient import DBClient
-from pdbprovider import PDBProvider
+
+from .datastore import DataStore
+from .dbclient import DBClient
+from .pdbprovider import PDBProvider
 
 class TemporaryQueryError(Exception):
   pass

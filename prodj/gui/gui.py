@@ -6,9 +6,9 @@ from PyQt5.QtWidgets import QFrame, QGridLayout, QLabel, QPushButton, QSizePolic
 from PyQt5.QtGui import QColor, QPainter, QPixmap
 from PyQt5.QtCore import pyqtSignal, Qt, QSize
 
-from gui_browser import Browser, printableField
-from waveform_gl import GLWaveformWidget
-from preview_waveform_qt import PreviewWaveformWidget
+from .gui_browser import Browser, printableField
+from .waveform_gl import GLWaveformWidget
+from .preview_waveform_qt import PreviewWaveformWidget
 
 class ClickableLabel(QLabel):
   clicked = pyqtSignal()

@@ -1,9 +1,10 @@
 from threading import Event, Thread
 from ipaddress import IPv4Network
 from construct import byte2int
-import packets
 import logging
 import traceback
+
+import prodj.network.packets
 
 class Vcdj(Thread):
   def __init__(self, prodj):

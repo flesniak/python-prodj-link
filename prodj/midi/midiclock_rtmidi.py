@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# NOTE: This module suffers bad timing!
+# NOTE: This module suffers from bad timing!
 # Use the alsaseq implementation if possible.
 
 from threading import Thread

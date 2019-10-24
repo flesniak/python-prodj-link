@@ -1,8 +1,11 @@
 import logging
-import dataprovider
 import os
-from datastore import DataStore
-from pdblib import PDBDatabase, UsbAnlzDatabase
+
+from . import dataprovider
+from .datastore import DataStore
+# from prodj.pdblib import PDBDatabase, UsbAnlzDatabase
+from prodj.pdblib.pdbdatabase import PDBDatabase
+from prodj.pdblib.usbanlzdatabase import UsbAnlzDatabase
 
 colors = ["none", "pink", "red", "orange", "yellow", "green", "aqua", "blue", "purple"]
 

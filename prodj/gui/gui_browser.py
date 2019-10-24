@@ -3,7 +3,7 @@ from PyQt5.QtWidgets import QComboBox, QHeaderView, QLabel, QPushButton, QSizePo
 from PyQt5.QtGui import QPalette, QStandardItem, QStandardItemModel
 from PyQt5.QtCore import Qt, pyqtSignal
 
-from dbclient import sort_types
+from prodj.data.dbclient import sort_types
 
 # small helper functions
 def makeMediaInfo(info):

@@ -2,15 +2,15 @@ import socket
 import logging
 from threading import Thread
 from select import select
-from packets_dump import *
 from enum import Enum
 
-import packets
-from clientlist import ClientList
-from dataprovider import DataProvider
-from vcdj import Vcdj
-from nfsclient import NfsClient
-from ip import guess_own_iface
+from prodj.core.clientlist import ClientList
+from prodj.core.vcdj import Vcdj
+from prodj.data.dataprovider import DataProvider
+from prodj.network.nfsclient import NfsClient
+from prodj.network.ip import guess_own_iface
+import prodj.network.packets
+import prodj.network.packets_dump
 
 class OwnIpStatus(Enum):
   notNeeded = 1,

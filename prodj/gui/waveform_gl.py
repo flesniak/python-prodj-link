@@ -8,9 +8,9 @@ from PyQt5.QtWidgets import QApplication, QHBoxLayout, QOpenGLWidget, QSlider, Q
 from PyQt5.QtGui import QSurfaceFormat
 import OpenGL.GL as gl
 
-from packets import PlayStatePlaying, PlayStateStopped
-from pdblib import UsbAnlzDatabase
-from waveform_blue_map import blue_map
+from prodj.network.packets import PlayStatePlaying, PlayStateStopped
+from prodj.pdblib.usbanlzdatabase import UsbAnlzDatabase
+from .waveform_blue_map import blue_map
 
 class GLWaveformWidget(QOpenGLWidget):
   waveform_zoom_changed_signal = pyqtSignal(int)

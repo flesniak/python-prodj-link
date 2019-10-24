@@ -2,8 +2,8 @@
 
 import logging
 
-from prodj import ProDj
-from midiclock_alsaseq import MidiClock
+from prodj.core.prodj import ProDj
+from prodj.midi.midiclock_alsaseq import MidiClock
 
 #default_loglevel=logging.DEBUG
 default_loglevel=logging.INFO

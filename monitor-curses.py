@@ -3,8 +3,8 @@
 import curses
 import logging
 
-from prodj import ProDj
-from logcurse import CursesHandler
+from prodj.core.prodj import ProDj
+from prodj.gui.logcurse import CursesHandler
 
 #default_loglevel=logging.DEBUG
 default_loglevel=logging.INFO

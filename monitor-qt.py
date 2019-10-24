@@ -7,8 +7,8 @@ from PyQt5.QtCore import Qt
 import signal
 import argparse
 
-from prodj import ProDj
-from gui import Gui
+from prodj.core.prodj import ProDj
+from prodj.gui.gui import Gui
 
 def arg_size(value):
   number = int(value)
