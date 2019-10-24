@@ -1,7 +1,7 @@
 import unittest
 from packets import DBMessage
 import dataprovider
-from pdblib import AlignedPage, Artist
+from pdblib import AlignedPage, Artist, PDBFile, PDBDatabase
 
 class ArtistPageTestCase(unittest.TestCase):
     def test_artist_row(self):
@@ -24,7 +24,7 @@ class ArtistPageTestCase(unittest.TestCase):
 
         self.assertEqual(parsed.index, 165)
         self.assertEqual(parsed.page_type, "block_artists")
-        self.assertEqual(parsed.real_entry_count, 115)
+        self.assertEqual(parsed.entry_count_small, 115)
         self.assertEqual(parsed.entry_count, 115)
 
         entries = 0
@@ -32,7 +32,7 @@ class ArtistPageTestCase(unittest.TestCase):
             self.assertEqual(batch.entry_count, len(batch.entries))
             entries += batch.entry_count
         self.assertEqual(parsed.entry_count, entries)
-        self.assertEqual(parsed.real_entry_count, entries)
+        self.assertEqual(parsed.entry_count_small, entries)
 
         entry = parsed.entry_list[0].entries[0]
         self.assertEqual(entry.entry_start, 496)
@@ -46,7 +46,7 @@ class ArtistPageTestCase(unittest.TestCase):
 
         self.assertEqual(parsed.index, 725)
         self.assertEqual(parsed.page_type, "block_artists")
-        self.assertEqual(parsed.real_entry_count, 4)
+        self.assertEqual(parsed.entry_count_small, 4)
         self.assertEqual(parsed.entry_count, 4)
         self.assertEqual(len(parsed.entry_list), 1)
         self.assertEqual(parsed.entry_list[0].entry_count, 4)

@@ -66,23 +66,22 @@ PageHeader = Struct( # 40 bytes
   "next_index" / Int32ul, # in units of 4096 bytes, finally points to empty page, even outside of file
   "u1" / Int32ul, # sequence number (0->1: 8->13, 1->2: 22, 2->3: 27)
   Padding(4),
-  "real_entry_count" / Int8ul,
+  "entry_count_small" / Int8ul,
   "u3" / Int8ul, # a bitmask (1st track: 32)
-  "u4" / Int8ul, # often 0, sometimes larger, esp. for pages with high real_entry_count (e.g. 12 for 101 entries)
+  "u4" / Int8ul, # often 0, sometimes larger, esp. for pages with high entry_count_small (e.g. 12 for 101 entries)
   "u5" / Int8ul, # strange pages: 0x44, 0x64; otherwise seen: 0x24, 0x34
   "free_size" / Int16ul, # excluding data at page end
   "payload_size" / Int16ul,
   "u7" / Int16ul, # (0->1: 2)
-  "alternative_entry_count" / Int16ul, # usually <= entry_count except for playlist_map?
+  "entry_count_large" / Int16ul, # usually <= entry_count except for playlist_map?
   "u9" / Int16ul, # 1004 for strange blocks, 0 otherwise
   "u10" / Int16ul, # always 0 except 1 for synchistory, entry count for strange pages?
   "is_strange_page" / Computed(lambda ctx: ctx.index != 0 and ctx.u5 & 0x40),
   "is_empty_page" / Computed(lambda ctx: ctx.index == 0 and ctx.u9 == 0),
-  # this is fishy: artwork and playlist_map pages have much more entries than set in real_entry_count
-  # so use the alternative_entry_count if applicable, but ignore if it is 8191
-  # there are even some normal track pages where alternative_entry_count is 8191, so catch this as well
-  "entry_count" / Computed(lambda ctx: ctx.alternative_entry_count if ctx.real_entry_count < ctx.alternative_entry_count and not ctx.is_strange_page and not ctx.is_empty_page and not ctx.alternative_entry_count == 8191 else ctx.real_entry_count)
-  #"entry_count" / Computed(this.real_entry_count)
+  # this is fishy: artwork and playlist_map pages have much more entries than set in entry_count_small
+  # so use the entry_count_large if applicable, but ignore if it is 8191
+  # there are even some normal track pages where entry_count_large is 8191, so catch this as well
+  "entry_count" / Computed(lambda ctx: ctx.entry_count_large if ctx.entry_count_small < ctx.entry_count_large and not ctx.is_strange_page and not ctx.is_empty_page and not ctx.entry_count_large == 8191 else ctx.entry_count_small)
 )
 
 AlignedPage = Struct(
