@@ -19,7 +19,7 @@ class NfsClient(Thread):
     self.queue = Queue()
 
     # this eventually leads to ip fragmentation, but increases read speed by ~x4
-    self.download_chunk_size = 60000
+    self.download_chunk_size = 1350
     self.rpc_auth_stamp = 0xdeadbeef
     self.max_receive_timeout_count = 3
     self.default_download_directory = "./downloads/"
