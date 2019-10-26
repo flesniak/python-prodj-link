@@ -3,8 +3,8 @@ import logging
 from select import select
 from construct import MappingError, StreamError, RangeError, byte2int
 
-import prodj.network.packets
-import prodj.data.dataprovider
+from prodj.network import packets
+from prodj.data import dataprovider
 from prodj.pdblib.usbanlz import AnlzTag
 
 metadata_type = {

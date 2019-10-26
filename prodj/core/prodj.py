@@ -9,8 +9,8 @@ from prodj.core.vcdj import Vcdj
 from prodj.data.dataprovider import DataProvider
 from prodj.network.nfsclient import NfsClient
 from prodj.network.ip import guess_own_iface
-import prodj.network.packets
-import prodj.network.packets_dump
+from prodj.network import packets
+from prodj.network import packets_dump
 
 class OwnIpStatus(Enum):
   notNeeded = 1,
@@ -99,7 +99,7 @@ class ProDj(Thread):
       packet = packets.KeepAlivePacket.parse(data)
     except Exception as e:
       logging.warning("Failed to parse keepalive packet from {}, {} bytes: {}".format(addr, len(data), e))
-      dump_packet_raw(data)
+      packets_dump.dump_packet_raw(data)
       return
     # both packet types give us enough information to store the client
     if packet["type"] in ["type_ip", "type_status", "type_change"]:
@@ -109,7 +109,7 @@ class ProDj(Thread):
       if self.own_ip is not None:
         logging.info("Guessed own interface {} ip {} mask {} mac {}".format(*self.own_ip))
         self.vcdj_set_iface()
-    dump_keepalive_packet(packet)
+    packets_dump.dump_keepalive_packet(packet)
 
   def handle_beat_packet(self, data, addr):
     #logging.debug("Broadcast beat packet from {}".format(addr))
@@ -117,11 +117,11 @@ class ProDj(Thread):
       packet = packets.BeatPacket.parse(data)
     except Exception as e:
       logging.warning("Failed to parse beat packet from {}, {} bytes: {}".format(addr, len(data), e))
-      dump_packet_raw(data)
+      packets_dump.dump_packet_raw(data)
       return
     if packet["type"] in ["type_beat", "type_mixer"]:
       self.cl.eatBeat(packet)
-    dump_beat_packet(packet)
+    packets_dump.dump_beat_packet(packet)
 
   def handle_status_packet(self, data, addr):
     #logging.debug("Broadcast status packet from {}".format(addr))
@@ -129,10 +129,10 @@ class ProDj(Thread):
       packet = packets.StatusPacket.parse(data)
     except Exception as e:
       logging.warning("Failed to parse status packet from {}, {} bytes: {}".format(addr, len(data), e))
-      dump_packet_raw(data)
+      packets_dump.dump_packet_raw(data)
       return
     self.cl.eatStatus(packet)
-    dump_status_packet(packet)
+    packets_dump.dump_status_packet(packet)
 
   # called whenever a keepalive packet is received
   # arguments of cb: this clientlist object, player number of changed client

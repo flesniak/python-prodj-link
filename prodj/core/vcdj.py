@@ -4,7 +4,7 @@ from construct import byte2int
 import logging
 import traceback
 
-import prodj.network.packets
+from prodj.network import packets
 
 class Vcdj(Thread):
   def __init__(self, prodj):
