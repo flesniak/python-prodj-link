@@ -246,7 +246,7 @@ class DBClient:
       data += new_data
       try:
         return packets.DBMessage.parse(data)
-      except (StreamError, RangeError) as e:
+      except (StreamError, RangeError, TypeError) as e:
         logging.debug("DBClient: Received %d bytes but parsing failed, trying to receive more", len(data))
         parse_errors += 1
     raise dataprovider.TemporaryQueryError("Failed to receive dbmessage after {} tries and {} timeouts".format(parse_errors, receive_timeouts))
