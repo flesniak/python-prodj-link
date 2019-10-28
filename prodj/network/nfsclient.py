@@ -3,20 +3,20 @@ import os
 import socket
 import time
 from construct import Aligned
-from queue import Empty, Queue
 from select import select
-from threading import Event, Thread
+from concurrent.futures import ThreadPoolExecutor
 
-from .packets_nfs import *
+from .packets_nfs import getNfsCallStruct, getNfsResStruct, MountMntArgs, MountMntRes, PortmapArgs, PortmapRes, RpcMsg
 
 class ReceiveTimeout(Exception):
   pass
 
-class NfsClient(Thread):
+class NfsClient():
   def __init__(self, prodj):
     super().__init__()
     self.prodj = prodj
-    self.queue = Queue()
+    self.executer = ThreadPoolExecutor(max_workers=1)
+    self.abort = False
 
     # this eventually leads to ip fragmentation, but increases read speed by ~x4
     self.download_chunk_size = 1350
@@ -33,16 +33,12 @@ class NfsClient(Thread):
       "usb": "/C/"
     }
 
-  def start(self):
-    if self.is_alive():
-      return
-    self.keep_running = True
-    super().start()
-
   def stop(self):
-    if self.is_alive():
-      self.keep_running = False
-      self.join()
+    logging.debug("NfsClient shutting down")
+    self.abort = True
+    self.executer.shutdown(wait=False)
+    if self.portmap_sock is not None:
+      self.portmap_sock.close()
 
   def getXid(self):
     self.xid += 1
@@ -85,7 +81,7 @@ class NfsClient(Thread):
     sock.sendto(rpcdata+Aligned(4, GreedyBytes).build(data), host)
 
     receive_timeouts = 0
-    while receive_timeouts < self.max_receive_timeout_count:
+    while receive_timeouts < self.max_receive_timeout_count and not self.abort:
       try:
         data = self.SocketRecv(sock, 1)
       except ReceiveTimeout:
@@ -150,7 +146,10 @@ class NfsClient(Thread):
     nfsreply = {"fhandle": mount_handle}
     for item in tree:
       logging.debug("NfsClient: looking up \"%s\"", item)
-      nfsreply = self.NfsLookup(sock, ip, item, nfsreply["fhandle"])
+      try:
+        nfsreply = self.NfsLookup(sock, ip, item, nfsreply["fhandle"])
+      except RuntimeError as e:
+        raise FileNotFoundError(path) from None
     return nfsreply
 
   def NfsReadData(self, sock, host, fhandle, offset, size):
@@ -175,8 +174,9 @@ class NfsClient(Thread):
       new_progress = int(100*offset/size)
       if new_progress > progress+3:
         progress = new_progress
-        logging.info("NfsClient: download progress %d%% (%d/%d Bytes)", progress, offset, size)
-      remaining = size-offset
+        speed = offset/(time.time()-start)/1024/1024
+        logging.info("NfsClient: download progress %d%% (%d/%d Bytes, %.2f MiB/s)", progress, offset, size, speed)
+      remaining = size - offset
       chunk = self.download_chunk_size if remaining > self.download_chunk_size else remaining
       reply = self.NfsReadData(sock, host, fhandle, offset, chunk)
       data = reply.data
@@ -184,6 +184,8 @@ class NfsClient(Thread):
         raise RuntimeError("NFS read data returned zero bytes")
       write_handler(data)
       offset += len(data)
+      if self.abort:
+        return
     end = time.time()
     speed = offset/(end-start)/1024/1024
     logging.info("NfsClient: Download of %s complete (%s Bytes, %.2f MiB/s)", src_path, offset, speed)
@@ -200,10 +202,9 @@ class NfsClient(Thread):
       dst_path = self.default_download_directory + src_path.split("/")[-1]
 
     if os.path.exists(dst_path):
-      logging.error("NfsClient: file already exists: %s", dst_path)
-      return
+      raise FileExistsError(f"NfsClient: file already exists: {dst_path}")
 
-    # create download directory is nonexistant
+    # create download directory if nonexistent
     dirname = os.path.dirname(dst_path)
     if dirname:
       os.makedirs(dirname, exist_ok=True)
@@ -213,33 +214,38 @@ class NfsClient(Thread):
     self.download_file_handle.close()
     self.download_file_handle = None
 
+    return dst_path
+
   def NfsDownloadToBuffer(self, sock, host, mount_handle, src_path):
     self.download_buffer = b""
     self.NfsDownloadFile(sock, host, mount_handle, src_path, self.DownloadToBufferHandler)
-    #return self.download_buffer # this return is usually not used as it is in NfsClient thread context
+    return self.download_buffer
 
   # download path from player with ip after trying to mount slot
   # save to dst_path if it is not empty, otherwise to default download directory
   # if dst_path is None, the data will be stored to self.download_buffer
   # a callback can be supplied to be called when the download is complete,
   # the callback argument is dst_path or the downloaded data if dst_path is None
-  def enqueue_download(self, ip, slot, src_path, dst_path="", sync=False, callback=None):
-    self.start()
-    logging.debug("NfsClient: enqueueing download of \"%s\" from %s", src_path, ip)
-    event = Event() if sync else None
-    self.queue.put((ip, slot, src_path, dst_path, event, callback))
-    if sync and not event.wait(30):
-      raise RuntimeError("NfsClient: synchronous download timed out")
+  def enqueue_download(self, ip, slot, src_path, dst_path=None, sync=False, callback=None):
+    logging.debug(f"NfsClient: enqueueing download of {src_path} from {ip}")
+    future = self.executer.submit(self.handle_download, ip, slot, src_path, dst_path)
+    if callback is not None:
+      future.add_done_callback(lambda future: callback(future.result()))
+    if sync:
+      return future.result(timeout=30)
 
   # download path from player with ip after trying to mount slot
   # this call blocks until the download is finished and returns the downloaded bytes
   def enqueue_buffer_download(self, ip, slot, src_path):
+    future = self.executer.submit(self.handle_download, ip, slot, src_path, None)
     try:
-      self.enqueue_download(ip, slot, src_path, dst_path=None, sync=True, callback=None)
+      # return future.result()
+      ret = future.result()
+      logging.warning(f'ret: {ret}')
+      return ret
     except RuntimeError as e:
-      logging.warning("NfsClient: returning empty buffer because: {}".format(e))
+      logging.warning(f"NfsClient: returning empty buffer because: {e}")
       return None
-    return self.download_buffer
 
   # can be used as a callback for DataProvider.get_mount_info
   def enqueue_download_from_mount_info(self, request, player_number, slot, id_list, mount_info):
@@ -248,20 +254,19 @@ class NfsClient(Thread):
       return
     c = self.prodj.cl.getClient(player_number)
     if c is None:
-      logging.error("NfsClient: player {} unknown")
+      logging.error(f"NfsClient: player {player_number} unknown")
       return
     self.enqueue_download(c.ip_addr, slot, mount_info["mount_path"])
 
-  def handle_download(self, ip, slot, src_path, dst_path, event, callback):
+  def handle_download(self, ip, slot, src_path, dst_path):
     if slot not in self.export_by_slot:
-      logging.error("NfsClient: Unable to download from slot \"%s\"", slot)
-      return
+      raise RuntimeError(f"NfsClient: Unable to download from slot {slot}")
     export = self.export_by_slot[slot]
 
     mount_port = self.PortmapGetPort(ip, "mount", MountVersion, "udp")
-    logging.debug("NfsClient mount port of player %s: %d", ip, mount_port)
+    logging.debug(f"NfsClient mount port of player {ip}: {mount_port}")
     nfs_port = self.PortmapGetPort(ip, "nfs", NfsVersion, "udp")
-    logging.debug("NfsClient nfs port of player %s: %d", ip, nfs_port)
+    logging.debug(f"NfsClient nfs port of player {ip}: {nfs_port}")
 
     mount_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     mount_sock.bind(("0.0.0.0", 0))
@@ -271,31 +276,10 @@ class NfsClient(Thread):
     nfs_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     nfs_sock.bind(("0.0.0.0", 0))
     if dst_path is None:
-      self.NfsDownloadToBuffer(nfs_sock, (ip, nfs_port), mount_handle, src_path)
+      ret = self.NfsDownloadToBuffer(nfs_sock, (ip, nfs_port), mount_handle, src_path)
     else:
-      self.NfsDownloadToFile(nfs_sock, (ip, nfs_port), mount_handle, src_path, dst_path)
+      ret = self.NfsDownloadToFile(nfs_sock, (ip, nfs_port), mount_handle, src_path, dst_path)
     nfs_sock.close()
 
     # TODO: NFS UMNT
-
-    if callback is not None:
-      callback(filename)
-    if event is not None:
-      event.set()
-
-  def run(self):
-    logging.debug("NfsClient starting")
-    while self.keep_running:
-      try:
-        request = self.queue.get(timeout=1)
-      except Empty:
-        continue
-      try:
-        self.handle_download(*request)
-      except RuntimeError as e:
-        logging.error("NfsClient: download failed: %s", e)
-      finally:
-        self.queue.task_done()
-    logging.debug("NfsClient shutting down")
-    if self.portmap_sock is not None:
-      self.portmap_sock.close()
+    return ret

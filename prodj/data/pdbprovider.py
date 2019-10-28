@@ -38,10 +38,9 @@ class PDBProvider:
     try:
       try:
         self.prodj.nfs.enqueue_download(player.ip_addr, slot, "/PIONEER/rekordbox/export.pdb", filename, sync=True)
-      except LookupError as e:
+      except FileNotFoundError as e:
           logging.debug(f"PDBProvider: default pdb path not found on player {player_number}, trying MacOS path")
-          try:
-            self.prodj.nfs.enqueue_download(player.ip_addr, slot, "/.PIONEER/rekordbox/export.pdb", filename, sync=True)
+          self.prodj.nfs.enqueue_download(player.ip_addr, slot, "/.PIONEER/rekordbox/export.pdb", filename, sync=True)
     except RuntimeError as e:
       raise dataprovider.FatalQueryError("PDBProvider: database download from player {} failed: {}".format(player_number, e))
     return filename
