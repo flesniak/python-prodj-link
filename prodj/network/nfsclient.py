@@ -50,6 +50,9 @@ class NfsClient():
       self.portmap_sock.bind(("0.0.0.0", 0))
     return self.portmap_sock
 
+  def SocketSend(self, sock, data, host):
+    sock.sendto(data, host)
+
   def SocketRecv(self, sock, timeout=1):
     rdy = select([sock], [], [], timeout)
     if rdy[0]:
@@ -78,7 +81,8 @@ class NfsClient():
       }
     }
     rpcdata = RpcMsg.build(rpccall)
-    sock.sendto(rpcdata+Aligned(4, GreedyBytes).build(data), host)
+    payload = Aligned(4, GreedyBytes).build(data)
+    self.SocketSend(sock, rpcdata + payload, host)
 
     receive_timeouts = 0
     while receive_timeouts < self.max_receive_timeout_count and not self.abort:
