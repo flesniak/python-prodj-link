@@ -5,9 +5,9 @@ import logging
 from prodj.core.prodj import ProDj
 from prodj.midi.midiclock_alsaseq import MidiClock
 
-#default_loglevel=logging.DEBUG
+default_loglevel=logging.WARNING
 default_loglevel=logging.INFO
-#default_loglevel=logging.WARNING
+default_loglevel=logging.DEBUG
 
 logging.basicConfig(level=default_loglevel, format='%(levelname)s: %(message)s')
 
@@ -16,9 +16,15 @@ bpm = 128 # default bpm until reported from player
 beat = 0
 c.setBpm(bpm)
 
-def update_master(cl, player_number):
-  global bpm, beat
-  client = cl.getClient(player_number)
+p = ProDj()
+p.cl.log_played_tracks = False
+p.cl.auto_request_beatgrid = False
+
+def update_master(player_number):
+  global bpm, beat, p
+  client = p.cl.getClient(player_number)
+  if client is None or not 'master' in client.state:
+    return
   if beat != client.beat:
     beat = client.beat
     c.send_note(59+beat)
@@ -27,8 +33,7 @@ def update_master(cl, player_number):
     c.setBpm(newbpm)
     bpm = newbpm
 
-p = ProDj()
-p.set_master_change_callback(update_master)
+p.set_client_change_callback(update_master)
 
 try:
   p.start()
