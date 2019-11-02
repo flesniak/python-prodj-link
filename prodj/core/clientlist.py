@@ -117,9 +117,8 @@ class ClientList:
         if player is not None:
           on_air = beat_packet.content.ch_on_air[x-1] == 1
           if player.on_air != on_air:
-            if self.client_change_callback:
-              self.client_change_callback(x)
             player.on_air = on_air
+            client_changed = True
     elif beat_packet.type == "type_beat" and (not c.status_packet_received or c.model == "CDJ-2000"):
       new_actual_pitch = beat_packet.content.pitch
       if c.actual_pitch != new_actual_pitch:
