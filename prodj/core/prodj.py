@@ -144,11 +144,6 @@ class ProDj(Thread):
   def set_client_change_callback(self, cb=None):
     self.cl.client_change_callback = cb
 
-  # called when status update of a known master is received or the master changes
-  # arguments of cb: this clientlist object, player number of changed master
-  def set_master_change_callback(self, cb=None):
-    self.cl.master_change_callback = cb
-
   # called when a player media changes
   # arguments of cb: this clientlist object, player_number, changed slot
   def set_media_change_callback(self, cb=None):
