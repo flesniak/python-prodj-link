@@ -7,32 +7,12 @@ import alsaseq
 import logging
 import re
 
-def iter_alsa_seq_clients():
-  client_re = re.compile('Client[ ]+(\d+) : "(.*)"')
-  port_re = re.compile('  Port[ ]+(\d+) : "(.*)"')
-  with open("/proc/asound/seq/clients", "r") as f:
-    client = (None, "") # client id, client name
-    ports = []
-    for line in f:
-      match = client_re.match(line)
-      if match:
-        if client[0]:
-          yield (*client,ports)
-        client = int(match.groups()[0]), match.groups()[1]
-      else:
-        match = port_re.match(line)
-        if match:
-          ports += [int(match.groups()[0])]
-    if client[0]:
-      yield (*client,ports)
-
-
 class MidiClock(Thread):
-  def __init__(self,preferred_port=None):
+  def __init__(self):
     super().__init__()
     self.keep_running = True
-    self.client_id = 0
-    self.client_port = 0
+    self.client_id = None
+    self.client_port = None
     self.time_s = 0
     self.time_ns = 0
     self.add_s = 0
@@ -42,15 +22,56 @@ class MidiClock(Thread):
     # this call causes /proc/asound/seq/clients to be created
     alsaseq.client('MidiClock', 0, 1, True)
 
-    client_name = ""
-    for client in iter_alsa_seq_clients():
-      self.client_id = client[0]
-      client_name = client[1]
-      self.client_port = client[2][0]
-      logging.info("found port {} at {}:{}".format(client_name, self.client_id, self.client_port))
-      if client_name == preferred_port:
+  # this may only be called after creating this object
+  def iter_alsa_seq_clients(self):
+    client_re = re.compile('Client[ ]+(\d+) : "(.*)"')
+    port_re = re.compile('  Port[ ]+(\d+) : "(.*)"')
+    try:
+      with open("/proc/asound/seq/clients", "r") as f:
+        id = None
+        name = ""
+        ports = []
+        for line in f:
+          match = client_re.match(line)
+          if match:
+            if id:
+              yield (id, name, ports)
+            id = int(match.groups()[0])
+            name = match.groups()[1]
+            ports = []
+          else:
+            match = port_re.match(line)
+            if match:
+              ports += [int(match.groups()[0])]
+        if id:
+          yield (id, name, ports)
+    except FileNotFoundError:
+      pass
+
+  # def list_clients(self):
+  #   names = []
+  #   for id, name, ports in iter_alsa_seq_clients():
+  #     names += [name]
+  #   return names
+
+  def open(self, preferred_name=None, preferred_port=0):
+    clients_found = False
+    for id, name, ports in self.iter_alsa_seq_clients():
+      clients_found = True
+      logging.debug(f"midi device {id}: {name} [{','.join([str(x) for x in ports])}]")
+      if (preferred_name is None and name != "Midi Through") or name == preferred_name:
+        self.client_id = id
+        if preferred_port not in ports:
+          preferred_port = ports[0]
+          logging.warning(f"Preferred port not found, using {preferred_port}")
+        self.client_port = preferred_port
         break
-    logging.info("Using port {} at {}:{}".format(client_name, self.client_id, self.client_port))
+    if self.client_id is None:
+      if clients_found:
+        raise RuntimeError(f"Requested device {preferred_name} not found")
+      else:
+        raise RuntimeError("No sequencers found")
+    logging.info("Using device {} at {}:{}".format(name, self.client_id, self.client_port))
     alsaseq.connectto(0, self.client_id, self.client_port)
 
   def advance_time(self):
@@ -100,7 +121,8 @@ class MidiClock(Thread):
 
 if __name__ == "__main__":
   logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
-  mc = MidiClock("CH345")
+  mc = MidiClock()
+  mc.open("CH345", 0)
   mc.setBpm(175)
   mc.start()
   try:
