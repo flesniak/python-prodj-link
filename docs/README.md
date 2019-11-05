@@ -30,7 +30,6 @@ Alternatively, you can use pip to install the required dependencies, preferrably
 ```
 python3 -m virtualenv venv
 venv/bin/pip install -r requirements.txt
-venv/bin/python3
 ```
 
 **Note:** Construct v2.9 changed a lot of its internal APIs.
@@ -61,16 +60,30 @@ Additionally, you can download tracks from remote players, either directly when 
 
     ./monitor-qt.py
 
+or when using virtualenv:
+
+    venv/bin/python3 monitor-qt.py
+
 ![two players screenshot with browser](screenshot-full.png)
 
 ### Midi Clock
 
 The midiclock script opens a midi sound card and outputs midi clock packets matching the current master bpm.
+Additionally, for each beat a note on event (between 60 and 63) is emitted.
 This is useful to synchronize beat machines or effect units.
+
 To create midi clocks with exact timing, this additionally requires the [alsaseq](https://pypi.python.org/pypi/alsaseq) package.
-Currently, it is required to set the midi sequencer name in _midiclock.py_ as displayed by _amidi -l_.
+Depending on your distribution you may need to gain privileges to access the sequencer _/dev/snd/seq_.
+On Arch Linux, membership in the _audio_ group is required.
+
+By default, the first midi seqencer is used.
+You can list available ports with argument _-l_.
 
     ./midiclock.py
+
+or when using virtualenv:
+
+    venv/bin/python3 midiclock.py
 
 ## Bugs & Contributing
 
