@@ -90,6 +90,9 @@ class MidiClock(Thread):
     self.join()
 
   def setBpm(self, bpm):
+    if bpm <= 0:
+      logging.warning("Ignoring zero bpm")
+      return
     self.delay = 60/bpm/24
     self.add_s = math.floor(self.delay)
     self.add_ns = math.floor(1e9*(self.delay-self.add_s))
