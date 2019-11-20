@@ -2,11 +2,11 @@ import logging
 import os
 import socket
 import time
-from construct import Aligned
+from construct import Aligned, GreedyBytes
 from select import select
 from concurrent.futures import ThreadPoolExecutor
 
-from .packets_nfs import getNfsCallStruct, getNfsResStruct, MountMntArgs, MountMntRes, PortmapArgs, PortmapRes, RpcMsg
+from .packets_nfs import getNfsCallStruct, getNfsResStruct, MountMntArgs, MountMntRes, MountVersion, PortmapArgs, PortmapPort, PortmapVersion, PortmapRes, RpcMsg
 
 class ReceiveTimeout(Exception):
   pass
