@@ -1,7 +1,6 @@
 import unittest
-from packets import DBMessage
-import dataprovider
-from pdblib import AlignedPage, Artist, PDBFile, PDBDatabase
+from prodj.pdblib.artist import Artist
+from prodj.pdblib.page import AlignedPage
 
 class ArtistPageTestCase(unittest.TestCase):
     def test_artist_row(self):

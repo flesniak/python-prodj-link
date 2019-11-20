@@ -1,9 +1,5 @@
 import unittest
-from packets import DBMessage
-import dataprovider
-from dbclient import DBClient
-#from construct import Container
-
+from prodj.network.packets import DBMessage
 
 class DbclientTestCase(unittest.TestCase):
     def test_parsing_root_menu_rendering_request(self):

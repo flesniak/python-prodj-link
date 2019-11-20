@@ -1,7 +1,6 @@
 import unittest
-from packets import DBField, DBMessage
+from prodj.network.packets import DBField, DBMessage
 from construct import Container
-
 
 class PacketsTestCase(unittest.TestCase):
     def test_string_parsing(self):
