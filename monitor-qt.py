@@ -27,6 +27,7 @@ parser.add_argument('-q', '--quiet', action='store_const', dest='loglevel', cons
 parser.add_argument('-d', '--debug', action='store_const', dest='loglevel', const=logging.DEBUG, help='Display verbose debugging information')
 parser.add_argument('--dump-packets', action='store_const', dest='loglevel', const=0, help='Dump packet fields for debugging', default=logging.INFO)
 parser.add_argument('--chunk-size', dest='chunk_size', help='Chunk size of NFS downloads (high values may be faster but fail on some networks)', type=arg_size, default=1350)
+parser.add_argument('-f', '--fullscreen', action='store_true', help='Start with fullscreen window')
 args = parser.parse_args()
 
 logging.basicConfig(level=args.loglevel, format='%(levelname)s: %(message)s')
@@ -37,6 +38,8 @@ prodj.data.dbc_enabled = args.enable_dbc
 prodj.nfs.download_chunk_size = args.chunk_size
 app = QApplication([])
 gui = Gui(prodj, show_color_waveform=args.color_waveform or args.color, show_color_preview=args.color_preview or args.color)
+if args.fullscreen:
+  gui.setWindowState(Qt.WindowFullScreen | Qt.WindowMaximized | Qt.WindowActive)
 
 pal = app.palette()
 pal.setColor(QPalette.Window, Qt.black)
