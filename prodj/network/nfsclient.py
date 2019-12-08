@@ -4,12 +4,79 @@ import socket
 import time
 from construct import Aligned, GreedyBytes
 from select import select
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, Future
+from threading import Thread
 
-from .packets_nfs import getNfsCallStruct, getNfsResStruct, MountMntArgs, MountMntRes, MountVersion, PortmapArgs, PortmapPort, PortmapVersion, PortmapRes, RpcMsg
+from .packets_nfs import getNfsCallStruct, getNfsResStruct, MountMntArgs, MountMntRes, MountVersion, NfsVersion, PortmapArgs, PortmapPort, PortmapVersion, PortmapRes, RpcMsg
 
 class ReceiveTimeout(Exception):
   pass
+
+def chain_future(future, done_callback)
+  result_future = Future()
+  future.add_done_callback(lambda f:
+    try:
+      result_future.set_value(done_callback(f))
+    except Exception as ex:
+      result_future.set_exception(ex)
+  )
+  return result_future
+
+class Receiver(Thread):
+  def __init__(self, sock):
+    self.map = dict()
+    self.keep_running = False
+    self.sock = sock
+    self.recv_timeout = 1
+    self.request_timeout = 60
+
+  def submitDownload(self, id, future):
+    if id in self.map:
+      raise RuntimeError(f"Download id {id} already taken")
+    self.map[id] = (future, time.time())
+
+  def start(self):
+    self.keep_running = True
+    super().start()
+
+  def stop(self):
+    self.keep_running = False
+    self.join()
+
+  def run(self):
+    logging.debug("Nfs Receiver starting")
+    while self.keep_running:
+      rdy = select([self.sock], [], [], self.recv_timeout)
+      if not rdy[0]:
+        handle_data(sock.recv(4096))
+      # raise ReceiveTimeout("SocketRecv timeout after {} seconds".format(timeout))
+
+      self.check_timeouts()
+
+  def handle_data(self, data):
+    if len(data) == 0:
+      logging.error("BUG: Receiver: no data received!")
+
+    try:
+      rpcreply = RpcMsg.parse(data)
+    except:
+      logging.warning("Failed to parse RPC reply")
+      return
+
+    rpcreply
+
+    if rpcreply.content.reply_stat != "accepted":
+      raise RuntimeError("RPC call denied: "+rpcreply.content.reject_stat)
+    if rpcreply.content.content.accept_stat != "success":
+      raise RuntimeError("RPC call unsuccessful: "+rpcreply.content.content.accept_stat)
+    return rpcreply.content.content.content
+
+  def check_timeouts(self):
+      now = time.time()
+      for id, (future, started_at) in list(self.map.items()):
+        if started_at + self.download_timeout > now:
+          future.set_exception(ReceiveTimeout(f"Request timed out after {self.request_timeout} seconds"))
+        del self.map[id]
 
 class NfsClient():
   def __init__(self, prodj):
@@ -133,10 +200,12 @@ class NfsClient():
   def NfsCall(self, sock, host, proc, data):
     nfsdata = getNfsCallStruct(proc).build(data)
     reply = self.RpcCall(sock, host, "nfs", NfsVersion, proc, nfsdata)
-    nfsreply = getNfsResStruct(proc).parse(reply)
-    if nfsreply.status != "ok":
-      raise RuntimeError("NFS call failed: "+nfsreply.status)
-    return nfsreply.content
+    return chain_future(reply, lambda result:
+      nfsreply = getNfsResStruct(proc).parse(result.get_value())
+      if nfsreply.status != "ok":
+        raise RuntimeError("NFS call failed: " + nfsreply.status)
+      return nfsreply.content
+    )
 
   def NfsLookup(self, sock, host, name, fhandle):
     nfscall = {
@@ -167,21 +236,21 @@ class NfsClient():
 
   def NfsDownloadFile(self, sock, host, mount_handle, src_path, write_handler):
     logging.info("NfsClient: starting file download ip %s port %d path %s", *host, src_path)
-    args = self.NfsLookupPath(sock, host, mount_handle, src_path)
+    lookup_result = self.NfsLookupPath(sock, host, mount_handle, src_path)
 
-    size = args.attrs.size
-    fhandle = args["fhandle"]
+    size = lookup_result.attrs.size
+    fhandle = lookup_result.fhandle
     offset = 0
     progress = -1
     start = time.time()
-    while size > offset:
+    while offset < size:
       new_progress = int(100*offset/size)
       if new_progress > progress+3:
         progress = new_progress
         speed = offset/(time.time()-start)/1024/1024
         logging.info("NfsClient: download progress %d%% (%d/%d Bytes, %.2f MiB/s)", progress, offset, size, speed)
       remaining = size - offset
-      chunk = self.download_chunk_size if remaining > self.download_chunk_size else remaining
+      chunk = min(self.download_chunk_size, remaining)
       reply = self.NfsReadData(sock, host, fhandle, offset, chunk)
       data = reply.data
       if len(data) == 0:
@@ -227,14 +296,10 @@ class NfsClient():
 
   # download path from player with ip after trying to mount slot
   # save to dst_path if it is not empty, otherwise to default download directory
-  # if dst_path is None, the data will be stored to self.download_buffer
-  # a callback can be supplied to be called when the download is complete,
-  # the callback argument is dst_path or the downloaded data if dst_path is None
-  def enqueue_download(self, ip, slot, src_path, dst_path=None, sync=False, callback=None):
+  # if dst_path is None, the data will be stored to self.download_buffer.
+  def enqueue_download(self, ip, slot, src_path, dst_path=None, sync=False):
     logging.debug(f"NfsClient: enqueueing download of {src_path} from {ip}")
     future = self.executer.submit(self.handle_download, ip, slot, src_path, dst_path)
-    if callback is not None:
-      future.add_done_callback(lambda future: callback(future.result()))
     if sync:
       return future.result(timeout=30)
 
@@ -243,9 +308,7 @@ class NfsClient():
   def enqueue_buffer_download(self, ip, slot, src_path):
     future = self.executer.submit(self.handle_download, ip, slot, src_path, None)
     try:
-      # return future.result()
       ret = future.result()
-      logging.warning(f'ret: {ret}')
       return ret
     except RuntimeError as e:
       logging.warning(f"NfsClient: returning empty buffer because: {e}")

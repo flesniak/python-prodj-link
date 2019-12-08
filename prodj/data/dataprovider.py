@@ -18,6 +18,7 @@ class DataProvider(Thread):
     super().__init__()
     self.prodj = prodj
     self.queue = Queue()
+    self.keep_running = True
 
     self.pdb_enabled = True
     self.pdb = PDBProvider(prodj)
