@@ -61,7 +61,7 @@ class RpcReceiver(Thread):
 
     if not rpcreply.xid in self.requests:
       logging.warning(RuntimeError(f"Unknown RPC XID {rpcreply.xid}"))
-    transfer, _ = self.requests[rpcreply.xid]
+    transfer, _ = self.requests.pop(rpcreply.xid)
 
     if rpcreply.content.reply_stat != "accepted":
       transfer.set_exception(RuntimeError("RPC call denied: "+rpcreply.content.reject_stat))

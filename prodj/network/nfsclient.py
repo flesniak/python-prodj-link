@@ -9,15 +9,15 @@ from .packets_nfs import getNfsCallStruct, getNfsResStruct, MountMntArgs, MountM
 from .rpcreceiver import RpcReceiver
 
 # add done_callback to future and catch+attach it's exception if it fails during execution
-def chain_future_helper(f):
+def chain_future_helper(done_callback, original_future, result_future):
   try:
-    result_future.set_value(done_callback(f))
+    result_future.set_result(done_callback(original_future))
   except Exception as ex:
     result_future.set_exception(ex)
 
 def chain_future(future, done_callback):
   result_future = Future()
-  future.add_done_callback(lambda f: chain_future_helper(f))
+  future.add_done_callback(chain_future_helper(done_callback, future, result_future))
   return result_future
 
 class NfsClient():

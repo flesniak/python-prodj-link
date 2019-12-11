@@ -3,9 +3,9 @@ import os
 
 from . import dataprovider
 from .datastore import DataStore
-# from prodj.pdblib import PDBDatabase, UsbAnlzDatabase
 from prodj.pdblib.pdbdatabase import PDBDatabase
 from prodj.pdblib.usbanlzdatabase import UsbAnlzDatabase
+from prodj.network.rpcreceiver import ReceiveTimeout
 
 colors = ["none", "pink", "red", "orange", "yellow", "green", "aqua", "blue", "purple"]
 
@@ -41,7 +41,7 @@ class PDBProvider:
       except FileNotFoundError as e:
           logging.debug(f"PDBProvider: default pdb path not found on player {player_number}, trying MacOS path")
           self.prodj.nfs.enqueue_download(player.ip_addr, slot, "/.PIONEER/rekordbox/export.pdb", filename, sync=True)
-    except RuntimeError as e:
+    except (RuntimeError, ReceiveTimeout) as e:
       raise dataprovider.FatalQueryError("PDBProvider: database download from player {} failed: {}".format(player_number, e))
     return filename
 
