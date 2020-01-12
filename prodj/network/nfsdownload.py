@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 import time
@@ -17,8 +18,8 @@ class NfsDownload:
     self.fhandle = None # set by lookupCallback
     self.progress = -3
     self.start = 0 # set by start
-
     self.future = Future()
+
     self.max_in_flight = 5
     self.in_flight = 0
     self.download_chunk_size = 1024
@@ -34,11 +35,13 @@ class NfsDownload:
     # when continuously available
     self.blocks = dict()
 
-  def start(self):
+  async def start(self):
     self.start = time.time()
-    lookup_future = self.NfsLookupPath(self.host, self.mount_handle, self.src_path)
-    lookup_future.add_done_callback(self.lookupCallback)
-    return self.future
+    lookup_result = await self.NfsLookupPath(self.host, self.mount_handle, self.src_path)
+    self.size = lookup_result.attrs.size
+    self.fhandle = lookup_result.fhandle
+    self.sendReadRequests()
+    await asyncio.wrap_future(self.future)
 
   def setFilename(self, dst_path=""):
     # if dst_path is empty, use a default download path
@@ -61,25 +64,24 @@ class NfsDownload:
       remaining = self.size - self.read_offset
       chunk = min(self.download_chunk_size, remaining)
       self.in_flight += 1
-      future_reply = self.NfsReadData(self.host, self.fhandle, self.read_offset, chunk)
-      future_reply.add_done_callback(lambda future:
-        self.readCallback(self.read_offset, future)
-      )
+      task = asyncio.create_task(self.NfsReadData(self.host, self.fhandle, self.read_offset, chunk))
+      task.add_done_callback(lambda data: self.readCallback(self.read_offset, data))
 
-  def readCallback(self, offset, future):
+  def readCallback(self, offset, data):
     self.in_flight = max(0, self.in_flight-1)
-    data = future.result()
     if self.write_offset <= offset:
       self.blocks[offset] = data
     else:
-      logging.warning("Offset {offset} received twice, ignoring")
+      logging.warning(f"Offset {offset} received twice, ignoring")
 
     self.writeBlocks()
 
     self.updateProgress()
 
     if self.write_offset == self.size:
-      self.finished()
+      self.finish()
+    else:
+      self.sendReadRequests()
 
   def updateProgress(self):
     new_progress = int(100*offset/size)
@@ -91,7 +93,7 @@ class NfsDownload:
 
   def writeBlocks(self):
     while self.write_offset in self.blocks:
-      data = self.blocks[self.write_offset]
+      data = self.blocks.pop(self.write_offset)
       if self.type == NfsDownloadType.buffer:
         self.downloadToBufferHandler(data)
       else:
@@ -104,13 +106,7 @@ class NfsDownload:
   def downloadToBufferHandler(self, data):
     self.download_buffer += data
 
-  def lookupCallback(self, future):
-    lookup_result = future.get_value()
-    self.size = lookup_result.attrs.size
-    self.fhandle = lookup_result.fhandle
-    self.sendReadRequests()
-
-  def finished(self):
+  def finish(self):
     if self.type == NfsDownloadType.buffer:
       self.future.set_result(self.download_buffer)
     else:

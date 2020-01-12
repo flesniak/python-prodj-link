@@ -1,6 +1,7 @@
 import logging
 import time
 from concurrent.futures import Future
+from asyncio import Future
 from select import select
 from threading import Thread
 
@@ -35,12 +36,15 @@ class RpcReceiver(Thread):
   def stop(self):
     self.keep_running = False
     self.join()
+    if self.requests:
+      logging.warning("Receiver: stopped but still {len(self.requests)} in queue")
 
   def run(self):
     logging.debug("Nfs Receiver starting")
     while self.keep_running:
       if self.sock is None:
-        sleep(1)
+        logging.info("Socket gone, waiting for recovery...")
+        sleep(self.recv_timeout)
         continue
 
       rdy = select([self.sock], [], [], self.recv_timeout)
@@ -60,19 +64,19 @@ class RpcReceiver(Thread):
       return
 
     if not rpcreply.xid in self.requests:
-      logging.warning(RuntimeError(f"Unknown RPC XID {rpcreply.xid}"))
-    transfer, _ = self.requests.pop(rpcreply.xid)
+      logging.warning(f"Unknown RPC XID {rpcreply.xid}")
+    result_future, _ = self.requests.pop(rpcreply.xid)
 
     if rpcreply.content.reply_stat != "accepted":
-      transfer.set_exception(RuntimeError("RPC call denied: "+rpcreply.content.reject_stat))
+      result_future.set_exception(RuntimeError("RPC call denied: "+rpcreply.content.reject_stat))
     if rpcreply.content.content.accept_stat != "success":
-      transfer.set_exception(RuntimeError("RPC call unsuccessful: "+rpcreply.content.content.accept_stat))
+      result_future.set_exception(RuntimeError("RPC call unsuccessful: "+rpcreply.content.content.accept_stat))
 
-    transfer.set_result(rpcreply.content.content.content)
+    result_future.set_result(rpcreply.content.content.content)
 
   def checkTimeouts(self):
-      now = time.time()
+      deadline = time.time() - self.request_timeout
       for id, (future, started_at) in list(self.requests.items()):
-        if started_at + self.request_timeout > now:
+        if started_at < deadline:
           future.set_exception(ReceiveTimeout(f"Request timed out after {self.request_timeout} seconds"))
         del self.requests[id]

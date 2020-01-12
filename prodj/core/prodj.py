@@ -48,6 +48,7 @@ class ProDj(Thread):
     self.socks = [self.keepalive_sock, self.beat_sock, self.status_sock]
     self.keep_running = True
     self.data.start()
+    self.nfs.start()
     super().start()
 
   def stop(self):
