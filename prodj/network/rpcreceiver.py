@@ -1,7 +1,7 @@
+import asyncio
 import logging
 import time
 from concurrent.futures import Future
-from asyncio import Future
 from select import select
 from threading import Thread
 
@@ -10,17 +10,12 @@ from .packets_nfs import getNfsCallStruct, getNfsResStruct, MountMntArgs, MountM
 class ReceiveTimeout(Exception):
   pass
 
-class RpcReceiver(Thread):
+class RpcReceiver:
   def __init__(self):
     super().__init__()
     self.requests = dict()
     self.keep_running = False
-    self.sock = None
-    self.recv_timeout = 1
-    self.request_timeout = 60
-
-  def setSocket(self, sock):
-    self.sock = sock
+    self.request_timeout = 10
 
   def addCall(self, xid):
     if xid in self.requests:
@@ -30,28 +25,21 @@ class RpcReceiver(Thread):
     return future
 
   def start(self):
+    asyncio.run_coroutine_threadsafe(self.checkTimeoutsTask, )
     self.keep_running = True
-    super().start()
 
   def stop(self):
     self.keep_running = False
-    self.join()
     if self.requests:
       logging.warning("Receiver: stopped but still {len(self.requests)} in queue")
 
-  def run(self):
-    logging.debug("Nfs Receiver starting")
+  async def checkTimeoutsTask():
     while self.keep_running:
-      if self.sock is None:
-        logging.info("Socket gone, waiting for recovery...")
-        sleep(self.recv_timeout)
-        continue
-
-      rdy = select([self.sock], [], [], self.recv_timeout)
-      if rdy[0]:
-        self.handleReceivedData(self.sock.recv(4096))
-
+      await asyncio.sleep(1)
       self.checkTimeouts()
+
+  def socketRead(self, sock):
+    self.handleReceivedData(sock.recv(4096))
 
   def handleReceivedData(self, data):
     if len(data) == 0:

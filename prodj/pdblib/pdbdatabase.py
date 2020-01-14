@@ -80,7 +80,7 @@ class PDBDatabase(dict):
     logging.debug("PDBDatabase: done collecting {}".format(target))
 
   def load_file(self, filename):
-    logging.debug("PDBDatabase: Loading file \"%s\"", filename)
+    logging.info("PDBDatabase: Loading database \"%s\"", filename)
     stat = os.stat(filename)
     fh = PDBFile
     with open(filename, "rb") as f:
@@ -100,4 +100,4 @@ class PDBDatabase(dict):
     self.collect_entries("block_keys", "key_names")
     self.collect_entries("block_labels", "labels")
 
-    logging.debug("PDBDatabase: Loaded %d pages, %d tracks, %d playlists", len(self.parsed.pages), len(self["tracks"]), len(self["playlists"]))
+    logging.info("PDBDatabase: Loaded %d pages, %d tracks, %d playlists", len(self.parsed.pages), len(self["tracks"]), len(self["playlists"]))

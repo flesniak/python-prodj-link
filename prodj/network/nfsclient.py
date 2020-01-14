@@ -8,24 +8,18 @@ from threading import Thread
 
 from .packets_nfs import getNfsCallStruct, getNfsResStruct, MountMntArgs, MountMntRes, MountVersion, NfsVersion, PortmapArgs, PortmapPort, PortmapVersion, PortmapRes, RpcMsg
 from .rpcreceiver import RpcReceiver
+from .nfsdownload import NfsDownload
 
-class NfsClient(Thread):
+class NfsClient:
   def __init__(self, prodj):
-    super().__init__()
     self.prodj = prodj
     self.loop = asyncio.new_event_loop()
     self.receiver = RpcReceiver()
-    self.abort = False
 
-    # this eventually leads to ip fragmentation, but increases read speed by ~x4
-    self.download_chunk_size = 1350
     self.rpc_auth_stamp = 0xdeadbeef
-    self.max_receive_timeout_count = 3
-    self.default_download_directory = "./downloads/"
     self.rpc_sock = None
     self.xid = 1
     self.download_file_handle = None
-    self.download_buffer = None
 
     self.export_by_slot = {
       "sd": "/B/",
@@ -34,14 +28,12 @@ class NfsClient(Thread):
 
   def start(self):
     self.openSockets()
-    self.receiver.start()
-    super().start()
+    self.loop_thread = Thread(target=self.loop.run_forever)
+    self.loop_thread.start()
 
   def stop(self):
     logging.debug("NfsClient shutting down")
-    self.abort = True
-    self.loop.stop()
-    self.receiver.stop()
+    self.loop.call_soon_threadsafe(self.loop.stop)
     self.closeSockets()
 
   def run(self):
@@ -50,10 +42,10 @@ class NfsClient(Thread):
   def openSockets(self):
     self.rpc_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     self.rpc_sock.bind(("0.0.0.0", 0))
-    self.receiver.setSocket(self.rpc_sock)
+    self.loop.add_reader(self.rpc_sock, self.receiver.socketRead, self.rpc_sock)
 
   def closeSockets(self):
-    self.receiver.setSocket(None)
+    self.loop.remove_reader(self.rpc_sock)
     if self.rpc_sock is not None:
       self.rpc_sock.close()
 
@@ -62,7 +54,7 @@ class NfsClient(Thread):
     return self.xid
 
   async def RpcCall(self, host, prog, vers, proc, data):
-    #logging.debug("NfsClient: RpcCall ip %s prog \"%s\" proc \"%s\"", ip, prog, proc)
+    # logging.debug("NfsClient: RpcCall ip %s prog \"%s\" proc \"%s\"", host, prog, proc)
     rpccall = {
       "xid": self.getXid(),
       "type": "call",
@@ -125,7 +117,7 @@ class NfsClient(Thread):
       "fhandle": fhandle,
       "name": name
     }
-    return self.NfsCall(host, "lookup", nfscall)
+    return await self.NfsCall(host, "lookup", nfscall)
 
   # async def _NfsLookupPath(self, ip, fhandle, items):
   #   for item in items:
@@ -138,8 +130,8 @@ class NfsClient(Thread):
     tree = filter(None, path.split("/"))
     for item in tree:
       logging.debug("NfsClient: looking up \"%s\"", item)
-      nfsreply = await self.NfsLookup(ip, item, fhandle)
-      fhandle = nfsreply["fhandle"]
+      nfsreply = await self.NfsLookup(ip, item, mount_handle)
+      mount_handle = nfsreply["fhandle"]
     return nfsreply
     # return asyncio.create_task(self._NfsLookupPath, ip, mount_handle, tree)
 
@@ -150,11 +142,12 @@ class NfsClient(Thread):
       "count": size,
       "totalcount": 0
     }
-    return self.NfsCall(host, "read", nfscall)
+    return await self.NfsCall(host, "read", nfscall)
 
-  # download path from player with ip after trying to mount slot
-  # save to dst_path if it is not empty, otherwise to default download directory
-  # if dst_path is None, the data will be stored to self.download_buffer.
+  # download file at src_path from player with ip from slot
+  # save to dst_path if it is not empty, otherwise return a buffer
+  # in both cases, return a future representing the download result
+  # if sync is true, wait for the result and return it directly (30 seconds timeout)
   def enqueue_download(self, ip, slot, src_path, dst_path=None, sync=False):
     logging.debug(f"NfsClient: enqueueing download of {src_path} from {ip}")
     # future = self.executer.submit(self.handle_download, ip, slot, src_path, dst_path)
@@ -162,15 +155,14 @@ class NfsClient(Thread):
       self.handle_download(ip, slot, src_path, dst_path), self.loop)
     if sync:
       return future.result(timeout=30)
+    return future
 
   # download path from player with ip after trying to mount slot
   # this call blocks until the download is finished and returns the downloaded bytes
   def enqueue_buffer_download(self, ip, slot, src_path):
-    future = asyncio.run_coroutine_threadsafe(
-      self.handle_download(ip, slot, src_path, None), self.loop)
+    future = self.enqueue_download(ip, slot, src_path)
     try:
-      ret = future.result()
-      return ret
+      return future.result()
     except RuntimeError as e:
       logging.warning(f"NfsClient: returning empty buffer because: {e}")
       return None
@@ -184,7 +176,7 @@ class NfsClient(Thread):
     if c is None:
       logging.error(f"NfsClient: player {player_number} unknown")
       return
-    self.enqueue_download(c.ip_addr, slot, mount_info["mount_path"])
+    return self.enqueue_download(c.ip_addr, slot, mount_info["mount_path"])
 
   async def handle_download(self, ip, slot, src_path, dst_path):
     logging.debug(f"Nfsclient: Starting download of {src_path} from {ip}@{slot}")
@@ -198,10 +190,10 @@ class NfsClient(Thread):
     nfs_port = await self.PortmapGetPort(ip, "nfs", NfsVersion, "udp")
     logging.debug(f"NfsClient: nfs port of player {ip}: {nfs_port}")
 
-    mount_handle = await self.MountMnt(self.rpc_sock, (ip, mount_port), export)
+    mount_handle = await self.MountMnt((ip, mount_port), export)
     download = NfsDownload(self, (ip, nfs_port), mount_handle, src_path)
     if dst_path is not None:
       download.setFilename(dst_path)
 
     # TODO: NFS UMNT
-    return download.start()
+    return await download.start()

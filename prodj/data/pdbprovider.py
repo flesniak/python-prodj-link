@@ -39,8 +39,8 @@ class PDBProvider:
       try:
         self.prodj.nfs.enqueue_download(player.ip_addr, slot, "/PIONEER/rekordbox/export.pdb", filename, sync=True)
       except FileNotFoundError as e:
-          logging.debug(f"PDBProvider: default pdb path not found on player {player_number}, trying MacOS path")
-          self.prodj.nfs.enqueue_download(player.ip_addr, slot, "/.PIONEER/rekordbox/export.pdb", filename, sync=True)
+        logging.debug(f"PDBProvider: default pdb path not found on player {player_number}, trying MacOS path")
+        self.prodj.nfs.enqueue_download(player.ip_addr, slot, "/.PIONEER/rekordbox/export.pdb", filename, sync=True)
     except (RuntimeError, ReceiveTimeout) as e:
       raise dataprovider.FatalQueryError("PDBProvider: database download from player {} failed: {}".format(player_number, e))
     return filename
@@ -72,6 +72,8 @@ class PDBProvider:
     if dat is not None and ext is not None:
       db.load_dat_buffer(dat)
       db.load_ext_buffer(ext)
+    else:
+      logging.warning("PDBProvider: missing DAT or EXT data, returning empty UsbAnlzDatabase")
     return db
 
   def get_anlz(self, player_number, slot, track_id):

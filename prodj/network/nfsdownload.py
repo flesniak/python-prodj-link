@@ -1,8 +1,10 @@
 import asyncio
+import functools
 import logging
 import os
 import time
 from concurrent.futures import Future
+from enum import Enum
 
 class NfsDownloadType(Enum):
   buffer = 1,
@@ -17,8 +19,9 @@ class NfsDownload:
     self.dst_path = None
     self.fhandle = None # set by lookupCallback
     self.progress = -3
-    self.start = 0 # set by start
+    self.started_at = 0 # set by start
     self.future = Future()
+    self.default_download_directory = "./downloads/"
 
     self.max_in_flight = 5
     self.in_flight = 0
@@ -36,16 +39,17 @@ class NfsDownload:
     self.blocks = dict()
 
   async def start(self):
-    self.start = time.time()
-    lookup_result = await self.NfsLookupPath(self.host, self.mount_handle, self.src_path)
+    lookup_result = await self.nfsclient.NfsLookupPath(self.host, self.mount_handle, self.src_path)
     self.size = lookup_result.attrs.size
     self.fhandle = lookup_result.fhandle
+    self.started_at = time.time()
     self.sendReadRequests()
-    await asyncio.wrap_future(self.future)
+    return await asyncio.wrap_future(self.future)
 
   def setFilename(self, dst_path=""):
+    self.dst_path = dst_path
     # if dst_path is empty, use a default download path
-    if not dst_path:
+    if not self.dst_path:
       self.dst_path = self.default_download_directory + os.path.split(self.src_path)[1]
 
     if os.path.exists(self.dst_path):
@@ -64,32 +68,35 @@ class NfsDownload:
       remaining = self.size - self.read_offset
       chunk = min(self.download_chunk_size, remaining)
       self.in_flight += 1
-      task = asyncio.create_task(self.NfsReadData(self.host, self.fhandle, self.read_offset, chunk))
-      task.add_done_callback(lambda data: self.readCallback(self.read_offset, data))
+      task = asyncio.create_task(self.nfsclient.NfsReadData(self.host, self.fhandle, self.read_offset, chunk))
+      task.add_done_callback(functools.partial(self.readCallback, self.read_offset))
+      self.read_offset += chunk
 
-  def readCallback(self, offset, data):
+  def readCallback(self, offset, task):
     self.in_flight = max(0, self.in_flight-1)
+    # logging.debug(f"NfsDownload: readCallback @ {offset}/{self.size}")
     if self.write_offset <= offset:
-      self.blocks[offset] = data
+      reply = task.result()
+      self.blocks[offset] = reply.data
     else:
       logging.warning(f"Offset {offset} received twice, ignoring")
 
     self.writeBlocks()
 
-    self.updateProgress()
+    self.updateProgress(offset)
 
     if self.write_offset == self.size:
       self.finish()
     else:
       self.sendReadRequests()
 
-  def updateProgress(self):
-    new_progress = int(100*offset/size)
+  def updateProgress(self, offset):
+    new_progress = int(100*offset/self.size)
     if new_progress > self.progress+3:
       self.progress = new_progress
-      speed = self.offset/(time.time()-self.start)/1024/1024
+      speed = offset/(time.time()-self.started_at)/1024/1024
       logging.info("NfsClient: download progress %d%% (%d/%d Bytes, %.2f MiB/s)",
-        self.progress, self.offset, self.size, speed)
+        self.progress, offset, self.size, speed)
 
   def writeBlocks(self):
     while self.write_offset in self.blocks:
@@ -99,6 +106,8 @@ class NfsDownload:
       else:
         self.downloadToFileHandler(data)
       self.write_offset += len(data)
+    if len(self.blocks) > 0:
+      logging.debug(f"NfsDownload: {len(self.blocks)} blocks still in queue, first is {self.blocks.keys()[0]}")
 
   def downloadToFileHandler(self, data):
     self.download_file_handle.write(data)
@@ -107,6 +116,8 @@ class NfsDownload:
     self.download_buffer += data
 
   def finish(self):
+    if self.in_flight > 0:
+      logging.error(f"BUG: finishing download of {self.src_path} but packets are still in flight")
     if self.type == NfsDownloadType.buffer:
       self.future.set_result(self.download_buffer)
     else:
