@@ -8,7 +8,7 @@ from threading import Thread
 
 from .packets_nfs import getNfsCallStruct, getNfsResStruct, MountMntArgs, MountMntRes, MountVersion, NfsVersion, PortmapArgs, PortmapPort, PortmapVersion, PortmapRes, RpcMsg
 from .rpcreceiver import RpcReceiver
-from .nfsdownload import NfsDownload
+from .nfsdownload import NfsDownload, generic_file_download_done_callback
 
 class NfsClient:
   def __init__(self, prodj):
@@ -20,6 +20,7 @@ class NfsClient:
     self.rpc_sock = None
     self.xid = 1
     self.download_file_handle = None
+    self.default_download_directory = "./downloads/"
 
     self.export_by_slot = {
       "sd": "/B/",
@@ -162,7 +163,7 @@ class NfsClient:
   def enqueue_buffer_download(self, ip, slot, src_path):
     future = self.enqueue_download(ip, slot, src_path)
     try:
-      return future.result()
+      return future.result(timeout=30)
     except RuntimeError as e:
       logging.warning(f"NfsClient: returning empty buffer because: {e}")
       return None
@@ -176,10 +177,14 @@ class NfsClient:
     if c is None:
       logging.error(f"NfsClient: player {player_number} unknown")
       return
-    return self.enqueue_download(c.ip_addr, slot, mount_info["mount_path"])
+    src_path = mount_info["mount_path"]
+    dst_path = self.default_download_directory + os.path.split(src_path)[1]
+    future = self.enqueue_download(c.ip_addr, slot, src_path, dst_path)
+    future.add_done_callback(generic_file_download_done_callback)
+    return future
 
   async def handle_download(self, ip, slot, src_path, dst_path):
-    logging.debug(f"Nfsclient: Starting download of {src_path} from {ip}@{slot}")
+    logging.debug(f"Nfsclient: handling download of {ip}@{slot}:{src_path} to {dst_path}")
     if slot not in self.export_by_slot:
       raise RuntimeError(f"NfsClient: Unable to download from slot {slot}")
     export = self.export_by_slot[slot]

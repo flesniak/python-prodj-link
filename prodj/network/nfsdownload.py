@@ -21,7 +21,6 @@ class NfsDownload:
     self.progress = -3
     self.started_at = 0 # set by start
     self.future = Future()
-    self.default_download_directory = "./downloads/"
 
     self.max_in_flight = 5
     self.in_flight = 0
@@ -48,12 +47,9 @@ class NfsDownload:
 
   def setFilename(self, dst_path=""):
     self.dst_path = dst_path
-    # if dst_path is empty, use a default download path
-    if not self.dst_path:
-      self.dst_path = self.default_download_directory + os.path.split(self.src_path)[1]
 
     if os.path.exists(self.dst_path):
-      raise FileExistsError(f"NfsClient: file already exists: {self.dst_path}")
+      raise FileExistsError(f"file already exists: {self.dst_path}")
 
     # create download directory if nonexistent
     dirname = os.path.dirname(self.dst_path)
@@ -68,13 +64,14 @@ class NfsDownload:
       remaining = self.size - self.read_offset
       chunk = min(self.download_chunk_size, remaining)
       self.in_flight += 1
+      # logging.debug(f"NfsDownload: sending read request @ {self.read_offset} for {chunk} bytes [{self.in_flight} in flight]")
       task = asyncio.create_task(self.nfsclient.NfsReadData(self.host, self.fhandle, self.read_offset, chunk))
       task.add_done_callback(functools.partial(self.readCallback, self.read_offset))
       self.read_offset += chunk
 
   def readCallback(self, offset, task):
     self.in_flight = max(0, self.in_flight-1)
-    # logging.debug(f"NfsDownload: readCallback @ {offset}/{self.size}")
+    # logging.debug(f"NfsDownload: readCallback @ {offset}/{self.size} [{self.in_flight} in flight]")
     if self.write_offset <= offset:
       reply = task.result()
       self.blocks[offset] = reply.data
@@ -99,6 +96,7 @@ class NfsDownload:
         self.progress, offset, self.size, speed)
 
   def writeBlocks(self):
+    # logging.debug(f"NfsDownload: writing {len(self.blocks)} blocks @ {self.write_offset} [{self.in_flight} in flight]")
     while self.write_offset in self.blocks:
       data = self.blocks.pop(self.write_offset)
       if self.type == NfsDownloadType.buffer:
@@ -116,6 +114,7 @@ class NfsDownload:
     self.download_buffer += data
 
   def finish(self):
+    logging.debug(f"NfsDownload: finished downloading {self.src_path} to {self.dst_path}, {self.write_offset} bytes")
     if self.in_flight > 0:
       logging.error(f"BUG: finishing download of {self.src_path} but packets are still in flight")
     if self.type == NfsDownloadType.buffer:
@@ -123,3 +122,7 @@ class NfsDownload:
     else:
       self.download_file_handle.close()
       self.future.set_result(self.dst_path)
+
+def generic_file_download_done_callback(future):
+  if future.exception() is not None:
+    logging.error(f"NfsDownload: download failed: {future.exception()}")

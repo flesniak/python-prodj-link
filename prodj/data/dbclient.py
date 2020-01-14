@@ -493,8 +493,6 @@ class DBClient:
     if request in critical_requests and client.play_state in critical_play_states:
       raise dataprovider.TemporaryQueryError("DataProvider: delaying %s request due to play state: %s".format(request, client.play_state))
 
-#def query_list(self, player_number, slot, id_list, sort_mode, request_type):
-#def query_blob(self, player_number, slot, item_id, request_type, location=8):
   def handle_request(self, request, params):
     self.ensure_request_possible(request, params[0])
     logging.debug("DBClient: handling %s request params %s", request, str(params))
