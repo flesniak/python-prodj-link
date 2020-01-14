@@ -21,6 +21,7 @@ class NfsClient:
     self.xid = 1
     self.download_file_handle = None
     self.default_download_directory = "./downloads/"
+    self.download_chunk_size = None
 
     self.export_by_slot = {
       "sd": "/B/",
@@ -199,6 +200,8 @@ class NfsClient:
     download = NfsDownload(self, (ip, nfs_port), mount_handle, src_path)
     if dst_path is not None:
       download.setFilename(dst_path)
+    if self.download_chunk_size is not None:
+      download.download_chunk_size = self.download_chunk_size
 
     # TODO: NFS UMNT
     return await download.start()
