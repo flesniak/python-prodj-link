@@ -44,7 +44,7 @@ class WaveformWidget(QWidget):
 
   # FIXME state dependant pitch
   def setPosition(self, position, pitch=1, state="playing"):
-    logging.debug("Gui: setPosition {} pitch {}".format(position, pitch))
+    # logging.debug("setPosition {} pitch {}".format(position, pitch))
     if position is not None and pitch is not None:
       self.offset = int(self.waveform_px_per_s*position)
       self.pitch = pitch

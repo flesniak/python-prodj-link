@@ -21,20 +21,22 @@ class NfsClient:
     self.xid = 1
     self.download_file_handle = None
     self.default_download_directory = "./downloads/"
-    self.download_chunk_size = None
-
     self.export_by_slot = {
       "sd": "/B/",
       "usb": "/C/"
     }
 
+    self.setDownloadChunkSize(1280) # + 142 bytes total overhead is still safe below 1500
+
   def start(self):
     self.openSockets()
     self.loop_thread = Thread(target=self.loop.run_forever)
     self.loop_thread.start()
+    self.receiver.start(self.loop)
 
   def stop(self):
     logging.debug("NfsClient shutting down")
+    self.receiver.stop()
     self.loop.call_soon_threadsafe(self.loop.stop)
     self.closeSockets()
 
@@ -55,8 +57,12 @@ class NfsClient:
     self.xid += 1
     return self.xid
 
+  def setDownloadChunkSize(self, chunk_size):
+    self.download_chunk_size = chunk_size
+    self.receiver.recv_size = chunk_size + 160
+
   async def RpcCall(self, host, prog, vers, proc, data):
-    # logging.debug("NfsClient: RpcCall ip %s prog \"%s\" proc \"%s\"", host, prog, proc)
+    # logging.debug("RpcCall ip %s prog \"%s\" proc \"%s\"", host, prog, proc)
     rpccall = {
       "xid": self.getXid(),
       "type": "call",
@@ -121,21 +127,13 @@ class NfsClient:
     }
     return await self.NfsCall(host, "lookup", nfscall)
 
-  # async def _NfsLookupPath(self, ip, fhandle, items):
-  #   for item in items:
-  #     logging.debug("NfsClient: looking up \"%s\"", item)
-  #     nfsreply = await self.NfsLookup(ip, item, fhandle)
-  #     fhandle = nfsreply["fhandle"]
-  #   return nfsreply
-
   async def NfsLookupPath(self, ip, mount_handle, path):
     tree = filter(None, path.split("/"))
     for item in tree:
-      logging.debug("NfsClient: looking up \"%s\"", item)
+      logging.debug("looking up \"%s\"", item)
       nfsreply = await self.NfsLookup(ip, item, mount_handle)
       mount_handle = nfsreply["fhandle"]
     return nfsreply
-    # return asyncio.create_task(self._NfsLookupPath, ip, mount_handle, tree)
 
   async def NfsReadData(self, host, fhandle, offset, size):
     nfscall = {
@@ -151,7 +149,7 @@ class NfsClient:
   # in both cases, return a future representing the download result
   # if sync is true, wait for the result and return it directly (30 seconds timeout)
   def enqueue_download(self, ip, slot, src_path, dst_path=None, sync=False):
-    logging.debug(f"NfsClient: enqueueing download of {src_path} from {ip}")
+    logging.debug("enqueueing download of %s from %s", src_path, ip)
     # future = self.executer.submit(self.handle_download, ip, slot, src_path, dst_path)
     future = asyncio.run_coroutine_threadsafe(
       self.handle_download(ip, slot, src_path, dst_path), self.loop)
@@ -166,17 +164,17 @@ class NfsClient:
     try:
       return future.result(timeout=30)
     except RuntimeError as e:
-      logging.warning(f"NfsClient: returning empty buffer because: {e}")
+      logging.warning("returning empty buffer because: %s", e)
       return None
 
   # can be used as a callback for DataProvider.get_mount_info
   def enqueue_download_from_mount_info(self, request, player_number, slot, id_list, mount_info):
     if request != "mount_info" or "mount_path" not in mount_info:
-      logging.error("NfsClient: not enqueueing non-mount_info request")
+      logging.error("not enqueueing non-mount_info request")
       return
     c = self.prodj.cl.getClient(player_number)
     if c is None:
-      logging.error(f"NfsClient: player {player_number} unknown")
+      logging.error("player %d unknown", player_number)
       return
     src_path = mount_info["mount_path"]
     dst_path = self.default_download_directory + os.path.split(src_path)[1]
@@ -185,23 +183,22 @@ class NfsClient:
     return future
 
   async def handle_download(self, ip, slot, src_path, dst_path):
-    logging.debug(f"Nfsclient: handling download of {ip}@{slot}:{src_path} to {dst_path}")
+    logging.info("handling download of %s@%s:%s to %s",
+      ip, slot, src_path, dst_path)
     if slot not in self.export_by_slot:
-      raise RuntimeError(f"NfsClient: Unable to download from slot {slot}")
+      raise RuntimeError("Unable to download from slot %s", slot)
     export = self.export_by_slot[slot]
 
     mount_port = await self.PortmapGetPort(ip, "mount", MountVersion, "udp")
-    logging.debug(f"NfsClient: mount port of player {ip}: {mount_port}")
+    logging.debug("mount port of player %s: %d", ip, mount_port)
 
     nfs_port = await self.PortmapGetPort(ip, "nfs", NfsVersion, "udp")
-    logging.debug(f"NfsClient: nfs port of player {ip}: {nfs_port}")
+    logging.debug("nfs port of player %s: %d", ip, nfs_port)
 
     mount_handle = await self.MountMnt((ip, mount_port), export)
     download = NfsDownload(self, (ip, nfs_port), mount_handle, src_path)
     if dst_path is not None:
       download.setFilename(dst_path)
-    if self.download_chunk_size is not None:
-      download.download_chunk_size = self.download_chunk_size
 
     # TODO: NFS UMNT
     return await download.start()

@@ -137,7 +137,7 @@ class Browser(QWidget):
   def mediaMenu(self):
     c = self.prodj.cl.getClient(self.player_number)
     if c is None:
-      logging.warning("Browser: failed to get client for player %d", self.player_number)
+      logging.warning("failed to get client for player %d", self.player_number)
       return
     self.menu = "media"
     self.slot = None
@@ -221,7 +221,7 @@ class Browser(QWidget):
     self.prodj.data.get_playlist(self.player_number, self.slot, playlist_id, self.sort, self.storeRequest)
 
   def renderList(self, request, player_number, slot, reply):
-    logging.debug("Browser: rendering %s list from player %d", request, player_number)
+    logging.debug("rendering %s list from player %d", request, player_number)
     if player_number != self.player_number:
       return
     self.menu = request
@@ -296,7 +296,7 @@ class Browser(QWidget):
     elif  self.menu == "media":
       return # no parent menu for media
     else:
-      logging.debug("Browser: back button for %s not implemented yet", self.menu)
+      logging.debug("back button for %s not implemented yet", self.menu)
       return
     if self.path_stack:
       self.path_stack.pop()
@@ -304,7 +304,7 @@ class Browser(QWidget):
 
   def tableItemClicked(self, index):
     data = self.model.itemFromIndex(index).data()
-    logging.debug("Browser: clicked data %s", data)
+    logging.debug("clicked data %s", data)
     if data is None:
       return
     if data["type"] == "media":
@@ -327,7 +327,7 @@ class Browser(QWidget):
         self.updatePath("Playlists")
         self.folderPlaylistMenu()
       else:
-        logging.warning("Browser: root menu type %s not implemented yet", data["name"])
+        logging.warning("root menu type %s not implemented yet", data["name"])
     elif data["type"] == "album":
       self.updatePath(data["album"])
       self.titleAlbumMenu(data["album_id"])
@@ -359,12 +359,12 @@ class Browser(QWidget):
     elif data["type"] in ["title", "title_by_album", "title_by_artist_album", "title_by_genre_artist_album", "playlist"]:
       self.metadata(data["track_id"])
     else:
-      logging.warning("Browser: unhandled click type %s", data["type"])
+      logging.warning("unhandled click type %s", data["type"])
     self.updateButtons() # update buttons for convenience
 
   def sortChanged(self):
     self.sort = self.sort_box.currentData()
-    logging.debug("Browser: sort changed to %s", self.sort)
+    logging.debug("sort changed to %s", self.sort)
     if self.menu == "title":
       self.titleMenu()
     elif self.menu == "title_by_album":
@@ -376,12 +376,12 @@ class Browser(QWidget):
     elif self.menu == "playlist":
       self.titlePlaylistMenu(self.playlist_id)
     else:
-      logging.debug("Browser: unsortable menu type %s", self.menu)
+      logging.debug("unsortable menu type %s", self.menu)
 
   def loadIntoPlayer(self, player_number):
     if self.slot is None or self.track_id is None:
       return
-    logging.debug("Browser: loading track (pn %d slot %s tid %d) into player %d",
+    logging.debug("loading track (pn %d slot %s tid %d) into player %d",
       self.player_number, self.slot, self.track_id, player_number)
     self.prodj.vcdj.command_load_track(player_number, self.player_number, self.slot, self.track_id)
 
@@ -398,14 +398,14 @@ class Browser(QWidget):
   # storeRequest is called from outside (non-qt gui)
   def storeRequest(self, request, *args):
     if self.request is not None:
-      logging.debug("Browser: not storing request %s, other request pending", request)
-    #logging.debug("Browser: storing request %s", request)
+      logging.debug("not storing request %s, other request pending", request)
+    #logging.debug("storing request %s", request)
     self.request = (request, *args)
     self.handleRequestSignal.emit()
 
   # handleRequest is called by handleRequestSignal, from inside the gui thread
   def handleRequest(self):
-    #logging.debug("Browser: handle request %s", str(self.request))
+    #logging.debug("handle request %s", str(self.request))
     if self.request is None or self.request[-1] is None:
       return
     if self.request[0] == "root_menu":
@@ -415,12 +415,12 @@ class Browser(QWidget):
     elif self.request[0] == "metadata":
       self.renderMetadata(*self.request)
     else:
-      logging.warning("Browser: %s request not implemented", self.request[0])
+      logging.warning("%s request not implemented", self.request[0])
     self.request = None
 
   def refreshMedia(self, slot):
     if self.slot == slot or self.menu == "media":
-      logging.info("Browser: slot %s changed, going back to media overview", slot)
+      logging.info("slot %s changed, going back to media overview", slot)
       self.mediaMenu()
     else:
-      logging.debug("Browser: ignoring %s change", slot)
+      logging.debug("ignoring %s change", slot)

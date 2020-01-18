@@ -269,10 +269,10 @@ class PlayerWidget(QFrame):
     self.browse_dialog.show()
 
   def downloadTrack(self):
-    logging.info("Gui: Player %d track download requested", self.player_number)
+    logging.info("Player %d track download requested", self.player_number)
     c = self.parent().prodj.cl.getClient(self.player_number)
     if c is None:
-      logging.error("Gui: Download failed, player %d unknown", self.player_number)
+      logging.error("Download failed, player %d unknown", self.player_number)
       return
     self.parent().prodj.data.get_mount_info(c.loaded_player_number, c.loaded_slot,
       c.track_id, self.parent().prodj.nfs.enqueue_download_from_mount_info)
@@ -356,11 +356,11 @@ class Gui(QWidget):
     if player_number not in range(0,5):
       return None
     if len(self.players) == 1 and 0 in self.players:
-      logging.debug("Gui: reassigning default player 0 to player %d", player_number)
+      logging.debug("reassigning default player 0 to player %d", player_number)
       self.players[0].setPlayerNumber(player_number)
       self.players = {player_number: self.players[0]}
     else:
-      logging.info("Gui: Creating player {}".format(player_number))
+      logging.info("Creating player {}".format(player_number))
       self.players[player_number] = PlayerWidget(player_number, self)
     self.connect_linked_player_controls(player_number)
     self.players[player_number].show()
@@ -381,7 +381,7 @@ class Gui(QWidget):
       player.deleteLater()
       del self.players[player_number]
     self.update_player_layout()
-    logging.info("Gui: Removed player {}".format(player_number))
+    logging.info("Removed player {}".format(player_number))
 
   # has to be called using a signal, otherwise windows are created standalone
   def keepalive_callback(self, player_number):
@@ -429,7 +429,7 @@ class Gui(QWidget):
       player.track_id = c.track_id # remember requested track id
       if c.track_id != 0:
         if c.loaded_slot in ["sd", "usb"] and c.track_analyze_type == "rekordbox":
-          logging.info("Gui: track id of player %d changed to %d, requesting metadata", player_number, c.track_id)
+          logging.info("track id of player %d changed to %d, requesting metadata", player_number, c.track_id)
           self.prodj.data.get_metadata(c.loaded_player_number, c.loaded_slot, c.track_id, self.dbclient_callback)
           if self.show_color_preview:
             self.prodj.data.get_color_preview_waveform(c.loaded_player_number, c.loaded_slot, c.track_id, self.dbclient_callback)
@@ -442,19 +442,19 @@ class Gui(QWidget):
           self.prodj.data.get_beatgrid(c.loaded_player_number, c.loaded_slot, c.track_id, self.dbclient_callback)
           # we do not get artwork yet because we need metadata to know the artwork_id
         elif c.track_analyze_type == "file":
-          logging.info("Gui: player %d loaded bare file %d, requesting info", player_number, c.track_id)
+          logging.info("player %d loaded bare file %d, requesting info", player_number, c.track_id)
           self.prodj.data.get_track_info(c.loaded_player_number, c.loaded_slot, c.track_id, self.dbclient_callback)
         elif c.track_analyze_type == "cd":
-          logging.info("Gui: player %d loaded cd track %d", player_number, c.track_id)
+          logging.info("player %d loaded cd track %d", player_number, c.track_id)
           player.setMetadata(f"Track {c.track_id}", "CD", "")
           player.setArtwork(None) # no artwork for unanalyzed tracks
           player.waveform.clear()
           player.preview_waveform.clear()
         else:
-          logging.warning("Gui: unable to handle track %d in player %d, no known metadata method", c.track_id, player_number)
+          logging.warning("unable to handle track %d in player %d, no known metadata method", c.track_id, player_number)
           player.unload()
       else:
-        logging.info("Gui: track id of player %d changed to %d, unloading", player_number, c.track_id)
+        logging.info("track id of player %d changed to %d, unloading", player_number, c.track_id)
         player.unload()
 
   def dbclient_callback(self, request, source_player_number, slot, item_id, reply):
@@ -467,10 +467,10 @@ class Gui(QWidget):
       if not player_number in self.players or reply is None:
         continue
       player = self.players[player_number]
-      logging.debug("Gui: dbclient_callback %s source player %d to widget player %d", request, source_player_number, player_number)
+      logging.debug("dbclient_callback %s source player %d to widget player %d", request, source_player_number, player_number)
       if request == "metadata":
         if len(reply) == 0:
-          logging.warning("Gui: empty metadata received")
+          logging.warning("empty metadata received")
           continue
         player.setMetadata(reply["title"], reply["artist"], reply["album"])
         if "artwork_id" in reply and reply["artwork_id"] != 0:
@@ -495,11 +495,11 @@ class Gui(QWidget):
         player.waveform.clear()
         player.preview_waveform.clear()
       else:
-        logging.warning("Gui: unhandled dbserver callback %s", request)
+        logging.warning("unhandled dbserver callback %s", request)
 
   def media_callback(self, cl, player_number, slot):
     if not player_number in self.players:
       return
     if self.players[player_number].browse_dialog is not None:
-      logging.debug("Gui: refresh media signal to player %d slot %s", player_number, slot)
+      logging.debug("refresh media signal to player %d slot %s", player_number, slot)
       self.players[player_number].browse_dialog.refreshMediaSignal.emit(slot)

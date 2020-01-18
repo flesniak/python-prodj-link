@@ -101,7 +101,7 @@ def sockrcv(sock, length, timeout=1):
   if rdy[0]:
     return sock.recv(length)
   else:
-    logging.warning("DBClient: socket receive timeout")
+    logging.warning("socket receive timeout")
     return b""
 
 class DBClient:
@@ -129,8 +129,8 @@ class DBClient:
     entry_type = payload[6]["value"]
     entry_id3 = payload[8]["value"]
     if entry_type not in metadata_type:
-      logging.warning("DBClient: metadata type %d unknown", entry_type)
-      logging.debug("DBClient: packet contents: %s", str(payload))
+      logging.warning("metadata type %d unknown", entry_type)
+      logging.debug("packet contents: %s", str(payload))
       return None
     entry_label = metadata_type[entry_type]
 
@@ -156,7 +156,7 @@ class DBClient:
     elif entry_label in ["date_added", "comment", "mount_path", "all"]:
       entry[entry_label] = entry_string1
     elif entry_label == "unknown1":
-      logging.debug("DBClient: parse_metadata unknown1 id1 %d id2 %d", entry_id1, entry_id2)
+      logging.debug("parse_metadata unknown1 id1 %d id2 %d", entry_id1, entry_id2)
       entry["unknown1"] = entry_id2 # entry_id1 seems to be 0 everytime here
     elif entry_label[:5] == "root_":
       entry["name"] = entry_string1
@@ -170,7 +170,7 @@ class DBClient:
       entry["artist_id"] = entry_id1
       entry_type2 = next((k for k,v in metadata_type.items() if v==entry_label2), None)
       if entry_type2 is None:
-        logging.warning("DBClient: second column %s of %s not parseable", entry_label2, entry_type)
+        logging.warning("second column %s of %s not parseable", entry_label2, entry_type)
       else:
         entry2 = self.parse_metadata_payload([
           {"value": entry_id1}, {"value": entry_id1}, None, # duplicate entry1, as entry2 unused and swapped
@@ -180,10 +180,10 @@ class DBClient:
         if entry2 is not None:
           entry = {**entry, **entry2}
     else:
-      logging.warning("DBClient: unhandled metadata type %s", entry_label)
+      logging.warning("unhandled metadata type %s", entry_label)
       return None
 
-    #logging.debug("DBClient: parse_metadata %s", str(entry))
+    #logging.debug("parse_metadata %s", str(entry))
     return entry
 
   def parse_list(self, data):
@@ -191,13 +191,13 @@ class DBClient:
     for packet in data:
       # check packet types
       if packet["type"] == "menu_header":
-        logging.debug("DBClient: parse_list menu_header")
+        logging.debug("parse_list menu_header")
         continue
       if packet["type"] == "menu_footer":
-        logging.debug("DBClient: parse_list menu_footer")
+        logging.debug("parse_list menu_footer")
         break
       if packet["type"] != "menu_item":
-        logging.warning("DBClient: parse_list item not menu_item: {}".format(packet))
+        logging.warning("parse_list item not menu_item: {}".format(packet))
         continue
 
       # extract metadata from packet
@@ -207,7 +207,7 @@ class DBClient:
       entries += [entry]
 
     if data[-1]["type"] != "menu_footer":
-      logging.warning("DBClient: list entries not ending with menu_footer")
+      logging.warning("list entries not ending with menu_footer")
     return entries
 
   def parse_metadata(self, data):
@@ -215,13 +215,13 @@ class DBClient:
     for packet in data:
       # check packet types
       if packet["type"] == "menu_header":
-        logging.debug("DBClient: parse_metadata menu_header")
+        logging.debug("parse_metadata menu_header")
         continue
       if packet["type"] == "menu_footer":
-        logging.debug("DBClient: parse_metadata menu_footer")
+        logging.debug("parse_metadata menu_footer")
         break
       if packet["type"] != "menu_item":
-        logging.warning("DBClient: parse_metadata item not menu_item: {}".format(packet))
+        logging.warning("parse_metadata item not menu_item: {}".format(packet))
         continue
 
       # extract metadata from packet
@@ -231,7 +231,7 @@ class DBClient:
       md = {**md, **entry}
 
     if data[-1]["type"] != "menu_footer":
-      logging.warning("DBClient: metadata packet not ending with menu_footer, buffer too small?")
+      logging.warning("metadata packet not ending with menu_footer, buffer too small?")
     return md
 
   def receive_dbmessage(self, sock):
@@ -247,7 +247,7 @@ class DBClient:
       try:
         return packets.DBMessage.parse(data)
       except (StreamError, RangeError, TypeError) as e:
-        logging.debug("DBClient: Received %d bytes but parsing failed, trying to receive more", len(data))
+        logging.debug("Received %d bytes but parsing failed, trying to receive more", len(data))
         parse_errors += 1
     raise dataprovider.TemporaryQueryError("Failed to receive dbmessage after {} tries and {} timeouts".format(parse_errors, receive_timeouts))
 
@@ -258,7 +258,7 @@ class DBClient:
       sort_id = 0 # 0 for root_menu, playlist folders
     else:
       if sort_mode not in sort_types:
-        logging.warning("DBClient: unknown sort mode %s", sort_mode)
+        logging.warning("unknown sort mode %s", sort_mode)
         return None
       sort_id = sort_types[sort_mode]
     query = {
@@ -285,22 +285,22 @@ class DBClient:
           item_id = 0xffffffff
         query["args"].append({"type": "int32", "value": item_id})
     data = packets.DBMessage.build(query)
-    logging.debug("DBClient: query_list request: {}".format(query))
+    logging.debug("query_list request: {}".format(query))
     self.socksnd(sock, data)
 
     try:
       reply = self.receive_dbmessage(sock)
     except (RangeError, MappingError, KeyError) as e:
-      logging.error("DBClient: parsing %s query failed on player %d failed: %s", query["type"], player_number, str(e))
+      logging.error("parsing %s query failed on player %d failed: %s", query["type"], player_number, str(e))
       return None
     if reply is None or reply["type"] != "success":
-      logging.error("DBClient: %s failed on player %d (got %s)", query["type"], player_number, "NONE" if reply is None else reply["type"])
+      logging.error("%s failed on player %d (got %s)", query["type"], player_number, "NONE" if reply is None else reply["type"])
       return None
     entry_count = reply["args"][1]["value"]
     if entry_count == 0 or entry_count == 0xffffffff:
-      logging.warning("DBClient: %s empty (request returned %d entries)", request_type, entry_count)
+      logging.warning("%s empty (request returned %d entries)", request_type, entry_count)
       return None
-    logging.debug("DBClient: query_list %s: %d entries available", request_type, entry_count)
+    logging.debug("query_list %s: %d entries available", request_type, entry_count)
 
     # i could successfully receive hundreds of entries at once on xdj 1000
     # thus i do not fragment render requests here
@@ -317,7 +317,7 @@ class DBClient:
       ]
     }
     data = packets.DBMessage.build(query)
-    logging.debug("DBClient: render query {}".format(query))
+    logging.debug("render query {}".format(query))
     self.socksnd(sock, data)
     parse_errors = 0
     receive_timeouts = 0
@@ -331,16 +331,16 @@ class DBClient:
       try:
         reply = packets.ManyDBMessages.parse(data)
       except (RangeError, MappingError, KeyError, TypeError) as e:
-        logging.debug("DBClient: failed to parse %s render reply (%d bytes), trying to receive more", request_type, len(data))
+        logging.debug("failed to parse %s render reply (%d bytes), trying to receive more", request_type, len(data))
         parse_errors += 1
       else:
         if reply[-1]["type"] != "menu_footer":
-          logging.debug("DBClient: %s rendering without menu_footer @ %d bytes, trying to receive more", request_type, len(data))
+          logging.debug("%s rendering without menu_footer @ %d bytes, trying to receive more", request_type, len(data))
           parse_errors += 1
         else:
           break
     if parse_errors >= self.parse_error_count or receive_timeouts >= self.receive_timeout_count:
-      raise dataprovider.FatalQueryError("DBClient: Failed to receive {} render reply after {} timeouts, {} parse errors".format(request_type, receive_timeouts, parse_errors))
+      raise dataprovider.FatalQueryError("Failed to receive {} render reply after {} timeouts, {} parse errors".format(request_type, receive_timeouts, parse_errors))
 
     # basically, parse_metadata returns a single dict whereas parse_list returns a list of dicts
     if request_type in ["metadata_request", "mount_info_request", "track_info_request"]:
@@ -374,21 +374,21 @@ class DBClient:
       query["type"] = "nxs2_ext_request"
       query["args"].append({"type": "int32", "value": packets.Nxs2RequestIds["4VWP"]})
       query["args"].append({"type": "int32", "value": packets.Nxs2RequestIds["TXE"]})
-    logging.debug("DBClient: {} query {}".format(request_type, query))
+    logging.debug("{} query {}".format(request_type, query))
     data = packets.DBMessage.build(query)
     self.socksnd(sock, data)
     try:
       reply = self.receive_dbmessage(sock)
     except (RangeError, MappingError, KeyError, TypeError) as e:
-      logging.error("DBClient: %s query parse error: %s", request_type, str(e))
+      logging.error("%s query parse error: %s", request_type, str(e))
       return None
     if reply is None:
       return None
     if reply["type"] == "invalid_request" or len(reply["args"])<3 or reply["args"][2]["value"] == 0:
-      logging.error("DBClient: %s blob query failed on player %d (got %s)", query["type"], player_number, reply["type"])
+      logging.error("%s blob query failed on player %d (got %s)", query["type"], player_number, reply["type"])
       return None
     blob = reply["args"][3]["value"]
-    logging.debug("DBClient: got %d bytes of blob data", len(blob))
+    logging.debug("got %d bytes of blob data", len(blob))
     return blob
 
   def get_server_port(self, player_number):
@@ -412,9 +412,9 @@ class DBClient:
     data = sockrcv(sock, 16)
     try:
       reply = init_packet.parse(data)
-      logging.debug("DBClient: initial packet reply %d", reply)
+      logging.debug("initial packet reply %d", reply)
     except:
-      logging.warning("DBClient: failed to parse initial packet reply, ignoring")
+      logging.warning("failed to parse initial packet reply, ignoring")
 
   def send_setup_packet(self, sock, player_number):
     query = {
@@ -427,7 +427,7 @@ class DBClient:
     if len(data) == 0:
       raise dataprovider.TemporaryQueryError("Failed to connect to player {}".format(player_number))
     reply = packets.DBMessage.parse(data)
-    logging.info("DBClient: connected to player {}".format(reply["args"][1]["value"]))
+    logging.info("connected to player {}".format(reply["args"][1]["value"]))
 
   def getTransactionId(self, player_number):
     sock_info = self.socks[player_number]
@@ -487,7 +487,7 @@ class DBClient:
   def ensure_request_possible(self, request, player_number):
     client = self.prodj.cl.getClient(player_number)
     if client is None:
-      raise dataprovider.TemporaryQueryError("DBClient: player {} not found in clientlist".format(player_number))
+      raise dataprovider.TemporaryQueryError("player {} not found in clientlist".format(player_number))
     critical_requests = ["metadata_request", "artwork_request", "preview_waveform_request", "beatgrid_request", "waveform_request"]
     critical_play_states = ["no_track", "loading_track", "cannot_play_track", "emergency"]
     if request in critical_requests and client.play_state in critical_play_states:
@@ -495,7 +495,7 @@ class DBClient:
 
   def handle_request(self, request, params):
     self.ensure_request_possible(request, params[0])
-    logging.debug("DBClient: handling %s request params %s", request, str(params))
+    logging.debug("handling %s request params %s", request, str(params))
     if request == "metadata":
       return self.query_list(*params[:2], None, [params[2]], "metadata_request")
     elif request == "root_menu":
@@ -544,10 +544,10 @@ class DBClient:
       try: # pre-parse beatgrid data (like metadata) for easier access
         return packets.Beatgrid.parse(reply)["beats"]
       except (RangeError, FieldError) as e:
-        raise dataprovider.FatalQueryError("DBClient: failed to parse beatgrid data: {}".format(e))
+        raise dataprovider.FatalQueryError("failed to parse beatgrid data: {}".format(e))
     elif request == "mount_info":
       return self.query_list(*params[:2], None, [params[2]], "mount_info_request")
     elif request == "track_info":
       return self.query_list(*params[:2], None, [params[2]], "track_info_request")
     else:
-      raise dataprovider.FatalQueryError("DBClient: invalid request type {}".format(request))
+      raise dataprovider.FatalQueryError("invalid request type {}".format(request))

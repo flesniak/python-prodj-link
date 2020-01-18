@@ -4,7 +4,7 @@ import curses
 import logging
 
 from prodj.core.prodj import ProDj
-from prodj.gui.logcurse import CursesHandler
+from prodj.curses.loghandler import CursesHandler
 
 #default_loglevel=logging.DEBUG
 default_loglevel=logging.INFO

@@ -136,14 +136,14 @@ class DataProvider(Thread):
   def _enqueue_request(self, request, store, params, callback):
     player_number = params[0]
     if player_number == 0 or player_number > 4:
-      logging.warning("DataProvider: invalid %s request parameters", request)
+      logging.warning("invalid %s request parameters", request)
       return
-    logging.debug("DataProvider: enqueueing %s request with params %s", request, str(params))
+    logging.debug("enqueueing %s request with params %s", request, str(params))
     self.queue.put((request, store, params, callback, self.request_retry_count))
 
   def _handle_request_from_store(self, store, params):
     if len(params) != 3:
-      logging.error("DataProvider: unable to handle request from store with != 3 arguments")
+      logging.error("unable to handle request from store with != 3 arguments")
       return None
     if params in store:
       return store[params]
@@ -156,24 +156,24 @@ class DataProvider(Thread):
     return self.dbc.handle_request(request, params)
 
   def _handle_request(self, request, store, params, callback):
-    #logging.debug("DataProvider: handling %s request params %s", request, str(params))
+    #logging.debug("handling %s request params %s", request, str(params))
     reply = None
     answered_by_store = False
     if store is not None:
-      logging.debug("DataProvider: trying request %s %s from store", request, str(params))
+      logging.debug("trying request %s %s from store", request, str(params))
       reply = self._handle_request_from_store(store, params)
       if reply is not None:
         answered_by_store = True
     if self.pdb_enabled and reply is None:
       try:
-        logging.debug("DataProvider: trying request %s %s from pdb", request, str(params))
+        logging.debug("trying request %s %s from pdb", request, str(params))
         reply = self._handle_request_from_pdb(request, params)
       except FatalQueryError as e: # on a fatal error, continue with dbc
-        logging.warning("DataProvider: pdb failed [%s]", str(e))
+        logging.warning("pdb failed [%s]", str(e))
         if not self.dbc_enabled:
           raise
     if self.dbc_enabled and reply is None:
-      logging.debug("DataProvider: trying request %s %s from dbc", request, str(params))
+      logging.debug("trying request %s %s from dbc", request, str(params))
       reply = self._handle_request_from_dbclient(request, params)
 
     if reply is None:
@@ -193,11 +193,11 @@ class DataProvider(Thread):
   def _retry_request(self, request):
     self.queue.task_done()
     if request[-1] > 0:
-      logging.info("DataProvider: retrying %s request", request[0])
+      logging.info("retrying %s request", request[0])
       self.queue.put((*request[:-1], request[-1]-1))
       time.sleep(1) # yes, this is dirty, but effective to work around timing problems on failed request
     else:
-      logging.info("DataProvider: %s request failed %d times, giving up", request[0], self.request_retry_count)
+      logging.info("%s request failed %d times, giving up", request[0], self.request_retry_count)
 
   def gc(self):
     self.dbc.gc()
@@ -214,9 +214,9 @@ class DataProvider(Thread):
         self._handle_request(*request[:-1])
         self.queue.task_done()
       except TemporaryQueryError as e:
-        logging.error("DataProvider: %s request failed: %s", request[0], e)
+        logging.error("%s request failed: %s", request[0], e)
         self._retry_request(request)
       except FatalQueryError as e:
-        logging.error("DataProvider: %s request failed: %s", request[0], e)
+        logging.error("%s request failed: %s", request[0], e)
         self.queue.task_done()
     logging.debug("DataProvider shutting down")

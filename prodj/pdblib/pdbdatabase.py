@@ -71,23 +71,23 @@ class PDBDatabase(dict):
 
   def collect_entries(self, page_type, target):
     for page in filter(lambda x: x.page_type == page_type, self.parsed.pages):
-      #logging.debug("PDBDatabase: parsing page %s %d", page.page_type, page.index)
+      #logging.debug("parsing page %s %d", page.page_type, page.index)
       for entry_block in page.entry_list:
         for entry,enabled in zip(reversed(entry_block["entries"]), reversed(entry_block["entry_enabled"])):
           if not enabled:
             continue
           self[target] += [entry]
-    logging.debug("PDBDatabase: done collecting {}".format(target))
+    logging.debug("done collecting {}".format(target))
 
   def load_file(self, filename):
-    logging.info("PDBDatabase: Loading database \"%s\"", filename)
+    logging.info("Loading database \"%s\"", filename)
     stat = os.stat(filename)
     fh = PDBFile
     with open(filename, "rb") as f:
       self.parsed = fh.parse_stream(f);
 
     if stat.st_size != self.parsed["file_size"]:
-      raise RuntimeError("PDBDatabase: failed to parse the complete file ({}/{} bytes parsed)".format(self.parsed["file_size"], stat.st_size))
+      raise RuntimeError("failed to parse the complete file ({}/{} bytes parsed)".format(self.parsed["file_size"], stat.st_size))
 
     self.collect_entries("block_tracks", "tracks")
     self.collect_entries("block_artists", "artists")
@@ -100,4 +100,4 @@ class PDBDatabase(dict):
     self.collect_entries("block_keys", "key_names")
     self.collect_entries("block_labels", "labels")
 
-    logging.info("PDBDatabase: Loaded %d pages, %d tracks, %d playlists", len(self.parsed.pages), len(self["tracks"]), len(self["playlists"]))
+    logging.info("Loaded %d pages, %d tracks, %d playlists", len(self.parsed.pages), len(self["tracks"]), len(self["playlists"]))

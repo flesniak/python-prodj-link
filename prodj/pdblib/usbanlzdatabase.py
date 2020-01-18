@@ -40,7 +40,7 @@ class UsbAnlzDatabase(dict):
   def collect_entries(self, tag, target):
     obj = next((t for t in self.parsed.tags if t.type == tag), None)
     if obj is None:
-      logging.warning("UsbAnlzDatabase: tag %s not found in file", tag)
+      logging.warning("tag %s not found in file", tag)
       return
     self[target] = obj.content.entries
 
@@ -52,14 +52,14 @@ class UsbAnlzDatabase(dict):
     self.parsed = AnlzFile.parse(data);
 
   def _parse_dat(self):
-    logging.debug("UsbAnlzDatabase: Loaded %d tags", len(self.parsed.tags))
+    logging.debug("Loaded %d tags", len(self.parsed.tags))
     self.collect_entries("PWAV", "preview_waveform")
     self.collect_entries("PCOB", "cue_points")
     self.collect_entries("PQTZ", "beatgrid")
     self.parsed = None
 
   def _parse_ext(self):
-    logging.debug("UsbAnlzDatabase: Loaded %d tags", len(self.parsed.tags))
+    logging.debug("Loaded %d tags", len(self.parsed.tags))
     self.collect_entries("PWV3", "waveform")
     self.collect_entries("PWV4", "color_preview_waveform")
     self.collect_entries("PWV5", "color_waveform")
@@ -68,21 +68,21 @@ class UsbAnlzDatabase(dict):
     self.parsed = None
 
   def load_dat_buffer(self, data):
-    logging.debug("UsbAnlzDatabase: Loading DAT from buffer")
+    logging.debug("Loading DAT from buffer")
     self._load_buffer(data)
     self._parse_dat()
 
   def load_dat_file(self, filename):
-    logging.debug("UsbAnlzDatabase: Loading DAT file \"%s\"", filename)
+    logging.debug("Loading DAT file \"%s\"", filename)
     self._load_file(filename)
     self._parse_dat()
 
   def load_ext_buffer(self, data):
-    logging.debug("UsbAnlzDatabase: Loading EXT from buffer")
+    logging.debug("Loading EXT from buffer")
     self._load_buffer(data)
     self._parse_ext()
 
   def load_ext_file(self, filename):
-    logging.debug("UsbAnlzDatabase: Loading EXT file \"%s\"", filename)
+    logging.debug("Loading EXT file \"%s\"", filename)
     self._load_file(filename)
     self._parse_ext()

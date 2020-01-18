@@ -30,7 +30,8 @@ c = MidiClock()
 
 if args.list_ports:
   for id, name, ports in c.iter_alsa_seq_clients():
-    logging.info(f"MIDI device {id}: {name}, ports: {', '.join([str(x) for x in ports])}")
+    logging.info("MIDI device %d: %s, ports: %s",
+      id, name, ', '.join([str(x) for x in ports]))
   sys.exit(0)
 
 c.open(args.device, args.port)

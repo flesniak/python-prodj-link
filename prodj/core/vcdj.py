@@ -75,7 +75,7 @@ class Vcdj(Thread):
       }
     }
     data = packets.StatusPacket.build(cmd)
-    logging.debug("query link info to %s struct %s", cl.ip_addr, str(cmd))
+    logging.debug("sending link info query to %s", cl.ip_addr)
     self.prodj.status_sock.sendto(data, (cl.ip_addr, self.prodj.status_port))
 
   def command_load_track(self, player_number, load_player_number, load_slot, load_track_id):

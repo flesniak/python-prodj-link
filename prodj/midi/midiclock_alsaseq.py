@@ -48,22 +48,16 @@ class MidiClock(Thread):
     except FileNotFoundError:
       pass
 
-  # def list_clients(self):
-  #   names = []
-  #   for id, name, ports in iter_alsa_seq_clients():
-  #     names += [name]
-  #   return names
-
   def open(self, preferred_name=None, preferred_port=0):
     clients_found = False
     for id, name, ports in self.iter_alsa_seq_clients():
       clients_found = True
-      logging.debug(f"midi device {id}: {name} [{','.join([str(x) for x in ports])}]")
+      logging.debug("midi device %d: %s [%s]", id, name, ','.join([str(x) for x in ports]))
       if (preferred_name is None and name != "Midi Through") or name == preferred_name:
         self.client_id = id
         if preferred_port not in ports:
           preferred_port = ports[0]
-          logging.warning(f"Preferred port not found, using {preferred_port}")
+          logging.warning("Preferred port not found, using %d", preferred_port)
         self.client_port = preferred_port
         break
     if self.client_id is None:
@@ -71,7 +65,7 @@ class MidiClock(Thread):
         raise RuntimeError(f"Requested device {preferred_name} not found")
       else:
         raise RuntimeError("No sequencers found")
-    logging.info("Using device {} at {}:{}".format(name, self.client_id, self.client_port))
+    logging.info("Using device %s at %d:%d", name, self.client_id, self.client_port)
     alsaseq.connectto(0, self.client_id, self.client_port)
 
   def advance_time(self):
@@ -117,7 +111,7 @@ class MidiClock(Thread):
     self.delay = 60/bpm/24
     self.add_s = math.floor(self.delay)
     self.add_ns = math.floor(1e9*(self.delay-self.add_s))
-    logging.info("Midi BPM {} delay {:.9f}s".format(bpm, self.delay))
+    logging.info("Midi BPM %d delay %.9fs", bpm, self.delay)
 
 if __name__ == "__main__":
   logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')

@@ -27,7 +27,6 @@ class NfsDownload:
 
     self.max_in_flight = 4 # values > 4 did not increase read speed in my tests
     self.in_flight = 0
-    self.download_chunk_size = 1280 # + 142 bytes total overhead is still safe below 1500
     self.single_request_timeout = 2 # retry read after n seconds
     self.max_read_retries = 5
     self.read_retries = 0
@@ -67,9 +66,9 @@ class NfsDownload:
 
   def sendReadRequest(self, offset):
     remaining = self.size - offset
-    chunk = min(self.download_chunk_size, remaining)
+    chunk = min(self.nfsclient.download_chunk_size, remaining)
     self.in_flight += 1
-    # logging.debug(f"NfsDownload: sending read request @ {offset} for {chunk} bytes [{self.in_flight} in flight]")
+    # logging.debug("sending read request @ %d for %d bytes [%d in flight]", offset, chunk, self.in_flight)
     task = asyncio.create_task(self.nfsclient.NfsReadData(self.host, self.fhandle, offset, chunk))
     task.add_done_callback(functools.partial(self.readCallback, offset))
     return chunk
@@ -77,10 +76,10 @@ class NfsDownload:
   def sendReadRequests(self):
     if self.last_write_at is not None and self.last_write_at + self.single_request_timeout < time.time():
       if self.read_retries > self.max_read_retries:
-        self.fail_download(f"NfsDownload: read requests timed out {self.max_read_retries} times, aborting download")
+        self.fail_download("read requests timed out %d times, aborting download", self.max_read_retries)
         return
       else:
-        logging.warning(f"NfsDownload: read at offset {self.write_offset} timed out, retrying request")
+        logging.warning("read at offset %d timed out, retrying request", self.write_offset)
         self.sendReadRequest(self.write_offset)
         self.read_retries += 1
 
@@ -89,7 +88,7 @@ class NfsDownload:
 
   def readCallback(self, offset, task):
     self.in_flight = max(0, self.in_flight-1)
-    # logging.debug(f"NfsDownload: readCallback @ {offset}/{self.size} [{self.in_flight} in flight]")
+    logging.debug("readCallback @ %d/%d [%d in flight]", offset, self.size, self.in_flight)
     if self.write_offset <= offset:
       try:
         reply = task.result()
@@ -98,7 +97,7 @@ class NfsDownload:
         return
       self.blocks[offset] = reply.data
     else:
-      logging.warning(f"NfsDownload: Offset {offset} received twice, ignoring")
+      logging.warning("Offset %d received twice, ignoring", offset)
 
     self.writeBlocks()
 
@@ -114,11 +113,12 @@ class NfsDownload:
     if new_progress > self.progress+3 or new_progress == 100:
       self.progress = new_progress
       self.speed = offset/(time.time()-self.started_at)/1024/1024
-      logging.info("NfsClient: download progress %d%% (%d/%d Bytes, %.2f MiB/s)",
+      logging.info("download progress %d%% (%d/%d Bytes, %.2f MiB/s)",
         self.progress, offset, self.size, self.speed)
 
   def writeBlocks(self):
-    # logging.debug(f"NfsDownload: writing {len(self.blocks)} blocks @ {self.write_offset} [{self.in_flight} in flight]")
+    # logging.debug("writing %d blocks @ %d [%d in flight]",
+    #   len(self.blocks), self.write_offset, self.in_flight)
     while self.write_offset in self.blocks:
       data = self.blocks.pop(self.write_offset)
       if self.type == NfsDownloadType.buffer:
@@ -126,11 +126,12 @@ class NfsDownload:
       elif self.type == NfsDownloadType.file:
         self.downloadToFileHandler(data)
       else:
-        logging.debug(f"NfsDownload: dropping write @ {self.write_offset}")
+        logging.debug("dropping write @ %d", self.write_offset)
       self.write_offset += len(data)
       self.last_write_at = time.time()
     if len(self.blocks) > 0:
-      logging.debug(f"NfsDownload: {len(self.blocks)} blocks still in queue, first is {self.blocks.keys()[0]}")
+      logging.debug("%d blocks still in queue, first is %d",
+        len(self.blocks), self.blocks.keys()[0])
 
   def downloadToFileHandler(self, data):
     self.download_file_handle.write(data)
@@ -139,9 +140,10 @@ class NfsDownload:
     self.download_buffer += data
 
   def finish(self):
-    logging.debug(f"NfsDownload: finished downloading {self.src_path} to {self.dst_path}, {self.write_offset} bytes, {self.speed:.2f} MiB/s")
+    logging.debug("finished downloading %s to %s, %d bytes, %.2f MiB/s",
+      self.src_path, self.dst_path, self.write_offset, self.speed)
     if self.in_flight > 0:
-      logging.error(f"BUG: finishing download of {self.src_path} but packets are still in flight")
+      logging.error("BUG: finishing download of %s but packets are still in flight", self.src_path)
     if self.type == NfsDownloadType.buffer:
       self.future.set_result(self.download_buffer)
     elif self.type == NfsDownloadType.file:
@@ -154,4 +156,4 @@ class NfsDownload:
 
 def generic_file_download_done_callback(future):
   if future.exception() is not None:
-    logging.error(f"NfsDownload: download failed: {future.exception()}")
+    logging.error("download failed: %s", future.exception())

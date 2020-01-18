@@ -32,17 +32,17 @@ class PDBProvider:
   def download_pdb(self, player_number, slot):
     player = self.prodj.cl.getClient(player_number)
     if player is None:
-      raise dataprovider.FatalQueryError("PDBProvider: player {} not found in clientlist".format(player_number))
+      raise dataprovider.FatalQueryError("player {} not found in clientlist".format(player_number))
     filename = "databases/player-{}-{}.pdb".format(player_number, slot)
     self.delete_pdb(filename)
     try:
       try:
         self.prodj.nfs.enqueue_download(player.ip_addr, slot, "/PIONEER/rekordbox/export.pdb", filename, sync=True)
       except FileNotFoundError as e:
-        logging.debug(f"PDBProvider: default pdb path not found on player {player_number}, trying MacOS path")
+        logging.debug("default pdb path not found on player %d, trying MacOS path", player_number)
         self.prodj.nfs.enqueue_download(player.ip_addr, slot, "/.PIONEER/rekordbox/export.pdb", filename, sync=True)
     except (RuntimeError, ReceiveTimeout) as e:
-      raise dataprovider.FatalQueryError("PDBProvider: database download from player {} failed: {}".format(player_number, e))
+      raise dataprovider.FatalQueryError("database download from player {} failed: {}".format(player_number, e))
     return filename
 
   def download_and_parse_pdb(self, player_number, slot):
@@ -65,7 +65,7 @@ class PDBProvider:
   def download_and_parse_usbanlz(self, player_number, slot, anlz_path):
     player = self.prodj.cl.getClient(player_number)
     if player is None:
-      raise dataprovider.FatalQueryError("PDBProvider: player {} not found in clientlist".format(player_number))
+      raise dataprovider.FatalQueryError("player {} not found in clientlist".format(player_number))
     dat = self.prodj.nfs.enqueue_buffer_download(player.ip_addr, slot, anlz_path)
     ext = self.prodj.nfs.enqueue_buffer_download(player.ip_addr, slot, anlz_path.replace("DAT", "EXT"))
     db = UsbAnlzDatabase()
@@ -73,7 +73,7 @@ class PDBProvider:
       db.load_dat_buffer(dat)
       db.load_ext_buffer(ext)
     else:
-      logging.warning("PDBProvider: missing DAT or EXT data, returning empty UsbAnlzDatabase")
+      logging.warning("missing DAT or EXT data, returning empty UsbAnlzDatabase")
     return db
 
   def get_anlz(self, player_number, slot, track_id):
@@ -122,12 +122,12 @@ class PDBProvider:
   def get_artwork(self, player_number, slot, artwork_id):
     player = self.prodj.cl.getClient(player_number)
     if player is None:
-      raise dataprovider.FatalQueryError("PDBProvider: player {} not found in clientlist".format(player_number))
+      raise dataprovider.FatalQueryError("player {} not found in clientlist".format(player_number))
     db = self.get_db(player_number, slot)
     try:
       artwork = db.get_artwork(artwork_id)
     except KeyError as e:
-      logging.warning("PDBProvider: No artwork for {}, returning empty data".format((player_number, slot, artwork_id)))
+      logging.warning("No artwork for {}, returning empty data".format((player_number, slot, artwork_id)))
       return None
     return self.prodj.nfs.enqueue_buffer_download(player.ip_addr, slot, artwork.path)
 
@@ -136,7 +136,7 @@ class PDBProvider:
     try:
       return db.get_waveform()
     except KeyError as e:
-      logging.warning("PDBProvider: No waveform for {}, returning empty data".format((player_number, slot, track_id)))
+      logging.warning("No waveform for {}, returning empty data".format((player_number, slot, track_id)))
       return None
 
   def get_preview_waveform(self, player_number, slot, track_id):
@@ -146,7 +146,7 @@ class PDBProvider:
       for line in db.get_preview_waveform():
         waveform_spread += bytes([line & 0x1f, line>>5])
     except KeyError as e:
-      logging.warning("PDBProvider: No preview waveform for {}, returning empty data".format((player_number, slot, track_id)))
+      logging.warning("No preview waveform for {}, returning empty data".format((player_number, slot, track_id)))
       return None
     return waveform_spread
 
@@ -155,7 +155,7 @@ class PDBProvider:
     try:
       return db.get_color_waveform()
     except KeyError as e:
-      logging.warning("PDBProvider: No color waveform for {}, returning empty data".format((player_number, slot, track_id)))
+      logging.warning("No color waveform for {}, returning empty data".format((player_number, slot, track_id)))
       return None
 
   def get_color_preview_waveform(self, player_number, slot, track_id):
@@ -163,7 +163,7 @@ class PDBProvider:
     try:
       return db.get_color_preview_waveform()
     except KeyError as e:
-      logging.warning("PDBProvider: No color preview waveform for {}, returning empty data".format((player_number, slot, track_id)))
+      logging.warning("No color preview waveform for {}, returning empty data".format((player_number, slot, track_id)))
       return None
 
   def get_beatgrid(self, player_number, slot, track_id):
@@ -171,7 +171,7 @@ class PDBProvider:
     try:
       return db.get_beatgrid()
     except KeyError as e:
-      logging.warning("PDBProvider: No beatgrid for {}, returning empty data".format((player_number, slot, track_id)))
+      logging.warning("No beatgrid for {}, returning empty data".format((player_number, slot, track_id)))
       return None
 
   def get_mount_info(self, player_number, slot, track_id):
@@ -228,7 +228,7 @@ class PDBProvider:
       elif col2_name in ["rating", "comment", "duration", "bitrate", "play_count"]: # 1:1 mappings
         col2_item = track[col2_name]
       else:
-        raise dataprovider.FatalQueryError("PDBProvider: unknown sort mode {}".format(sort_mode))
+        raise dataprovider.FatalQueryError("unknown sort mode {}".format(sort_mode))
       converted += [{
         "title": track.title,
         col2_name: col2_item,
@@ -247,7 +247,7 @@ class PDBProvider:
   # two id_list entries = artist_id,album_id -> all titles in album by artist
   # three id_list entries = genre_id,artist_id,album_id -> all titles in album by artist matching genre
   def get_titles(self, player_number, slot, sort_mode="default", id_list=[]):
-    logging.debug("PDBProvider: get_titles (%d, %s, %s) sort %s", player_number, slot, str(id_list), sort_mode)
+    logging.debug("get_titles (%d, %s, %s) sort %s", player_number, slot, str(id_list), sort_mode)
     db = self.get_db(player_number, slot)
     if len(id_list) == 3: # genre, artist, album
       if id_list[1] == 0 and id_list[2] == 0: # any artist, any album
@@ -276,7 +276,7 @@ class PDBProvider:
   # id_list empty -> list all artists
   # one id_list entry = genre_id -> all artists by genre
   def get_artists(self, player_number, slot, id_list=[]):
-    logging.debug("PDBProvider: get_artists (%d, %s, %s)", player_number, slot, str(id_list))
+    logging.debug("get_artists (%d, %s, %s)", player_number, slot, str(id_list))
     db = self.get_db(player_number, slot)
     if len(id_list) == 1:
       ff = lambda artist: any(artist.id == track.artist_id for track in db["tracks"] if track.genre_id == id_list[0])
@@ -293,7 +293,7 @@ class PDBProvider:
   # two id_list entries = genre_id, artist_id -> all albums by artist matching genre
   # two id_list entries = genre_id, 0 -> all albums matching genre
   def get_albums(self, player_number, slot, id_list=[]):
-    logging.debug("PDBProvider: get_albums (%d, %s, %s)", player_number, slot, str(id_list))
+    logging.debug("get_albums (%d, %s, %s)", player_number, slot, str(id_list))
     db = self.get_db(player_number, slot)
     if len(id_list) == 2:
       if id_list[1] == 0:
@@ -313,14 +313,14 @@ class PDBProvider:
 
   # id_list empty -> list genres
   def get_genres(self, player_number, slot):
-    logging.debug("PDBProvider: get_genres (%d, %s)", player_number, slot)
+    logging.debug("get_genres (%d, %s)", player_number, slot)
     db = self.get_db(player_number, slot)
     genres = [{"genre": genre.name, "genre_id": genre.id} for genre in db["genres"]]
     sorted_genres = sorted(genres, key=lambda key: key["genre"])
     return sorted(genres, key=lambda key: key["genre"])
 
   def get_playlists(self, player_number, slot, folder_id):
-    logging.debug("PDBProvider: get_playlists (%d, %s, %d)", player_number, slot, folder_id)
+    logging.debug("get_playlists (%d, %s, %d)", player_number, slot, folder_id)
     db = self.get_db(player_number, slot)
     playlists = []
     for playlist in db.get_playlists(folder_id):
@@ -331,14 +331,14 @@ class PDBProvider:
     return playlists
 
   def get_playlist(self, player_number, slot, sort_mode, playlist_id):
-    logging.debug("PDBProvider: get_playlist (%d, %s, %d, %s)", player_number, slot, playlist_id, sort_mode)
+    logging.debug("get_playlist (%d, %s, %d, %s)", player_number, slot, playlist_id, sort_mode)
     db = self.get_db(player_number, slot)
     track_list = db.get_playlist(playlist_id)
     return self.convert_and_sort_track_list(db, track_list, sort_mode)
     #{'title': 'The Raven', 'artwork_id': 123, 'track_id': 225, 'artist_id': 4, 'key': '09A', 'key_id': 4}
 
   def handle_request(self, request, params):
-    logging.debug("PDBProvider: handling %s request params %s", request, str(params))
+    logging.debug("handling %s request params %s", request, str(params))
     if request == "metadata":
       return self.get_metadata(*params)
     elif request == "root_menu":
@@ -382,4 +382,4 @@ class PDBProvider:
     elif request == "mount_info":
       return self.get_mount_info(*params)
     else:
-      raise dataprovider.FatalQueryError("PDBProvider: invalid request type {}".format(request))
+      raise dataprovider.FatalQueryError("invalid request type {}".format(request))

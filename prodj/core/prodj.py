@@ -78,7 +78,7 @@ class ProDj(Thread):
       self.vcdj.set_interface_data(*self.own_ip[1:4])
 
   def run(self):
-    logging.debug("ProDj: starting main loop")
+    logging.debug("starting main loop")
     while self.keep_running:
       rdy = select(self.socks,[],[],1)[0]
       for sock in rdy:
@@ -92,7 +92,7 @@ class ProDj(Thread):
           data, addr = self.status_sock.recvfrom(256)
           self.handle_status_packet(data, addr)
       self.cl.gc()
-    logging.debug("ProDj: main loop finished")
+    logging.debug("main loop finished")
 
   def handle_keepalive_packet(self, data, addr):
     #logging.debug("Broadcast keepalive packet from {}".format(addr))

@@ -71,25 +71,25 @@ class GLWaveformWidget(QOpenGLWidget):
 
   # current time in seconds at position marker
   def setPosition(self, position, pitch=1, state="playing"):
-    #logging.debug("Gui: setPosition {} pitch {} state {}".format(position, pitch, state))
+    #logging.debug("setPosition {} pitch {} state {}".format(position, pitch, state))
     if position is not None and pitch is not None:
       if state in PlayStateStopped:
         pitch = 0
       self.pitch = pitch
       if self.time_offset != position:
-        #logging.debug("Gui: time offset diff %.6f", position-self.time_offset)
+        #logging.debug("time offset diff %.6f", position-self.time_offset)
         offset = abs(position - self.time_offset)
         if state in PlayStatePlaying and offset < 0.05: # ignore negligible offset
           return
         if state in PlayStatePlaying and offset < 0.1: # small enough to compensate by temporary pitch modification
           if position > self.time_offset:
-            #logging.debug("Gui: increasing pitch to catch up")
+            #logging.debug("increasing pitch to catch up")
             self.pitch += 0.01
           else:
-            #logging.debug("Gui: decreasing pitch to fall behind")
+            #logging.debug("decreasing pitch to fall behind")
             self.pitch -= 0.01
         else: # too large to compensate or non-monotonous -> direct assignment
-          #logging.debug("Gui: offset %.6f, direct assignment", offset)
+          #logging.debug("offset %.6f, direct assignment", offset)
           self.time_offset = position
           self.update()
     else:
@@ -114,7 +114,7 @@ class GLWaveformWidget(QOpenGLWidget):
       self.update()
 
   def initializeGL(self):
-    logging.debug("Renderer \"{}\" OpenGL \"{}\"".format(
+    logging.info("Renderer \"{}\" OpenGL \"{}\"".format(
       gl.glGetString(gl.GL_RENDERER).decode("ascii"),
       gl.glGetString(gl.GL_VERSION).decode("ascii")))
     gl.glClearColor(0,0,0,255)
