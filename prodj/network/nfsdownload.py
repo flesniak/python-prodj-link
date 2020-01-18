@@ -67,8 +67,8 @@ class NfsDownload:
   def sendReadRequest(self, offset):
     remaining = self.size - offset
     chunk = min(self.nfsclient.download_chunk_size, remaining)
-    self.in_flight += 1
     # logging.debug("sending read request @ %d for %d bytes [%d in flight]", offset, chunk, self.in_flight)
+    self.in_flight += 1
     task = asyncio.create_task(self.nfsclient.NfsReadData(self.host, self.fhandle, offset, chunk))
     task.add_done_callback(functools.partial(self.readCallback, offset))
     return chunk
@@ -87,8 +87,8 @@ class NfsDownload:
       self.read_offset += self.sendReadRequest(self.read_offset)
 
   def readCallback(self, offset, task):
+    # logging.debug("readCallback @ %d/%d [%d in flight]", offset, self.size, self.in_flight)
     self.in_flight = max(0, self.in_flight-1)
-    logging.debug("readCallback @ %d/%d [%d in flight]", offset, self.size, self.in_flight)
     if self.write_offset <= offset:
       try:
         reply = task.result()
@@ -121,6 +121,10 @@ class NfsDownload:
     #   len(self.blocks), self.write_offset, self.in_flight)
     while self.write_offset in self.blocks:
       data = self.blocks.pop(self.write_offset)
+      expected_length = min(self.nfsclient.download_chunk_size, self.size-self.write_offset)
+      if len(data) != expected_length:
+        logging.warning("Received %d bytes instead %d as requested. Try to decrease "\
+          "the download chunk size!", len(data), expected_length)
       if self.type == NfsDownloadType.buffer:
         self.downloadToBufferHandler(data)
       elif self.type == NfsDownloadType.file:
@@ -140,7 +144,7 @@ class NfsDownload:
     self.download_buffer += data
 
   def finish(self):
-    logging.debug("finished downloading %s to %s, %d bytes, %.2f MiB/s",
+    logging.info("finished downloading %s to %s, %d bytes, %.2f MiB/s",
       self.src_path, self.dst_path, self.write_offset, self.speed)
     if self.in_flight > 0:
       logging.error("BUG: finishing download of %s but packets are still in flight", self.src_path)

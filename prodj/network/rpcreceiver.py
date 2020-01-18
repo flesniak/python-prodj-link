@@ -70,4 +70,4 @@ class RpcReceiver:
         if started_at < deadline:
           logging.warning("Removing XID %d which has timed out", id)
           future.set_exception(ReceiveTimeout(f"Request timed out after {self.request_timeout} seconds"))
-        del self.requests[id]
+          del self.requests[id]
