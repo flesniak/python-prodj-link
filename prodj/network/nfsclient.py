@@ -35,13 +35,11 @@ class NfsClient:
     self.receiver.start(self.loop)
 
   def stop(self):
-    logging.debug("NfsClient shutting down")
-    self.receiver.stop()
+    self.receiver.stop(self.loop)
     self.loop.call_soon_threadsafe(self.loop.stop)
+    self.loop_thread.join()
+    self.loop.close()
     self.closeSockets()
-
-  def run(self):
-    self.loop.run_forever()
 
   def openSockets(self):
     self.rpc_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)

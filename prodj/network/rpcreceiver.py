@@ -14,9 +14,10 @@ class RpcReceiver:
   def __init__(self):
     super().__init__()
     self.requests = dict()
-    self.keep_running = False
     self.request_timeout = 10
     self.recv_size = 4096
+    self.check_timeouts_task = None
+    self.check_timeouts_sleep = None
 
   def addCall(self, xid):
     if xid in self.requests:
@@ -27,17 +28,28 @@ class RpcReceiver:
 
   def start(self, loop):
     asyncio.run_coroutine_threadsafe(self.checkTimeoutsTask(), loop)
-    self.keep_running = True
 
-  def stop(self):
-    self.keep_running = False
+  def stop(self, loop):
+    asyncio.run_coroutine_threadsafe(self.stopCheckTimeoutsTask(), loop).result()
     if self.requests:
       logging.warning("stopped but still %d in queue", len(self.requests))
 
   async def checkTimeoutsTask(self):
-    while self.keep_running:
-      await asyncio.sleep(1)
-      self.checkTimeouts()
+    self.check_timeouts_task = asyncio.current_task()
+    while True:
+      try:
+        self.check_timeouts_sleep = asyncio.create_task(asyncio.sleep(1))
+        await self.check_timeouts_sleep
+        self.checkTimeouts()
+      except asyncio.CancelledError:
+        return
+
+  async def stopCheckTimeoutsTask(self):
+    if self.check_timeouts_sleep is None or self.check_timeouts_task is None:
+      logging.warning("unable to properly stop checkTimeoutsTask")
+      return
+    self.check_timeouts_sleep.cancel()
+    await self.check_timeouts_task
 
   def socketRead(self, sock):
     self.handleReceivedData(sock.recv(self.recv_size))
