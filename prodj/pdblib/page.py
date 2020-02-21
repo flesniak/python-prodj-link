@@ -72,7 +72,7 @@ PageHeader = Struct( # 40 bytes
   "u5" / Int8ul, # strange pages: 0x44, 0x64; otherwise seen: 0x24, 0x34
   "free_size" / Int16ul, # excluding data at page end
   "payload_size" / Int16ul,
-  "u7" / Int16ul, # (0->1: 2)
+  "overridden_entries" / Int16ul, # number of additional entries which override rows of previous blocks (ignore if 8191)
   "entry_count_large" / Int16ul, # usually <= entry_count except for playlist_map?
   "u9" / Int16ul, # 1004 for strange blocks, 0 otherwise
   "u10" / Int16ul, # always 0 except 1 for synchistory, entry count for strange pages?

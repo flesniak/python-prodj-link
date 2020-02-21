@@ -67,13 +67,13 @@ class PDBDatabase(dict):
     pms = filter(lambda pm: pm.playlist_id == playlist_id, self["playlist_map"])
     sorted_pms = sorted(pms, key=lambda pm: pm.entry_index)
     tracks = filter(lambda t: any(t.id == pm.track_id for pm in sorted_pms), self["tracks"])
-    return tracks
+    return list(tracks)
 
   def collect_entries(self, page_type, target):
     for page in filter(lambda x: x.page_type == page_type, self.parsed.pages):
       #logging.debug("parsing page %s %d", page.page_type, page.index)
       for entry_block in page.entry_list:
-        for entry,enabled in zip(reversed(entry_block["entries"]), reversed(entry_block["entry_enabled"])):
+        for entry,enabled in zip(reversed(entry_block.entries), reversed(entry_block.entry_enabled)):
           if not enabled:
             continue
           self[target] += [entry]
