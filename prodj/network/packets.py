@@ -160,10 +160,7 @@ BeatPacket = Struct(
       "player_number2" / Int8ub),
     # type=0x03, a nxs mixer status packet containing on_air data
     "type_mixer": Struct(
-      "ch_on_air" / Array(4, Int8ub),
-      "u3" / Int16ub,
-      "u4" / Int8ub,
-      "u5" / Int16ub),
+      "ch_on_air" / Array(4, Int8ub)),
     # type=0x40, unknown mixer beat info packet
     "type_mixer_unknown": Struct(
       "u3" / Int8ub, # counts 0x14, 0x24, 0x34, 0x44
