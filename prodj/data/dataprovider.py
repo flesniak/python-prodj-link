@@ -193,7 +193,14 @@ class DataProvider(Thread):
   def _retry_request(self, request):
     self.queue.task_done()
     if request[-1] > 0:
-      logging.info("retrying %s request", request[0])
+      if request[0] == "color_waveform":
+        logging.info("Color waveform request failed, trying normal waveform instead")
+        request = ("waveform", *request[1:])
+      elif request[0] == "color_preview_waveform":
+        logging.info("Color preview waveform request failed, trying normal waveform instead")
+        request = ("preview_waveform", *request[1:])
+      else:
+        logging.info("retrying %s request", request[0])
       self.queue.put((*request[:-1], request[-1]-1))
       time.sleep(1) # yes, this is dirty, but effective to work around timing problems on failed request
     else:
@@ -214,7 +221,7 @@ class DataProvider(Thread):
         self._handle_request(*request[:-1])
         self.queue.task_done()
       except TemporaryQueryError as e:
-        logging.error("%s request failed: %s", request[0], e)
+        logging.warning("%s request failed: %s", request[0], e)
         self._retry_request(request)
       except FatalQueryError as e:
         logging.error("%s request failed: %s", request[0], e)
