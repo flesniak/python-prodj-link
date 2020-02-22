@@ -142,6 +142,9 @@ class PlayerWidget(QFrame):
     bpm_label = QLabel("BPM", self)
     bpm_label.setContentsMargins(4,0,4,0)
     bpm_label.setStyleSheet("QLabel { color: white; font: bold 8pt; qproperty-alignment: AlignLeft; }")
+    self.labels["slot"] = QLabel("", self)
+    self.labels["slot"].setContentsMargins(4,0,4,0)
+    self.labels["slot"].setStyleSheet("QLabel { color: white; font: bold 8pt; qproperty-alignment: AlignLeft; }")
     self.labels["bpm"] = QLabel(self)
     self.labels["bpm"].setContentsMargins(4,0,4,0)
     self.labels["bpm"].setStyleSheet("QLabel { color: white; font: bold 16pt; qproperty-alignment: AlignRight; }")
@@ -155,10 +158,15 @@ class PlayerWidget(QFrame):
     self.labels["sync"] = QLabel("SYNC", self)
     self.labels["sync"].setStyleSheet("QLabel { font: bold; qproperty-alignment: AlignCenter; background-color: blue; color: black; } QLabel:disabled { background-color: gray; }")
 
+    speed_top_layout = QHBoxLayout()
+    speed_top_layout.addWidget(bpm_label)
+    speed_top_layout.addWidget(self.labels["slot"])
+    speed_top_layout.setSpacing(1)
+
     bpm_box = QFrame(self)
     bpm_box.setFrameStyle(QFrame.Box | QFrame.Plain)
     speed_layout = QVBoxLayout(bpm_box)
-    speed_layout.addWidget(bpm_label)
+    speed_layout.addLayout(speed_top_layout)
     speed_layout.addWidget(self.labels["bpm"])
     speed_layout.addWidget(self.labels["pitch"])
     speed_layout.addWidget(self.labels["master"])
@@ -254,6 +262,9 @@ class PlayerWidget(QFrame):
 
   def setPlayState(self, state):
     self.labels["play_state"].setText(printableField(state))
+
+  def setSlotInfo(self, player, slot):
+    self.labels["slot"].setText(f"{player} {slot.upper()}")
 
   def toggleTimeMode(self):
     self.time_mode_remain_changed_signal.emit(not self.time_mode_remain)
@@ -413,6 +424,7 @@ class Gui(QWidget):
     player.waveform.setPosition(c.position, c.actual_pitch, c.play_state)
     player.setPlayState(c.play_state)
     player.setOnAir(c.on_air)
+    player.setSlotInfo(c.loaded_player_number, c.loaded_slot)
     if c.metadata is not None and "duration" in c.metadata:
       player.setTime(c.position, c.metadata["duration"])
       player.setTotalTime(c.metadata["duration"])
