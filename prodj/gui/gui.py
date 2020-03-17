@@ -2,7 +2,7 @@ import sys
 import logging
 import math
 from threading import Lock
-from PyQt5.QtWidgets import QFrame, QGridLayout, QLabel, QPushButton, QSizePolicy, QHBoxLayout, QVBoxLayout, QWidget
+from PyQt5.QtWidgets import QFrame, QGridLayout, QLabel, QMainWindow, QPushButton, QSizePolicy, QHBoxLayout, QVBoxLayout, QWidget
 from PyQt5.QtGui import QColor, QPainter, QPixmap
 from PyQt5.QtCore import pyqtSignal, Qt, QSize
 
@@ -44,16 +44,17 @@ class BeatBarWidget(QWidget):
 class PlayerWidget(QFrame):
   time_mode_remain_changed_signal = pyqtSignal(bool)
 
-  def __init__(self, player_number, parent):
-    super().__init__(parent)
+  def __init__(self, player_number, parent_gui, parent_widget):
+    super().__init__(parent_widget)
     self.setObjectName("PlayerFrame")
     self.setProperty("on_air", False)
     self.setStyleSheet("#PlayerFrame { border: 3px solid white; } #PlayerFrame[on_air=true] { border: 3px solid red; }")
     self.labels = {}
     self.browse_dialog = None
     self.time_mode_remain = False
-    self.show_color_waveform = parent.show_color_waveform
-    self.show_color_preview = parent.show_color_preview
+    self.show_color_waveform = parent_gui.show_color_waveform
+    self.show_color_preview = parent_gui.show_color_preview
+    self.parent_gui = parent_gui
 
     # metadata and player info
     self.labels["title"] = QLabel(self)
@@ -264,6 +265,8 @@ class PlayerWidget(QFrame):
     self.labels["play_state"].setText(printableField(state))
 
   def setSlotInfo(self, player, slot):
+    if slot == "rekordbox":
+      slot = "RKBX"
     self.labels["slot"].setText(f"{player} {slot.upper()}")
 
   def toggleTimeMode(self):
@@ -276,17 +279,17 @@ class PlayerWidget(QFrame):
 
   def openBrowseDialog(self):
     if self.browse_dialog is None:
-      self.browse_dialog = Browser(self.parent().prodj, self.player_number)
+      self.browse_dialog = Browser(self.parent_gui.prodj, self.player_number)
     self.browse_dialog.show()
 
   def downloadTrack(self):
     logging.info("Player %d track download requested", self.player_number)
-    c = self.parent().prodj.cl.getClient(self.player_number)
+    c = self.parent_gui.prodj.cl.getClient(self.player_number)
     if c is None:
       logging.error("Download failed, player %d unknown", self.player_number)
       return
-    self.parent().prodj.data.get_mount_info(c.loaded_player_number, c.loaded_slot,
-      c.track_id, self.parent().prodj.nfs.enqueue_download_from_mount_info)
+    self.parent_gui.prodj.data.get_mount_info(c.loaded_player_number, c.loaded_slot,
+      c.track_id, self.parent_gui.prodj.nfs.enqueue_download_from_mount_info)
 
   # make browser dialog close when player window disappears
   def hideEvent(self, event):
@@ -300,7 +303,7 @@ class PlayerWidget(QFrame):
     self.style().polish(self);
     self.update()
 
-class Gui(QWidget):
+class Gui(QMainWindow):
   keepalive_signal = pyqtSignal(int)
   client_change_signal = pyqtSignal(int)
 
@@ -309,6 +312,7 @@ class Gui(QWidget):
     self.prodj = prodj
     self.setWindowTitle('Pioneer ProDJ Link Monitor')
 
+    self.setCentralWidget(QWidget(self))
     self.setAutoFillBackground(True)
 
     self.keepalive_signal.connect(self.keepalive_slot)
@@ -318,7 +322,7 @@ class Gui(QWidget):
     self.show_color_preview = show_color_preview
 
     self.players = {}
-    self.layout = QGridLayout(self)
+    self.layout = QGridLayout(self.centralWidget())
     # "xy" = player 1 + 2 in the first row
     # "yx" = player 1 + 2 in the first column
     # "xx" = player 1 + 4 in the first row
@@ -334,9 +338,26 @@ class Gui(QWidget):
       "row": [(0,0), (0,1), (0,2), (1,3)],
       "column": [(0,0), (1,0), (2,0), (3,0)]
     }
+    self.centralWidget().setLayout(self.layout)
     self.create_player(0)
 
+    self.setup_menu()
+
     self.show()
+
+  def setup_menu(self):
+    mb = self.menuBar()
+
+    menu1 = mb.addMenu("Monitor")
+    action_browse = menu1.addAction("Browse")
+    action_quit = menu1.addAction("Quit")
+    menu2 = mb.addMenu("Options")
+    action_color = menu2.addAction("Color Waveforms")
+    action_autodl = menu2.addAction("Auto Track Download")
+    menu2.addSeparator()
+    action_enable_pdb = menu2.addAction("Use PDB/NFS")
+    action_enable_dbc = menu2.addAction("Use DBServer")
+    action_vcdj_number = menu2.addAction("")
 
   def get_layout_coordinates(self, widget_number):
     if widget_number == 0:
@@ -376,7 +397,7 @@ class Gui(QWidget):
       self.players = {player_number: self.players[0]}
     else:
       logging.info("Creating player {}".format(player_number))
-      self.players[player_number] = PlayerWidget(player_number, self)
+      self.players[player_number] = PlayerWidget(player_number, self, self.centralWidget())
     self.connect_linked_player_controls(player_number)
     self.players[player_number].show()
     self.update_player_layout()
