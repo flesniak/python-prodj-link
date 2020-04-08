@@ -16,6 +16,11 @@ def arg_size(value):
     raise argparse.ArgumentTypeError("%s is not between 1000 and 60000".format(value))
   return number
 
+def arg_layout(value):
+  if value not in ["xy", "yx", "xx", "yy", "row", "column"]:
+    raise argparse.ArgumentTypeError("%s is not a value from the list xy, yx, xx, yy, row or column".format(value))
+  return value
+
 parser = argparse.ArgumentParser(description='Python ProDJ Link')
 provider_group = parser.add_mutually_exclusive_group()
 provider_group.add_argument('--disable-pdb', dest='enable_pdb', action='store_false', help='Disable PDB provider')
@@ -28,6 +33,8 @@ parser.add_argument('-d', '--debug', action='store_const', dest='loglevel', cons
 parser.add_argument('--dump-packets', action='store_const', dest='loglevel', const=0, help='Dump packet fields for debugging', default=logging.INFO)
 parser.add_argument('--chunk-size', dest='chunk_size', help='Chunk size of NFS downloads (high values may be faster but fail on some networks)', type=arg_size, default=None)
 parser.add_argument('-f', '--fullscreen', action='store_true', help='Start with fullscreen window')
+parser.add_argument('-l', '--layout', dest='layout', help='Display layout, values are xy (default), yx, xx, yy, row or column', type=arg_layout, default="xy")
+
 args = parser.parse_args()
 
 logging.basicConfig(level=args.loglevel, format='%(levelname)-7s %(module)s: %(message)s')
@@ -38,7 +45,7 @@ prodj.data.dbc_enabled = args.enable_dbc
 if args.chunk_size is not None:
   prodj.nfs.setDownloadChunkSize(args.chunk_size)
 app = QApplication([])
-gui = Gui(prodj, show_color_waveform=args.color_waveform or args.color, show_color_preview=args.color_preview or args.color)
+gui = Gui(prodj, show_color_waveform=args.color_waveform or args.color, show_color_preview=args.color_preview or args.color, arg_layout=args.layout)
 if args.fullscreen:
   gui.setWindowState(Qt.WindowFullScreen | Qt.WindowMaximized | Qt.WindowActive)
 

@@ -304,7 +304,7 @@ class Gui(QWidget):
   keepalive_signal = pyqtSignal(int)
   client_change_signal = pyqtSignal(int)
 
-  def __init__(self, prodj, show_color_waveform=False, show_color_preview=False):
+  def __init__(self, prodj, show_color_waveform=False, show_color_preview=False, arg_layout="xy"):
     super().__init__()
     self.prodj = prodj
     self.setWindowTitle('Pioneer ProDJ Link Monitor')
@@ -323,12 +323,16 @@ class Gui(QWidget):
     # "yx" = player 1 + 2 in the first column
     # "xx" = player 1 + 4 in the first row
     # "yy" = player 2 + 3 in the first row
-    self.layout_mode = "xy"
+    # "row" = player 1 + 2 + 3 + 4 in a single row
+    # "column" = = player 1 + 2 + 3 + 4 in a single column
+    self.layout_mode = arg_layout
     self.layouts = {
       "xy": [(0,0), (0,1), (1,0), (1,1)],
       "yx": [(0,0), (1,0), (0,1), (1,1)],
       "xx": [(0,0), (1,0), (1,1), (0,1)],
-      "yy": [(1,0), (0,0), (0,1), (1,1)]
+      "yy": [(1,0), (0,0), (0,1), (1,1)],
+      "row": [(0,0), (0,1), (0,2), (1,3)],
+      "column": [(0,0), (1,0), (2,0), (3,0)]
     }
     self.create_player(0)
 
