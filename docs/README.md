@@ -4,7 +4,7 @@
 
 This is a set of python scripts to participate in a Pioneer ProDJ Link system.
 It is particularly useful to monitor whats happening on the players, but can also help by syncing other devices using midi clock.
-The code to detect your own mac and ip addresses is os dependant and **only implemented on linux** for now.
+The code to detect your own mac and ip addresses is os dependant, but thanks to the netifaces it should also work on platforms other than linux (testing required).
 
 The Qt GUI is useful to perform light shows and react to events in the music.
 
@@ -42,7 +42,7 @@ python3 test_runner.py
 
 ### Network configuration
 
-You need to be on the same Ethernet network as the players
+You need to be on the same Ethernet network as the players are discovered using broadcasts.
 The players will aquire IPs using DHCP if a server is available, otherwise they fall back to IPv4 autoconfiguration.
 If there is no DHCP server on your network, make sure you assign a IP address inside 169.254.0.0/16 to yourself, for example using NetworkManager or avahi-autoipd.
 
