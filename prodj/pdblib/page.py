@@ -1,4 +1,4 @@
-from construct import Sequence, Struct, Int8ul, Int16ul, Int32ul, Embedded, Switch, Const, Array, Padded, Padding, Pass, Computed, Tell, Pointer, this, Seek, Bitwise, Flag, ByteSwapped, BitsSwapped, FocusedSeq, RepeatUntil
+from construct import Sequence, Struct, Int8ul, Int16ul, Int32ul, Switch, Const, Array, Padded, Padding, Pass, Computed, Tell, Pointer, this, Seek, Bitwise, Flag, ByteSwapped, BitsSwapped, FocusedSeq, RepeatUntil
 from .pagetype import PageTypeEnum
 from .track import Track
 from .artist import Artist
@@ -59,7 +59,8 @@ ReverseIndexArray = Struct(
 
 PageFooter = RepeatUntil(lambda x,lst,ctx: len(lst)*16 > ctx.entry_count, ReverseIndexArray)
 
-PageHeader = Struct( # 40 bytes
+AlignedPage = Struct(
+  "page_start" / Tell,
   Padding(4), # always 0
   "index" / Int32ul, # in units of 4096 bytes
   "page_type" / PageTypeEnum,
@@ -81,12 +82,7 @@ PageHeader = Struct( # 40 bytes
   # this is fishy: artwork and playlist_map pages have much more entries than set in entry_count_small
   # so use the entry_count_large if applicable, but ignore if it is 8191
   # there are even some normal track pages where entry_count_large is 8191, so catch this as well
-  "entry_count" / Computed(lambda ctx: ctx.entry_count_large if ctx.entry_count_small < ctx.entry_count_large and not ctx.is_strange_page and not ctx.is_empty_page and not ctx.entry_count_large == 8191 else ctx.entry_count_small)
-)
-
-AlignedPage = Struct(
-  "page_start" / Tell,
-  Embedded(PageHeader),
+  "entry_count" / Computed(lambda ctx: ctx.entry_count_large if ctx.entry_count_small < ctx.entry_count_large and not ctx.is_strange_page and not ctx.is_empty_page and not ctx.entry_count_large == 8191 else ctx.entry_count_small),
   "entries_start" / Tell, # reverse index is relative to this position
   # this expression jumps to the end of the section and parses the reverse index
   # TODO: calculation does not work on block_playlist_map
