@@ -19,8 +19,8 @@ class WaveformWidget(QWidget):
     self.position_marker = 0.5
     self.setFrameCount(self.waveform_px_per_s*10)
     #self.setPositionMarkerOffset(0.5)
-    self.update_interval = 0.04
-    self.startTimer(self.update_interval*1000)
+    self.update_interval_ms = 40
+    self.startTimer(self.update_interval_ms)
 
   def setData(self, data):
     self.pixmap = None
@@ -109,5 +109,5 @@ class WaveformWidget(QWidget):
 
   def timerEvent(self, event):
     if self.pitch > 0:
-      self.offset += int(self.waveform_px_per_s*self.pitch*self.update_interval)
+      self.offset += int(self.waveform_px_per_s*self.pitch*self.update_interval_ms/1000)
       self.update()
