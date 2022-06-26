@@ -9,6 +9,13 @@ from prodj.network.rpcreceiver import ReceiveTimeout
 
 colors = ["none", "pink", "red", "orange", "yellow", "green", "aqua", "blue", "purple"]
 
+class InvalidPDBDatabase:
+  def __init__(self, reason):
+    self.reason = reason
+
+  def __str__(self):
+    return self.reason
+
 class PDBProvider:
   def __init__(self, prodj):
     self.prodj = prodj
@@ -51,15 +58,21 @@ class PDBProvider:
     try:
       db.load_file(filename)
     except RuntimeError as e:
-      raise dataprovider.FatalQueryError("PDBFile: failed to parse \"{}\": {}".format(filename, e))
+      raise dataprovider.FatalQueryError("PDBProvider: failed to parse \"{}\": {}".format(filename, e))
     return db
 
   def get_db(self, player_number, slot):
     if (player_number, slot) not in self.dbs:
-      db = self.download_and_parse_pdb(player_number, slot)
-      self.dbs[player_number, slot] = db
+      try:
+        db = self.download_and_parse_pdb(player_number, slot)
+      except dataprovider.FatalQueryError as e:
+        db = InvalidPDBDatabase(str(e))
+      finally:
+        self.dbs[player_number, slot] = db
     else:
       db = self.dbs[player_number, slot]
+    if isinstance(db, InvalidPDBDatabase):
+      raise dataprovider.FatalQueryError(f'PDB database not available: {db}')
     return db
 
   def download_and_parse_usbanlz(self, player_number, slot, anlz_path):
