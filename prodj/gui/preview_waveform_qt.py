@@ -58,7 +58,7 @@ class PreviewWaveformWidget(QWidget):
         scaled_pixmap = self.pixmap.scaled(self.size(), Qt.KeepAspectRatio)
         painter.drawPixmap(0, self.top_offset, scaled_pixmap)
         height = scaled_pixmap.height() + self.top_offset
-        marker_position = self.position*scaled_pixmap.width()
+        marker_position = int(self.position * scaled_pixmap.width())
         painter.fillRect(marker_position-1, 0, 3, height, Qt.black)
         painter.fillRect(marker_position-3, 0, 7, 7, Qt.black)
         painter.fillRect(marker_position-2, 1, 5, 5, Qt.white)
@@ -158,7 +158,7 @@ class PreviewWaveformWidget(QWidget):
         if int((x + 1) * xr) > xd:
           painter.setPen(QColor(int(red * .75), int(green * .75), int(blue * .75)))
           painter.drawLine(xd, 31, xd, 31 - int(max_back_height / 4))
-          painter.setPen(QColor(red, green, blue))
+          painter.setPen(QColor(int(red), int(green), int(blue)))
           painter.drawLine(xd, 31, xd, 31 - int(max_front_height / 4))
           max_back_height = max_front_height = 0
 

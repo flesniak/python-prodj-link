@@ -41,8 +41,8 @@ class GLWaveformWidget(QOpenGLWidget):
 
     self.waveform_zoom_changed_signal.connect(self.setZoom)
 
-    self.update_interval = 0.04
-    self.startTimer(self.update_interval*1000)
+    self.update_interval_ms = 40
+    self.startTimer(self.update_interval_ms)
 
   def minimumSizeHint(self):
     return QSize(400, 75)
@@ -110,7 +110,7 @@ class GLWaveformWidget(QOpenGLWidget):
 
   def timerEvent(self, event):
     if self.pitch != 0:
-      self.time_offset += self.pitch*self.update_interval
+      self.time_offset += self.pitch*self.update_interval_ms / 1000
       self.update()
 
   def initializeGL(self):
