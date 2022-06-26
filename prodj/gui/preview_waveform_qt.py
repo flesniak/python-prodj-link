@@ -204,7 +204,6 @@ if __name__ == '__main__':
       print("Error: No ANLZ files loaded")
       sys.exit(1)
     db = UsbAnlzDatabase()
-    #if dat is not None and ext is not None:
     if dat is not None:
       db.load_dat_buffer(dat)
     if ext is not None:

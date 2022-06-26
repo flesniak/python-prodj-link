@@ -112,7 +112,9 @@ class Vcdj(Thread):
       "subtype": "stype_fader_start",
       "model": self.model,
       "player_number": self.player_number,
-      "player": player_commands
+      "content": {
+        "player": player_commands
+      }
     }
     data = packets.BeatPacket.build(cmd)
     self.prodj.beat_sock.sendto(data, (self.broadcast_addr, self.prodj.beat_port))
