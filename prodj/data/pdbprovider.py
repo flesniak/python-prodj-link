@@ -222,26 +222,30 @@ class PDBProvider:
     else:
       col2_name = sort_mode
     for track in track_list:
-      if col2_name in ["title", "artist"]:
-        col2_item = db.get_artist(track.artist_id).name if track.artist_id > 0 else ""
-      elif col2_name == "album":
-        col2_item = db.get_album(track.album_id).name if track.album_id > 0 else ""
-      elif col2_name == "genre":
-        col2_item = db.get_genre(track.genre_id).name if track.genre_id > 0 else ""
-      elif col2_name == "label":
-        col2_item = db.get_label(track.label_id).name if track.label_id > 0 else ""
-      elif col2_name == "original_artist":
-        col2_item = db.get_artist(track.original_artist_id).name if track.original_artist_id > 0 else ""
-      elif col2_name == "remixer":
-        col2_item = db.get_artist(track.remixer_id).name if track.remixer_id > 0 else ""
-      elif col2_name == "key":
-        col2_item = db.get_key(track.key_id).name if track.key_id > 0 else ""
-      elif col2_name == "bpm":
-        col2_item = track.bpm_100/100
-      elif col2_name in ["rating", "comment", "duration", "bitrate", "play_count"]: # 1:1 mappings
-        col2_item = track[col2_name]
-      else:
-        raise dataprovider.FatalQueryError("unknown sort mode {}".format(sort_mode))
+      try:
+        if col2_name in ["title", "artist"]:
+          col2_item = db.get_artist(track.artist_id).name if track.artist_id > 0 else ""
+        elif col2_name == "album":
+          col2_item = db.get_album(track.album_id).name if track.album_id > 0 else ""
+        elif col2_name == "genre":
+          col2_item = db.get_genre(track.genre_id).name if track.genre_id > 0 else ""
+        elif col2_name == "label":
+          col2_item = db.get_label(track.label_id).name if track.label_id > 0 else ""
+        elif col2_name == "original_artist":
+          col2_item = db.get_artist(track.original_artist_id).name if track.original_artist_id > 0 else ""
+        elif col2_name == "remixer":
+          col2_item = db.get_artist(track.remixer_id).name if track.remixer_id > 0 else ""
+        elif col2_name == "key":
+          col2_item = db.get_key(track.key_id).name if track.key_id > 0 else ""
+        elif col2_name == "bpm":
+          col2_item = track.bpm_100/100
+        elif col2_name in ["rating", "comment", "duration", "bitrate", "play_count"]: # 1:1 mappings
+          col2_item = track[col2_name]
+        else:
+          raise dataprovider.FatalQueryError("unknown sort mode {}".format(sort_mode))
+      except KeyError as e:
+        logging.warning(f'Broken database: {e}')
+        col2_item = "?"
       converted += [{
         "title": track.title,
         col2_name: col2_item,
