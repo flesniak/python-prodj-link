@@ -2,9 +2,9 @@ import sys
 import logging
 import math
 from threading import Lock
-from PyQt5.QtWidgets import QFrame, QGridLayout, QLabel, QMainWindow, QPushButton, QSizePolicy, QHBoxLayout, QVBoxLayout, QWidget
+from PyQt5.QtWidgets import QAction, QFrame, QGridLayout, QLabel, QMainWindow, QPushButton, QSizePolicy, QHBoxLayout, QVBoxLayout, QWidget
 from PyQt5.QtGui import QColor, QPainter, QPixmap
-from PyQt5.QtCore import pyqtSignal, Qt, QSize
+from PyQt5.QtCore import pyqtSignal, Qt, QCoreApplication, QSize
 
 from .gui_browser import Browser, printableField
 from .waveform_gl import GLWaveformWidget
@@ -339,9 +339,9 @@ class Gui(QMainWindow):
       "column": [(0,0), (1,0), (2,0), (3,0)]
     }
     self.centralWidget().setLayout(self.layout)
-    self.create_player(0)
-
     self.setup_menu()
+
+    self.create_player(0)
 
     self.show()
 
@@ -349,14 +349,28 @@ class Gui(QMainWindow):
     mb = self.menuBar()
 
     menu1 = mb.addMenu("Monitor")
-    action_browse = menu1.addAction("Browse")
+    self.menu_browse = menu1.addMenu("Browse")
+    self.browse_action = {}
     action_quit = menu1.addAction("Quit")
+    action_quit.triggered.connect(QCoreApplication.quit)
+
     menu2 = mb.addMenu("Options")
     action_color = menu2.addAction("Color Waveforms")
+    action_color.setCheckable(True)
+    action_color.setChecked(self.show_color_waveform)
+    action_color.toggled.connect(self.set_colored_waveforms)
     action_autodl = menu2.addAction("Auto Track Download")
+    action_autodl.setCheckable(True)
+    action_autodl.toggled.connect(self.set_autodl_enabled)
     menu2.addSeparator()
-    action_enable_pdb = menu2.addAction("Use PDB/NFS")
-    action_enable_dbc = menu2.addAction("Use DBServer")
+    self.action_enable_pdb = menu2.addAction("Use PDB/NFS")
+    self.action_enable_pdb.setCheckable(True)
+    self.action_enable_pdb.setChecked(self.prodj.data.pdb_enabled)
+    self.action_enable_pdb.toggled.connect(self.set_pdb_enabled)
+    self.action_enable_dbc = menu2.addAction("Use DBServer")
+    self.action_enable_dbc.setCheckable(True)
+    self.action_enable_dbc.setChecked(self.prodj.data.dbc_enabled)
+    self.action_enable_dbc.toggled.connect(self.set_dbc_enabled)
     action_vcdj_number = menu2.addAction("")
 
   def get_layout_coordinates(self, widget_number):
@@ -376,6 +390,26 @@ class Gui(QMainWindow):
         self.layout.removeWidget(player)
         self.layout.addWidget(player, x, y)
       n = n+1
+
+  def set_colored_waveforms(self, enabled):
+    for player in self.players.values():
+      player.show_color_waveform = enabled
+      player.show_color_preview = enabled
+
+  def set_autodl_enabled(self, enabled):
+    self.prodj.cl.auto_track_download = enabled
+
+  def set_pdb_enabled(self, enabled):
+    self.prodj.data.pdb_enabled = enabled
+    if self.prodj.data.pdb_enabled == False and self.prodj.data.dbc_enabled == False:
+      self.prodj.data.dbc_enabled = True
+      self.action_enable_dbc.setChecked(True)
+
+  def set_dbc_enabled(self, enabled):
+    self.prodj.data.dbc_enabled = enabled
+    if self.prodj.data.dbc_enabled == False and self.prodj.data.pdb_enabled == False:
+      self.prodj.data.pdb_enabled = True
+      self.action_enable_pdb.setChecked(True)
 
   def connect_linked_player_controls(self, player_number):
     for pn, p in self.players.items():
@@ -398,6 +432,17 @@ class Gui(QMainWindow):
     else:
       logging.info("Creating player {}".format(player_number))
       self.players[player_number] = PlayerWidget(player_number, self, self.centralWidget())
+
+    if player_number != 0:
+      action_text = f"Media in Player {player_number}"
+      insert_at = next((a for n,a in sorted(self.browse_action.items(), key=lambda x: x[0], reverse=True) if n < player_number), None)
+      if insert_at is None:
+        self.browse_action[player_number] = self.menu_browse.addAction(action_text)
+      else:
+        self.browse_action[player_number] = QAction(action_text, self.menu_browse)
+        self.menu_browse.insertAction(insert_at, self.browse_action[player_number])
+      self.browse_action[player_number].triggered.connect(self.players[player_number].openBrowseDialog)
+
     self.connect_linked_player_controls(player_number)
     self.players[player_number].show()
     self.update_player_layout()
@@ -409,13 +454,19 @@ class Gui(QMainWindow):
     player = self.players[player_number]
     if len(self.players) == 1:
       logging.info("All players gone, resetting last player to 0")
+      self.menu_browse.clear()
+      self.browse_action.clear()
       self.players = {0: player}
       self.players[0].setPlayerNumber(0)
       self.players[0].reset()
     else:
+      if player_number in self.browse_action:
+        self.removeAction(self.browse_action[player_number])
+        del self.browse_action[player_number]
       player.hide()
       player.deleteLater()
       del self.players[player_number]
+
     self.update_player_layout()
     logging.info("Removed player {}".format(player_number))
 
