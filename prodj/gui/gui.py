@@ -2,7 +2,7 @@ import sys
 import logging
 import math
 from threading import Lock
-from PyQt5.QtWidgets import QFrame, QGridLayout, QLabel, QPushButton, QSizePolicy, QHBoxLayout, QVBoxLayout, QWidget
+from PyQt5.QtWidgets import QFrame, QGridLayout, QLabel, QMenu, QPushButton, QSizePolicy, QHBoxLayout, QVBoxLayout, QWidget
 from PyQt5.QtGui import QColor, QPainter, QPixmap
 from PyQt5.QtCore import pyqtSignal, Qt, QSize
 
@@ -54,6 +54,7 @@ class PlayerWidget(QFrame):
     self.time_mode_remain = False
     self.show_color_waveform = parent.show_color_waveform
     self.show_color_preview = parent.show_color_preview
+    self.parent_gui = parent
 
     # metadata and player info
     self.labels["title"] = QLabel(self)
@@ -79,26 +80,30 @@ class PlayerWidget(QFrame):
     self.pixmap_empty.fill(QColor(40,40,40))
     self.labels["artwork"].setPixmap(self.pixmap_empty)
 
-    # buttons below time/beat bar
-    self.browse_button = QPushButton("BROWSE", self)
-    self.browse_button.setFlat(True)
-    self.browse_button.setStyleSheet("QPushButton { color: white; font: 10px; background-color: black; padding: 1px; border-style: outset; border-radius: 2px; border-width: 1px; border-color: gray; }")
-    self.download_button = QPushButton("DLOAD", self)
-    self.download_button.setFlat(True)
-    self.download_button.setStyleSheet("QPushButton { color: white; font: 10px; background-color: black; padding: 1px; border-style: outset; border-radius: 2px; border-width: 1px; border-color: gray; }")
+    # menu button
+    self.menu_button = QPushButton("MENU", self)
+    self.menu_button.setFlat(True)
+    self.menu_button.setStyleSheet("QPushButton { color: white; font: 10px; background-color: black; padding: 1px; border-style: outset; border-radius: 2px; border-width: 1px; border-color: gray; }")
+
+    self.menu = QMenu(self.menu_button)
+    action_browse = self.menu.addAction("Browse Media")
+    action_browse.triggered.connect(self.openBrowseDialog)
+    action_download = self.menu.addAction("Download track")
+    action_download.triggered.connect(self.downloadTrack)
+    action_start = self.menu.addAction("Start playback")
+    action_start.triggered.connect(self.playbackStart)
+    action_stop = self.menu.addAction("Stop playback")
+    action_stop.triggered.connect(self.playbackStop)
+    self.menu_button.setMenu(self.menu)
 
     self.labels["play_state"] = QLabel(self)
     self.labels["play_state"].setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
 
     buttons_layout = QHBoxLayout()
-    buttons_layout.addWidget(self.browse_button)
-    buttons_layout.addWidget(self.download_button)
+    buttons_layout.addWidget(self.menu_button)
     buttons_layout.addWidget(self.labels["play_state"])
-    buttons_layout.setStretch(2, 1)
+    buttons_layout.setStretch(1, 1)
     buttons_layout.setSpacing(3)
-
-    self.browse_button.clicked.connect(self.openBrowseDialog)
-    self.download_button.clicked.connect(self.downloadTrack)
 
     # time and beat bar
     self.elapsed_label = ClickableLabel("ELAPSED", self)
@@ -287,6 +292,12 @@ class PlayerWidget(QFrame):
       return
     self.parent().prodj.data.get_mount_info(c.loaded_player_number, c.loaded_slot,
       c.track_id, self.parent().prodj.nfs.enqueue_download_from_mount_info)
+
+  def playbackStart(self):
+    self.parent_gui.prodj.vcdj.command_fader_start_single(self.player_number, start=True)
+
+  def playbackStop(self):
+    self.parent_gui.prodj.vcdj.command_fader_start_single(self.player_number, start=False)
 
   # make browser dialog close when player window disappears
   def hideEvent(self, event):
