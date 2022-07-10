@@ -1,8 +1,8 @@
 import logging
 import os
 
-from . import dataprovider
-from .datastore import DataStore
+from prodj.data.exceptions import FatalQueryError
+from prodj.data.datastore import DataStore
 from prodj.pdblib.pdbdatabase import PDBDatabase
 from prodj.pdblib.usbanlzdatabase import UsbAnlzDatabase
 from prodj.network.rpcreceiver import ReceiveTimeout
@@ -15,6 +15,15 @@ class InvalidPDBDatabase:
 
   def __str__(self):
     return self.reason
+
+def wrap_get_name_from_db(call, id):
+  if id == 0:
+    return ""
+  try:
+    return call(id).name
+  except KeyError as e:
+    logging.warning(f'Broken database: {e}')
+    return "?"
 
 class PDBProvider:
   def __init__(self, prodj):
@@ -39,7 +48,7 @@ class PDBProvider:
   def download_pdb(self, player_number, slot):
     player = self.prodj.cl.getClient(player_number)
     if player is None:
-      raise dataprovider.FatalQueryError("player {} not found in clientlist".format(player_number))
+      raise FatalQueryError("player {} not found in clientlist".format(player_number))
     filename = "databases/player-{}-{}.pdb".format(player_number, slot)
     self.delete_pdb(filename)
     try:
@@ -49,7 +58,7 @@ class PDBProvider:
         logging.debug("default pdb path not found on player %d, trying MacOS path", player_number)
         self.prodj.nfs.enqueue_download(player.ip_addr, slot, "/.PIONEER/rekordbox/export.pdb", filename, sync=True)
     except (RuntimeError, ReceiveTimeout) as e:
-      raise dataprovider.FatalQueryError("database download from player {} failed: {}".format(player_number, e))
+      raise FatalQueryError("database download from player {} failed: {}".format(player_number, e))
     return filename
 
   def download_and_parse_pdb(self, player_number, slot):
@@ -58,27 +67,27 @@ class PDBProvider:
     try:
       db.load_file(filename)
     except RuntimeError as e:
-      raise dataprovider.FatalQueryError("PDBProvider: failed to parse \"{}\": {}".format(filename, e))
+      raise FatalQueryError("PDBProvider: failed to parse \"{}\": {}".format(filename, e))
     return db
 
   def get_db(self, player_number, slot):
     if (player_number, slot) not in self.dbs:
       try:
         db = self.download_and_parse_pdb(player_number, slot)
-      except dataprovider.FatalQueryError as e:
+      except FatalQueryError as e:
         db = InvalidPDBDatabase(str(e))
       finally:
         self.dbs[player_number, slot] = db
     else:
       db = self.dbs[player_number, slot]
     if isinstance(db, InvalidPDBDatabase):
-      raise dataprovider.FatalQueryError(f'PDB database not available: {db}')
+      raise FatalQueryError(f'PDB database not available: {db}')
     return db
 
   def download_and_parse_usbanlz(self, player_number, slot, anlz_path):
     player = self.prodj.cl.getClient(player_number)
     if player is None:
-      raise dataprovider.FatalQueryError("player {} not found in clientlist".format(player_number))
+      raise FatalQueryError("player {} not found in clientlist".format(player_number))
     dat = self.prodj.nfs.enqueue_buffer_download(player.ip_addr, slot, anlz_path)
     ext = self.prodj.nfs.enqueue_buffer_download(player.ip_addr, slot, anlz_path.replace("DAT", "EXT"))
     db = UsbAnlzDatabase()
@@ -99,16 +108,15 @@ class PDBProvider:
   def get_metadata(self, player_number, slot, track_id):
     db = self.get_db(player_number, slot)
     track = db.get_track(track_id)
-    artist = db.get_artist(track.artist_id).name if track.artist_id > 0 else ""
-    album = db.get_album(track.album_id).name if track.album_id > 0 else ""
-    key = db.get_key(track.key_id).name if track.key_id > 0 else ""
-    genre = db.get_genre(track.genre_id).name if track.genre_id > 0 else ""
-    color_name = colors[track.color_id] if track.color_id > 0 else ""
-    if track.color_id > 0:
-      color = db.get_color(track.color_id)
-      color_text = color.name
-    else:
-      color_text = ""
+    artist = wrap_get_name_from_db(db.get_artist, track.artist_id)
+    album = wrap_get_name_from_db(db.get_album, track.album_id)
+    key = wrap_get_name_from_db(db.get_key, track.key_id)
+    genre = wrap_get_name_from_db(db.get_genre, track.genre_id)
+    color_text = wrap_get_name_from_db(db.get_color, track.color_id)
+
+    color_name = ""
+    if track.color_id in range(1, len(colors)):
+      color_name = colors[track.color_id]
 
     metadata = {
       "track_id": track.id,
@@ -135,7 +143,7 @@ class PDBProvider:
   def get_artwork(self, player_number, slot, artwork_id):
     player = self.prodj.cl.getClient(player_number)
     if player is None:
-      raise dataprovider.FatalQueryError("player {} not found in clientlist".format(player_number))
+      raise FatalQueryError("player {} not found in clientlist".format(player_number))
     db = self.get_db(player_number, slot)
     try:
       artwork = db.get_artwork(artwork_id)
@@ -222,30 +230,26 @@ class PDBProvider:
     else:
       col2_name = sort_mode
     for track in track_list:
-      try:
-        if col2_name in ["title", "artist"]:
-          col2_item = db.get_artist(track.artist_id).name if track.artist_id > 0 else ""
-        elif col2_name == "album":
-          col2_item = db.get_album(track.album_id).name if track.album_id > 0 else ""
-        elif col2_name == "genre":
-          col2_item = db.get_genre(track.genre_id).name if track.genre_id > 0 else ""
-        elif col2_name == "label":
-          col2_item = db.get_label(track.label_id).name if track.label_id > 0 else ""
-        elif col2_name == "original_artist":
-          col2_item = db.get_artist(track.original_artist_id).name if track.original_artist_id > 0 else ""
-        elif col2_name == "remixer":
-          col2_item = db.get_artist(track.remixer_id).name if track.remixer_id > 0 else ""
-        elif col2_name == "key":
-          col2_item = db.get_key(track.key_id).name if track.key_id > 0 else ""
-        elif col2_name == "bpm":
-          col2_item = track.bpm_100/100
-        elif col2_name in ["rating", "comment", "duration", "bitrate", "play_count"]: # 1:1 mappings
-          col2_item = track[col2_name]
-        else:
-          raise dataprovider.FatalQueryError("unknown sort mode {}".format(sort_mode))
-      except KeyError as e:
-        logging.warning(f'Broken database: {e}')
-        col2_item = "?"
+      if col2_name in ["title", "artist"]:
+        col2_item = wrap_get_name_from_db(db.get_artist, track.artist_id)
+      elif col2_name == "album":
+        col2_item = wrap_get_name_from_db(db.get_album, track.album_id)
+      elif col2_name == "genre":
+        col2_item = wrap_get_name_from_db(db.get_genre, track.genre_id)
+      elif col2_name == "label":
+        col2_item = wrap_get_name_from_db(db.get_label, track.label_id)
+      elif col2_name == "original_artist":
+        col2_item = wrap_get_name_from_db(db.get_artist, track.original_artist_id)
+      elif col2_name == "remixer":
+        col2_item = wrap_get_name_from_db(db.get_artist, track.remixer_id)
+      elif col2_name == "key":
+        col2_item = wrap_get_name_from_db(db.get_key, track.key_id)
+      elif col2_name == "bpm":
+        col2_item = track.bpm_100/100
+      elif col2_name in ["rating", "comment", "duration", "bitrate", "play_count"]: # 1:1 mappings
+        col2_item = track[col2_name]
+      else:
+        raise FatalQueryError("unknown sort mode {}".format(sort_mode))
       converted += [{
         "title": track.title,
         col2_name: col2_item,
@@ -399,4 +403,4 @@ class PDBProvider:
     elif request == "mount_info":
       return self.get_mount_info(*params)
     else:
-      raise dataprovider.FatalQueryError("invalid request type {}".format(request))
+      raise FatalQueryError("invalid request type {}".format(request))

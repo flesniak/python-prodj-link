@@ -5,6 +5,7 @@ from construct import MappingError, StreamError, RangeError, byte2int
 
 from prodj.network import packets
 from prodj.data import dataprovider
+from prodj.data.exceptions import FatalQueryError, TemporaryQueryError
 from prodj.pdblib.usbanlz import AnlzTag
 
 metadata_type = {
@@ -249,7 +250,7 @@ class DBClient:
       except (StreamError, RangeError, TypeError) as e:
         logging.debug("Received %d bytes but parsing failed, trying to receive more", len(data))
         parse_errors += 1
-    raise dataprovider.TemporaryQueryError("Failed to receive dbmessage after {} tries and {} timeouts".format(parse_errors, receive_timeouts))
+    raise TemporaryQueryError("Failed to receive dbmessage after {} tries and {} timeouts".format(parse_errors, receive_timeouts))
 
   def query_list(self, player_number, slot, sort_mode, id_list, request_type):
     sock = self.getSocket(player_number)
@@ -340,7 +341,7 @@ class DBClient:
         else:
           break
     if parse_errors >= self.parse_error_count or receive_timeouts >= self.receive_timeout_count:
-      raise dataprovider.FatalQueryError("Failed to receive {} render reply after {} timeouts, {} parse errors".format(request_type, receive_timeouts, parse_errors))
+      raise FatalQueryError("Failed to receive {} render reply after {} timeouts, {} parse errors".format(request_type, receive_timeouts, parse_errors))
 
     # basically, parse_metadata returns a single dict whereas parse_list returns a list of dicts
     if request_type in ["metadata_request", "mount_info_request", "track_info_request"]:
@@ -395,7 +396,7 @@ class DBClient:
     if player_number not in self.remote_ports:
       client = self.prodj.cl.getClient(player_number)
       if client is None:
-        raise dataprovider.TemporaryQueryError("failed to get remote port, player {} unknown".format(player_number))
+        raise TemporaryQueryError("failed to get remote port, player {} unknown".format(player_number))
       sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
       sock.connect((client.ip_addr, packets.DBServerQueryPort))
       sock.send(packets.DBServerQuery.build({}))
@@ -425,7 +426,7 @@ class DBClient:
     sock.send(packets.DBMessage.build(query))
     data = sockrcv(sock, 48)
     if len(data) == 0:
-      raise dataprovider.TemporaryQueryError("Failed to connect to player {}".format(player_number))
+      raise TemporaryQueryError("Failed to connect to player {}".format(player_number))
     reply = packets.DBMessage.parse(data)
     logging.info("connected to player {}".format(reply["args"][1]["value"]))
 
@@ -479,19 +480,19 @@ class DBClient:
     except BrokenPipeError as e:
       player_number = next((n for n, d in self.socks.items() if d[0] == sock), None)
       if player_number is None:
-        raise dataprovider.FatalQueryError("socksnd failed with unknown sock")
+        raise FatalQueryError("socksnd failed with unknown sock")
       else:
         self.closeSocket(player_number)
-        raise dataprovider.TemporaryQueryError("Connection to player {} lost".format(player_number))
+        raise TemporaryQueryError("Connection to player {} lost".format(player_number))
 
   def ensure_request_possible(self, request, player_number):
     client = self.prodj.cl.getClient(player_number)
     if client is None:
-      raise dataprovider.TemporaryQueryError("player {} not found in clientlist".format(player_number))
+      raise TemporaryQueryError("player {} not found in clientlist".format(player_number))
     critical_requests = ["metadata_request", "artwork_request", "preview_waveform_request", "beatgrid_request", "waveform_request"]
     critical_play_states = ["no_track", "loading_track", "cannot_play_track", "emergency"]
     if request in critical_requests and client.play_state in critical_play_states:
-      raise dataprovider.TemporaryQueryError("DataProvider: delaying %s request due to play state: %s".format(request, client.play_state))
+      raise TemporaryQueryError("DataProvider: delaying %s request due to play state: %s".format(request, client.play_state))
 
   def handle_request(self, request, params):
     self.ensure_request_possible(request, params[0])
@@ -544,10 +545,10 @@ class DBClient:
       try: # pre-parse beatgrid data (like metadata) for easier access
         return packets.Beatgrid.parse(reply)["beats"]
       except (RangeError, FieldError) as e:
-        raise dataprovider.FatalQueryError("failed to parse beatgrid data: {}".format(e))
+        raise FatalQueryError("failed to parse beatgrid data: {}".format(e))
     elif request == "mount_info":
       return self.query_list(*params[:2], None, [params[2]], "mount_info_request")
     elif request == "track_info":
       return self.query_list(*params[:2], None, [params[2]], "track_info_request")
     else:
-      raise dataprovider.FatalQueryError("invalid request type {}".format(request))
+      raise FatalQueryError("invalid request type {}".format(request))

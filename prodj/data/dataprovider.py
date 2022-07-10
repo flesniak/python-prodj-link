@@ -6,12 +6,7 @@ from queue import Empty, Queue
 from .datastore import DataStore
 from .dbclient import DBClient
 from .pdbprovider import PDBProvider
-
-class TemporaryQueryError(Exception):
-  pass
-
-class FatalQueryError(Exception):
-  pass
+from .exceptions import TemporaryQueryError, FatalQueryError
 
 class DataProvider(Thread):
   def __init__(self, prodj):
