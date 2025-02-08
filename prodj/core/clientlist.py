@@ -2,6 +2,8 @@ import time
 import logging
 from datetime import datetime
 
+from prodj.network.packets_dump import pretty_flags
+
 class ClientList:
   def __init__(self, prodj):
     self.clients = []
@@ -74,6 +76,9 @@ class ClientList:
 
   # adds client if it is not known yet, in any case it resets the ttl
   def eatKeepalive(self, keepalive_packet):
+    if keepalive_packet.type in ["type_ip", "type_status"] and keepalive_packet.content.flags.is_nxs_gw:
+      logging.debug(f"Dropping NXS-GW packet from {keepalive_packet.content.ip_addr} player {pretty_flags(keepalive_packet.content.flags)}")
+      return
     c = next((x for x in self.clients if x.ip_addr == keepalive_packet.content.ip_addr), None)
     if c is None:
       conflicting_client = next((x for x in self.clients if x.player_number == keepalive_packet.content.player_number), None)

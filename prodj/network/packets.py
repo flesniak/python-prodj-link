@@ -40,13 +40,19 @@ KeepAlivePacketSubtype = Enum(Int8ub,
 DeviceType = Enum(Int8ub,
   djm = 1,
   cdj = 2,
-  rekordbox = 3
+  rekordbox = 3 # also used by cdj-3000
 )
 
 PlayerNumberAssignment = Enum(Int8ub,
   auto = 1,
   manual = 2
 )
+
+StatusFeatureFlags = FlagsEnum(Int8ub,
+  is_player_or_mixer = 1,
+  is_mixer = 2, # djm has flags=3
+  is_rekordbox = 4,
+  is_nxs_gw = 8)
 
 UdpMagic = Const("Qspt1WmJOL", PaddedString(10, encoding="ascii"))
 
@@ -71,7 +77,7 @@ KeepAlivePacket = Struct(
     # type=0x00, publishing mac address, iteration goes 1..2..3 again
     "type_mac": Struct(
       "iteration" / Int8ub,
-      "u2" / Default(Int8ub, 1), # rekordbox has 4 here
+      "flags" / Default(StatusFeatureFlags, 1),
       "mac_addr" / MacAddr),
     # type=0x02, publishing ip + mac, iteration goes 1..2..3 again
     "type_ip": Struct(
@@ -79,7 +85,7 @@ KeepAlivePacket = Struct(
       "mac_addr" / MacAddr,
       "player_number" / Int8ub,
       "iteration" / Int8ub,
-      "u2" / Default(Int8ub, 1), # rekordbox has 4 here
+      "flags" / Default(StatusFeatureFlags, 1),
       "player_number_assignment" / Default(PlayerNumberAssignment, "manual")),
     # type=0x06, the standard keepalive packet
     "type_status": Struct(
@@ -87,9 +93,10 @@ KeepAlivePacket = Struct(
       "u2" / Default(Int8ub, 1), # actual player number? sometimes other player's id, sometimes own id
       "mac_addr" / MacAddr,
       "ip_addr" / IpAddr,
-      "device_count" / Default(Int8ub, 1), # number of known prodjlink devices
-      Padding(2),
-      "u3" / Default(Int16ub, 1)), # rekordbox has 4 here
+      "device_count" / Default(Int8ub, 2), # number of known prodjlink devices (?), 2 for cdj-3000 compatibility
+      Padding(3),
+      "flags" / Default(StatusFeatureFlags, 1),
+      "u4" / Default(Int8ub, 0x64)), # more flags, often 0, 0x64 for cdj-3000
     "type_change": Struct( # when changing player number
       "old_player_number" / Int8ub,
       "ip_addr" / IpAddr)

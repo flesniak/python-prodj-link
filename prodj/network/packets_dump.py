@@ -1,23 +1,26 @@
 import logging
 
+def pretty_flags(flags):
+  return "|".join(x for x,y in flags.items() if y and x[0] != "_")
+
 # dump functions for debugging
 def dump_keepalive_packet(packet):
   if logging.getLogger().getEffectiveLevel() > 5:
     return
   if packet.subtype == "stype_status":
-    logging.log(5, "keepalive {} model {} ({}) player {} ip {} mac {} devcnt {} u2 {} u3 {}".format(
+    logging.log(5, "keepalive {} model {} ({}) player {} ip {} mac {} devcnt {} u2 {} flags {}".format(
       packet.subtype, packet.model, packet.device_type, packet.content.player_number, packet.content.ip_addr,
-      packet.content.mac_addr, packet.content.device_count, packet.content.u2, packet.content.u3
+      packet.content.mac_addr, packet.content.device_count, packet.content.u2, pretty_flags(packet.content.flags)
     ))
   elif packet.subtype == "stype_ip":
-    logging.log(5, "keepalive {} model {} ({}) player {} ip {} mac {} iteration {} assignment {} u2 {}".format(
+    logging.log(5, "keepalive {} model {} ({}) player {} ip {} mac {} iteration {} assignment {} flags {}".format(
       packet.subtype, packet.model, packet.device_type, packet.content.player_number, packet.content.ip_addr,
-      packet.content.mac_addr, packet.content.iteration, packet.content.player_number_assignment, packet.content.u2
+      packet.content.mac_addr, packet.content.iteration, packet.content.player_number_assignment, pretty_flags(packet.content.flags)
     ))
   elif packet.subtype == "stype_mac":
-    logging.log(5, "keepalive {} model {} ({}) mac {} iteration {} u2 {}".format(
+    logging.log(5, "keepalive {} model {} ({}) mac {} iteration {} flags {}".format(
       packet.subtype, packet.model, packet.device_type, packet.content.mac_addr,
-      packet.content.iteration, packet.content.u2
+      packet.content.iteration, pretty_flags(packet.content.flags)
     ))
   elif packet.subtype == "stype_number":
     logging.log(5, "keepalive {} model {} ({}) proposed_player_number {} iteration {}".format(
