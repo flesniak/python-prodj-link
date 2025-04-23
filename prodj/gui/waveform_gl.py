@@ -41,7 +41,7 @@ class GLWaveformWidget(QOpenGLWidget):
 
     self.waveform_zoom_changed_signal.connect(self.setZoom)
 
-    self.update_interval_ms = 40
+    self.update_interval_ms = 25
     self.startTimer(self.update_interval_ms)
 
   def minimumSizeHint(self):
@@ -70,28 +70,33 @@ class GLWaveformWidget(QOpenGLWidget):
       self.update()
 
   # current time in seconds at position marker
-  def setPosition(self, position, pitch=1, state="playing"):
-    #logging.debug("setPosition {} pitch {} state {}".format(position, pitch, state))
+  def setPosition(self, position, pitch=1, state="playing", forceUpdate=False):
+    logging.debug("setPosition {} pitch {} state {}".format(position, pitch, state))
     if position is not None and pitch is not None:
       if state in PlayStateStopped:
         pitch = 0
       self.pitch = pitch
       if self.time_offset != position:
-        #logging.debug("time offset diff %.6f", position-self.time_offset)
-        offset = abs(position - self.time_offset)
-        if state in PlayStatePlaying and offset < 0.05: # ignore negligible offset
-          return
-        if state in PlayStatePlaying and offset < 0.1: # small enough to compensate by temporary pitch modification
-          if position > self.time_offset:
-            #logging.debug("increasing pitch to catch up")
-            self.pitch += 0.01
-          else:
-            #logging.debug("decreasing pitch to fall behind")
-            self.pitch -= 0.01
-        else: # too large to compensate or non-monotonous -> direct assignment
-          #logging.debug("offset %.6f, direct assignment", offset)
+        if forceUpdate:
           self.time_offset = position
           self.update()
+        else:
+          #logging.debug("time offset diff %.6f", position-self.time_offset)
+          offset = abs(position - self.time_offset)
+          if state in PlayStatePlaying and offset < 0.05: # ignore negligible offset
+            return
+          
+          if state in PlayStatePlaying and offset < 0.1: # small enough to compensate by temporary pitch modification
+            if position > self.time_offset:
+              #logging.debug("increasing pitch to catch up")
+              self.pitch += 0.01
+            else:
+              #logging.debug("decreasing pitch to fall behind")
+              self.pitch -= 0.01
+          else: # too large to compensate or non-monotonous -> direct assignment
+            #logging.debug("offset %.6f, direct assignment", offset) 
+            self.time_offset = position
+            self.update()
     else:
       self.offset = 0
       self.pitch = 0

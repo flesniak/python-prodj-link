@@ -436,7 +436,7 @@ class Gui(QWidget):
     player.setMaster("master" in c.state)
     player.setSync("sync" in c.state)
     player.beat_bar.setBeat(c.beat)
-    player.waveform.setPosition(c.position, c.actual_pitch, c.play_state)
+    player.waveform.setPosition(c.position, c.actual_pitch, c.play_state, c.supports_absolute_beat_packets)
     player.setPlayState(c.play_state)
     player.setOnAir(c.on_air)
     player.setSlotInfo(c.loaded_player_number, c.loaded_slot)
