@@ -273,7 +273,6 @@ class GLWaveformWidget(QOpenGLWidget):
     if not self.loop:
       return
     start, end = self.loop
-    print("renderLoop", start, end)
     gl.glPushAttrib(gl.GL_ALL_ATTRIB_BITS)
     gl.glEnable(gl.GL_BLEND)
     gl.glBlendFunc(gl.GL_SRC_ALPHA, gl.GL_ONE_MINUS_SRC_ALPHA)

@@ -17,7 +17,7 @@ class PreviewWaveformWidget(QWidget):
     super().__init__(parent)
     self.pixmap_width = 400
     self.pixmap_height = 34
-    self.top_offset = 4
+    self.top_offset = 8
     self.total_height = self.pixmap_height + self.top_offset
     self.setMinimumSize(self.pixmap_width, self.total_height)
     self.data = None
@@ -63,6 +63,10 @@ class PreviewWaveformWidget(QWidget):
       if self.pixmap is not None:
         scaled_pixmap = self.pixmap.scaled(self.size(), Qt.KeepAspectRatio)
         painter.drawPixmap(0, self.top_offset, scaled_pixmap)
+        # draw 1px border around preview
+        painter.setPen(QColor(255, 255, 255))
+        painter.setBrush(Qt.NoBrush)
+        painter.drawRect(0, 0, scaled_pixmap.width(), self.height()) # we use the full height to have a little padding
         # draw loop overlay on top of waveform
         if self.loop:
           start_px = int(self.loop[0] * scaled_pixmap.width())
@@ -71,10 +75,10 @@ class PreviewWaveformWidget(QWidget):
         # draw position marker
         height = scaled_pixmap.height() + self.top_offset
         marker_position = int(self.position * scaled_pixmap.width())
-        painter.fillRect(marker_position-1, 0, 3, height, Qt.black)
-        painter.fillRect(marker_position-3, 0, 7, 7, Qt.black)
-        painter.fillRect(marker_position-2, 1, 5, 5, Qt.white)
-        painter.fillRect(marker_position, 1, 1, height, Qt.white)
+        painter.fillRect(marker_position-1, 3, 3, height, Qt.black)
+        painter.fillRect(marker_position-3, 3, 7, 7, Qt.black)
+        painter.fillRect(marker_position-2, 4, 5, 5, Qt.white)
+        painter.fillRect(marker_position, 4, 1, height, Qt.white)
     painter.end()
 
   def drawPreviewWaveformPixmap(self):
