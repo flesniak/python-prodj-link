@@ -92,11 +92,13 @@ class PreviewWaveformWidget(QWidget):
     if self.data and len(self.data) >= self.pixmap_width * 2:
       for x in range(self.pixmap_width):
         height = self.data[2*x] - 2 # only seen from 2..23
+        # self.data[2*x+1] only seen from 1..6
         height = height if height > 0 else 0
         color = blue_map[2] if self.data[2*x+1] > 3 else blue_map[6]
         painter.setPen(QColor(*color))
         painter.drawLine(x, 31, x, 31-height)
     painter.setPen(Qt.white)
+    # base line
     painter.drawLine(0, 33, self.pixmap_width-1, 33)
     painter.end()
     return pixmap
@@ -114,24 +116,47 @@ class PreviewWaveformWidget(QWidget):
     xr = self.pixmap_width / w
     if self.data and len(self.data) >= w:
       data = self.data
+
+      # Get max_height to adjust waveform height
       max_height = 0
       for x in range(w):
-        max_height = max(max_height, data[x*6+3], data[x*6+4], data[x*6+5])
-      hr = 127 / max_height if max_height > 0 else 1
-      max_back_height = max_front_height = 0
+        d3 = data[x * 6 + 3]
+        d4 = data[x * 6 + 4]
+        d5 = data[x * 6 + 5]
+        max_height = max(max_height, d3, d4, d5)
+
+      max_back_height = 0
+      max_front_height = 0
+
+      hr = 127 / max_height
       for x in range(w):
-        d0, d1, d2 = data[x*6], data[x*6+1], data[x*6+2]
-        d3, d4, d5 = data[x*6+3], data[x*6+4], data[x*6+5]
+        # d0 & d1: max of d1 and d2 sets the steepness of the ramp of the blueness
+        d0 = data[x * 6 + 0]
+        d1 = data[x * 6 + 1]
+        # d2: ""\__ blueness
+        d2 = data[x * 6 + 2]
+        # d3: "\___ red
+        d3 = data[x * 6 + 3]
+        # d4: _/"\_ green
+        d4 = data[x * 6 + 4]
+        # d5: ___/" blue and height of front waveform
+        d5 = data[x * 6 + 5]
+
+        # background waveform height is max height of d3, d4 (and d5 as it is foreground)
         back_height = max(d3, d4, d5)
+        # front waveform height is d5
         front_height = d5
-        if not self.colored_render_blue_only:
+
+        if not self.colored_render_blue_only: # color
           if back_height > 0:
             red = d3 / back_height * 255
             green = d4 / back_height * 255
             blue = d5 / back_height * 255
           else:
             red = green = blue = 0
-        else:
+        else: # NXS2 blue
+          # NOTE: the whole steepness and zero cutoff just don't seems to make any sense, however it looks as on CDJ
+          # Maybe this is related to the bytes wrongly(?) interpreted as signed bytes instead of unsigned.
           steepness = max(d0, d1)
           blueness = d2
           color = 0
@@ -140,14 +165,14 @@ class PreviewWaveformWidget(QWidget):
           red, green, blue = blue_map[color]
         back_height = int(back_height * hr)
         front_height = int(front_height * hr)
-        max_back_height = max(max_back_height, back_height)
-        max_front_height = max(max_front_height, front_height)
+        max_back_height = max(back_height, max_back_height)
+        max_front_height = max(front_height, max_back_height)
         xd = int(x * xr)
         if int((x + 1) * xr) > xd:
-          painter.setPen(QColor(int(red*.75), int(green*.75), int(blue*.75)))
-          painter.drawLine(xd, 31, xd, 31-int(max_back_height/4))
+          painter.setPen(QColor(int(red * .75), int(green * .75), int(blue * .75)))
+          painter.drawLine(xd, 31, xd, 31 - int(max_back_height / 4))
           painter.setPen(QColor(int(red), int(green), int(blue)))
-          painter.drawLine(xd, 31, xd, 31-int(max_front_height/4))
+          painter.drawLine(xd, 31, xd, 31 - int(max_front_height / 4))
           max_back_height = max_front_height = 0
     painter.setPen(Qt.white)
     painter.drawLine(0, 33, self.pixmap_width-1, 33)

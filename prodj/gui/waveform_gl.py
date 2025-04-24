@@ -84,6 +84,7 @@ class GLWaveformWidget(QOpenGLWidget):
       self.loop = loop
       self.update()
 
+  # current time in seconds at position marker
   def setPosition(self, position, pitch=1, state="playing"):
     logging.debug("setPosition {} pitch {} state {}".format(position, pitch, state))
     if position is not None and pitch is not None:
