@@ -2,7 +2,7 @@
 # https://github.com/brunchboy/dysentery
 # https://bitbucket.org/awwright/libpdjl
 
-from construct import Adapter, Array, Byte, Const, CString, Default, Enum, ExprAdapter, FlagsEnum, FocusedSeq, GreedyBytes, GreedyRange, Int8ub, Int16ub, Int32ub, Int64ub, Int16ul, Int32ul, Padded, Padding, Pass, PascalString, PaddedString, Prefixed, Rebuild, Struct, Subconstruct, Switch, this, len_
+from construct import Adapter, Array, Byte, Bytes, Const, CString, Default, Enum, ExprAdapter, FlagsEnum, FocusedSeq, GreedyBytes, GreedyRange, Int8ub, Int16ub, Int32ub, Int64ub, Int16ul, Int32ul, Padded, Padding, Pass, PascalString, PaddedString, Prefixed, Rebuild, Struct, Subconstruct, Switch, StopIf, this, len_
 
 class IpAddrAdapter(Adapter):
   def _encode(self, obj, context, path):
@@ -253,6 +253,61 @@ BpmState = Enum(Int16ub,
   cd = 0
 )
 
+KeyValue = Enum(Int32ub,
+  am = 0x00000001,
+  bbm = 0x0100ff01, # b bemol m
+  bm = 0x02000001,
+  cm = 0x03000001,
+  cdm = 0x04000101, # c#m
+  dm = 0x05000001,
+  ebm = 0x0600ff01,
+  em = 0x07000001,
+  fm = 0x08000001,
+  fdm = 0x09000101, # f#m
+  gm = 0x0a000001,
+  abm = 0x0b00ff01,
+  c = 0x00010001,
+  db = 0x0101ff01,
+  d = 0x02010001,
+  eb = 0x0301ff01,
+  e = 0x04010001,
+  f = 0x05010001,
+  fd = 0x06010101,
+  g = 0x07010001,
+  ab = 0x0801ff01,
+  a = 0x09010001,
+  bb = 0x0a01ff01,
+  b = 0x0b010001
+)
+
+KeyShift = Enum(Int64ub,
+  plus12 = 0x00000000000004b0,
+  plus11 = 0x000000000000044C,
+  plus10 = 0x00000000000003E8,
+  plus9 = 0x0000000000000384,
+  plus8 = 0x0000000000000320,
+  plus7 = 0x00000000000002CC,
+  plus6 = 0x0000000000000278,
+  plus5 = 0x0000000000000224,
+  plus4 = 0x00000000000001D0,
+  plus3 = 0x000000000000017C,
+  plus2 = 0x0000000000000128,
+  plus1 = 0x00000000000000D4,
+  none = 0x0000000000000000,
+  minus1 = 0xFFFFFFFFFFFFFF9C,
+  minus2 = 0xFFFFFFFFFFFFFF38,
+  minus3 = 0xFFFFFFFFFFFFFED4,
+  minus4 = 0xFFFFFFFFFFFFFE70,
+  minus5 = 0xFFFFFFFFFFFFFE0C,
+  minus6 = 0xFFFFFFFFFFFFFDAC,
+  minus7 = 0xFFFFFFFFFFFFFD48,
+  minus8 = 0xFFFFFFFFFFFFFCF4,
+  minus9 = 0xFFFFFFFFFFFFFC90,
+  minus10 = 0xFFFFFFFFFFFFFC2C,
+  minus11 = 0xFFFFFFFFFFFFFBB4,
+  minus12 = 0xFFFFFFFFFFFFFB50,
+)
+
 class StateMaskAdapter(Adapter):
   def _encode(self, obj, context, path):
     return obj | 0x84 # add bits which are always 1
@@ -280,7 +335,7 @@ StatusPacket = Struct(
     "rekordbox_hello": Struct("payload_size" / Int16ub), # always 0 till now
     "link_reply": Struct("payload_size" / Int16ub), # always 0x9c
   }, default=Struct(
-    "u3" / Default(Int16ub, 0xf8), # b0 cdj2000nxs, f8 xdj1000, 14 djm, 34/38 rekordbox, 104 rdbx_reply
+    "u3" / Default(Int16ub, 0xf8), # length of the rest of the packet b0 cdj2000nxs, f8 xdj1000, 14 djm, 34/38 rekordbox, 104 rdbx_reply, 0x438 for cdj-3000
     "player_number2" / Rebuild(Int8ub, this._.player_number), # equal to player_number
     "u4" / Default(Int8ub, 0) # 1 cdj2000nxs or 0 xdj1000, 0 for rekordbox))
   )),
@@ -331,8 +386,19 @@ StatusPacket = Struct(
       "physical_pitch2" / Pitch,
       "actual_pitch2" / Pitch,
       "packet_count" / Default(Int32ub, 0), # permanently increasing
-      "is_nexus" / Default(Int8ub, 0x0f), # 0x0f=nexus, 0x05=non-nexus player
-      Padding(3)),
+      "is_nexus" / Default(Int8ub, 0x0f), # 0x0f=nexus, 0x05=non-nexus player, 0x1f for cdj-3000 and xdj-xz
+      StopIf(this._.extra.u3 != 0x438), # cdj-3000
+      Bytes(143),  # Accepts any bytes instead of padding with null bytes
+      "key" / KeyValue,  # key of the track, keyshift not applied
+      Padding(4),
+      "keyshift" / KeyShift, # keyshift of the track
+      Bytes(76),
+      "loopStart" / Int32ub, # loop start position in ms, mul by 0.65536 to get it
+      Padding(4),
+      "loopEnd" / Int32ub, # loop end position in ms, mul by 0.65536 to get it
+      Bytes(4),
+      "wholeLoopLength" / Int16ub, # number of whole beats in the loop (minimum 1)
+      ),
       # 4 bytes padding for 2000nxs or newer, cdj2000 does not have this
     "djm": Struct(
       "state" / StateMask,

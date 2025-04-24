@@ -89,7 +89,7 @@ class ProDj(Thread):
           data, addr = self.beat_sock.recvfrom(128)
           self.handle_beat_packet(data, addr)
         elif sock == self.status_sock:
-          data, addr = self.status_sock.recvfrom(256)
+          data, addr = self.status_sock.recvfrom(1158) # max size of status packet (CDJ-3000), can also be smaller
           self.handle_status_packet(data, addr)
       self.cl.gc()
     logging.debug("main loop finished")
