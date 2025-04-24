@@ -437,7 +437,7 @@ class Gui(QWidget):
     player.setMaster("master" in c.state)
     player.setSync("sync" in c.state)
     player.beat_bar.setBeat(c.beat)
-    player.waveform.changeAutoUpdate(c.supports_absolute_beat_packets)
+    player.waveform.changeAutoUpdate(c.supports_absolute_position_packets)
     player.waveform.setPosition(c.position, c.actual_pitch, c.play_state)
     player.waveform.setLoop((c.loop_start, c.loop_end))
     player.setPlayState(c.play_state)

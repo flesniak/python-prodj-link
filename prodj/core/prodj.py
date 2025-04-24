@@ -120,7 +120,7 @@ class ProDj(Thread):
       logging.warning("Failed to parse beat packet from {}, {} bytes: {}".format(addr, len(data), e))
       packets_dump.dump_packet_raw(data)
       return
-    if packet["type"] in ["type_beat", "type_absolute_beat", "type_mixer"]:
+    if packet["type"] in ["type_beat", "type_absolute_position", "type_mixer"]:
       self.cl.eatBeat(packet)
     packets_dump.dump_beat_packet(packet)
 

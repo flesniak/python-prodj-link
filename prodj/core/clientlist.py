@@ -136,9 +136,9 @@ class ClientList:
       if c.beat != new_beat:
         c.beat = new_beat
         client_changed = True
-    elif beat_packet.type == "type_absolute_beat":
-      if not c.supports_absolute_beat_packets:
-        c.supports_absolute_beat_packets = True
+    elif beat_packet.type == "type_absolute_position":
+      if not c.supports_absolute_position_packets:
+        c.supports_absolute_position_packets = True
       new_actual_pitch = beat_packet.content.pitch / 100
       if c.actual_pitch != new_actual_pitch:
         c.actual_pitch = new_actual_pitch
@@ -200,7 +200,7 @@ class ClientList:
     if c.type == "cdj":
       new_beat_count = status_packet.content.beat_count if status_packet.content.beat_count != 0xffffffff else 0
       new_play_state = status_packet.content.play_state
-      if not c.supports_absolute_beat_packets:
+      if not c.supports_absolute_position_packets:
         if new_beat_count != c.beat_count or new_play_state != c.play_state:
           self.updatePositionByBeat(c.player_number, new_beat_count, new_play_state) # position tracking, set new absolute grid value
         else: # otherwise, increment by pitch
@@ -351,7 +351,7 @@ class Client:
     # internal use
     self.metadata = None
     self.status_packet_received = False # ignore play state from beat packets
-    self.supports_absolute_beat_packets = False
+    self.supports_absolute_position_packets = False
     self.ttl = time.time()
 
   # calculate the current position by linear interpolation

@@ -119,7 +119,7 @@ Bpm = BpmAdapter(Int16ub)
 
 BeatPacketType = Enum(Int8ub,
   type_beat = 0x28,
-  type_absolute_beat = 0x0b,
+  type_absolute_position = 0x0b,
   type_mixer = 0x03,
   type_mixer_unknown = 0x04, # some kind of "hello" packet sent by djm900nxs2
   type_fader_start = 0x02
@@ -167,7 +167,7 @@ BeatPacket = Struct(
       Padding(2), # always 0 except when scratching 0xff
       "player_number2" / Int8ub),
     # type=0x0b, absolute position packet, containing precise time, only from CDJ-3000
-    "type_absolute_beat": Struct(
+    "type_absolute_position": Struct(
       "track_len" / Int32ub, # rounded to the nearest second
       "playhead" / Int32ub, # position (mil)
       "pitch" / Int32ub, # pitch multiplied by 100
