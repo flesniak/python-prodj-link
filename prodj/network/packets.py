@@ -330,12 +330,12 @@ StatusPacket = Struct(
   # 34 bytes until now
   "extra" / Switch(this.type, {
     "link_query": Struct(
-      "u3" / Default(Int16ub, 0x0c),
+      "remaining_bytes" / Default(Int16ub, 0x0c),
       "source_ip" / IpAddr),
     "rekordbox_hello": Struct("payload_size" / Int16ub), # always 0 till now
     "link_reply": Struct("payload_size" / Int16ub), # always 0x9c
   }, default=Struct(
-    "u3" / Default(Int16ub, 0xf8), # length of the rest of the packet b0 cdj2000nxs, f8 xdj1000, 14 djm, 34/38 rekordbox, 104 rdbx_reply, 0x438 for cdj-3000
+    "remaining_bytes" / Default(Int16ub, 0xf8), # length of the rest of the packet b0 cdj2000nxs, f8 xdj1000, 14 djm, 34/38 rekordbox, 104 rdbx_reply, 0x438 for cdj-3000
     "player_number2" / Rebuild(Int8ub, this._.player_number), # equal to player_number
     "u4" / Default(Int8ub, 0) # 1 cdj2000nxs or 0 xdj1000, 0 for rekordbox))
   )),
@@ -387,7 +387,7 @@ StatusPacket = Struct(
       "actual_pitch2" / Pitch,
       "packet_count" / Default(Int32ub, 0), # permanently increasing
       "is_nexus" / Default(Int8ub, 0x0f), # 0x0f=nexus, 0x05=non-nexus player, 0x1f for cdj-3000 and xdj-xz
-      StopIf(this._.extra.u3 != 0x438), # cdj-3000
+      StopIf(this._.extra.remaining_bytes != 0x438), # cdj-3000
       Bytes(143),  # Accepts any bytes instead of padding with null bytes
       "key" / KeyValue,  # key of the track, keyshift not applied
       Padding(4),

@@ -315,7 +315,7 @@ class Window(QWidget):
 
     self.timeSlider.setValue(0)
     self.zoomSlider.setValue(4)
- 
+
 if __name__ == '__main__':
     app = QApplication([])
     window = Window()
