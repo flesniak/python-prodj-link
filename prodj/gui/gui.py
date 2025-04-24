@@ -436,7 +436,9 @@ class Gui(QWidget):
     player.setMaster("master" in c.state)
     player.setSync("sync" in c.state)
     player.beat_bar.setBeat(c.beat)
-    player.waveform.setPosition(c.position, c.actual_pitch, c.play_state, c.supports_absolute_beat_packets)
+    player.waveform.changeAutoUpdate(c.supports_absolute_beat_packets)
+    player.waveform.setPosition(c.position, c.actual_pitch, c.play_state)
+    player.waveform.setLoop((c.loop_start, c.loop_end))
     player.setPlayState(c.play_state)
     player.setOnAir(c.on_air)
     player.setSlotInfo(c.loaded_player_number, c.loaded_slot)
@@ -444,7 +446,8 @@ class Gui(QWidget):
       player.setTime(c.position, c.metadata["duration"])
       player.setTotalTime(c.metadata["duration"])
       if c.position is not None:
-        player.preview_waveform.setPosition(c.position/c.metadata["duration"])
+        player.preview_waveform.setPosition(c.position / c.metadata["duration"])
+        player.preview_waveform.setLoop((c.loop_start / c.metadata["duration"], c.loop_end / c.metadata["duration"]))
     else:
       player.setTime(c.position, None)
       player.setTotalTime(None)

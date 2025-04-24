@@ -206,6 +206,36 @@ class ClientList:
         else: # otherwise, increment by pitch
           c.updatePositionByPitch()
 
+      if "key" in status_packet.content:
+        new_key = status_packet.content.key
+        if c.key != new_key:
+          c.key = new_key
+          client_changed = True
+      
+      if "key_shift" in status_packet.content:
+        new_key_shift = status_packet.content.key_shift
+        if c.key_shift != new_key_shift:
+          c.key_shift = new_key_shift
+          client_changed = True
+
+      if "loopStart" in status_packet.content:
+        new_loop_start = status_packet.content.loopStart / 1_000_000
+        if c.loop_start != new_loop_start:
+          c.loop_start = new_loop_start
+          client_changed = True
+
+      if "loopEnd" in status_packet.content:
+        new_loop_end = status_packet.content.loopEnd / 1_000_000
+        if c.loop_end != new_loop_end:
+          c.loop_end = new_loop_end
+          client_changed = True
+
+      if "wholeLoopLength" in status_packet.content:
+        new_whole_loop_length = status_packet.content.wholeLoopLength
+        if c.whole_loop_length != new_whole_loop_length:
+          c.whole_loop_length = new_whole_loop_length
+          client_changed = True
+
       if c.beat_count != new_beat_count:
         c.beat_count = new_beat_count
         client_changed = True
@@ -294,6 +324,11 @@ class Client:
     self.player_number = 0
     # play state
     self.bpm = None
+    self.key = None
+    self.key_shift = None
+    self.loop_start = None
+    self.loop_end = None
+    self.whole_loop_length = None
     self.pitch = 1
     self.actual_pitch = 1
     self.beat = 0
