@@ -89,7 +89,7 @@ class ProDj(Thread):
           data, addr = self.beat_sock.recvfrom(128)
           self.handle_beat_packet(data, addr)
         elif sock == self.status_sock:
-          data, addr = self.status_sock.recvfrom(256)
+          data, addr = self.status_sock.recvfrom(1158) # max size of status packet (CDJ-3000), can also be smaller
           self.handle_status_packet(data, addr)
       self.cl.gc()
     logging.debug("main loop finished")
@@ -120,7 +120,7 @@ class ProDj(Thread):
       logging.warning("Failed to parse beat packet from {}, {} bytes: {}".format(addr, len(data), e))
       packets_dump.dump_packet_raw(data)
       return
-    if packet["type"] in ["type_beat", "type_mixer"]:
+    if packet["type"] in ["type_beat", "type_absolute_position", "type_mixer"]:
       self.cl.eatBeat(packet)
     packets_dump.dump_beat_packet(packet)
 

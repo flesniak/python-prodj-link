@@ -15,7 +15,7 @@ class ClientList:
     self.auto_track_download = False
     self.prodj = prodj
 
-  def __len__():
+  def __len__(self):
     return len(self.clients)
 
   def getClient(self, player_number):
@@ -51,7 +51,6 @@ class ClientList:
 
   def updatePositionByBeat(self, player_number, new_beat_count, new_play_state):
     c = self.getClient(player_number)
-    #logging.debug("Track position p %d abs %f actual_pitch %.6f play_state %s beat %d", player_number, c.position if c.position is not None else -1, c.actual_pitch, new_play_state, new_beat_count)
     identifier = (c.loaded_player_number, c.loaded_slot, c.track_id)
     if identifier in self.prodj.data.beatgrid_store:
       if new_beat_count > 0:
@@ -137,6 +136,18 @@ class ClientList:
       if c.beat != new_beat:
         c.beat = new_beat
         client_changed = True
+    elif beat_packet.type == "type_absolute_position":
+      if not c.supports_absolute_position_packets:
+        c.supports_absolute_position_packets = True
+      new_actual_pitch = beat_packet.content.pitch / 100
+      if c.actual_pitch != new_actual_pitch:
+        c.actual_pitch = new_actual_pitch
+        client_changed = True
+      
+      new_position = beat_packet.content.playhead / 1000
+      if c.position != new_position:
+        c.position = new_position
+        client_changed = True
     if self.client_change_callback and client_changed:
       self.client_change_callback(c.player_number)
 
@@ -189,10 +200,41 @@ class ClientList:
     if c.type == "cdj":
       new_beat_count = status_packet.content.beat_count if status_packet.content.beat_count != 0xffffffff else 0
       new_play_state = status_packet.content.play_state
-      if new_beat_count != c.beat_count or new_play_state != c.play_state:
-        self.updatePositionByBeat(c.player_number, new_beat_count, new_play_state) # position tracking, set new absolute grid value
-      else: # otherwise, increment by pitch
-        c.updatePositionByPitch()
+      if not c.supports_absolute_position_packets:
+        if new_beat_count != c.beat_count or new_play_state != c.play_state:
+          self.updatePositionByBeat(c.player_number, new_beat_count, new_play_state) # position tracking, set new absolute grid value
+        else: # otherwise, increment by pitch
+          c.updatePositionByPitch()
+
+      if "key" in status_packet.content:
+        new_key = status_packet.content.key
+        if c.key != new_key:
+          c.key = new_key
+          client_changed = True
+      
+      if "key_shift" in status_packet.content:
+        new_key_shift = status_packet.content.key_shift
+        if c.key_shift != new_key_shift:
+          c.key_shift = new_key_shift
+          client_changed = True
+
+      if "loopStart" in status_packet.content:
+        new_loop_start = status_packet.content.loopStart / 1_000_000
+        if c.loop_start != new_loop_start:
+          c.loop_start = new_loop_start
+          client_changed = True
+
+      if "loopEnd" in status_packet.content:
+        new_loop_end = status_packet.content.loopEnd / 1_000_000
+        if c.loop_end != new_loop_end:
+          c.loop_end = new_loop_end
+          client_changed = True
+
+      if "wholeLoopLength" in status_packet.content:
+        new_whole_loop_length = status_packet.content.wholeLoopLength
+        if c.whole_loop_length != new_whole_loop_length:
+          c.whole_loop_length = new_whole_loop_length
+          client_changed = True
 
       if c.beat_count != new_beat_count:
         c.beat_count = new_beat_count
@@ -282,6 +324,11 @@ class Client:
     self.player_number = 0
     # play state
     self.bpm = None
+    self.key = None
+    self.key_shift = None
+    self.loop_start = None
+    self.loop_end = None
+    self.whole_loop_length = None
     self.pitch = 1
     self.actual_pitch = 1
     self.beat = 0
@@ -304,6 +351,7 @@ class Client:
     # internal use
     self.metadata = None
     self.status_packet_received = False # ignore play state from beat packets
+    self.supports_absolute_position_packets = False
     self.ttl = time.time()
 
   # calculate the current position by linear interpolation

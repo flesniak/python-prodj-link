@@ -46,8 +46,8 @@ def dump_beat_packet(packet):
 def dump_status_packet(packet):
   if logging.getLogger().getEffectiveLevel() > 5 or packet.type not in ["djm", "cdj"]:
     return
-  logging.log(5, "type {} model \"{}\" pn {} u1 {} u2 {} u3 {}".format(packet.type, packet.model,
-    packet.player_number, packet.u1, packet.u2, packet.extra.u3 if "u3" in packet.extra else "N/A"))
+  logging.log(5, "type {} model \"{}\" pn {} u1 {} u2 {} remaining_bytes {}".format(packet.type, packet.model,
+    packet.player_number, packet.u1, packet.u2, packet.extra.remaining_bytes if "remaining_bytes" in packet.extra else "N/A"))
   logging.log(5, "state {} pitch {:.2f} bpm {} beat {} u5 {}".format(
     ",".join(x for x,y in packet.content.state.items() if y==True),
     packet.content.physical_pitch, packet.content.bpm, packet.content.beat, packet.content.u5))

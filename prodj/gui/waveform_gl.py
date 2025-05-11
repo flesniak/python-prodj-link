@@ -32,6 +32,7 @@ class GLWaveformWidget(QOpenGLWidget):
     self.data_lock = Lock()
     self.time_offset = 0
     self.zoom_seconds = 4
+    self.loop = None  # tuple(start_sec, end_sec)
     self.pitch = 1 # affects animation speed
 
     self.viewport = (50, 40) # viewport +- x, y
@@ -41,8 +42,17 @@ class GLWaveformWidget(QOpenGLWidget):
 
     self.waveform_zoom_changed_signal.connect(self.setZoom)
 
-    self.update_interval_ms = 40
-    self.startTimer(self.update_interval_ms)
+    self.autoUpdate = False
+    self.update_interval_ms = 25
+    self.timerId = self.startTimer(self.update_interval_ms)
+
+  def changeAutoUpdate(self, autoUpdate):
+    if autoUpdate != self.autoUpdate:
+      self.autoUpdate = autoUpdate
+      if not autoUpdate:
+        self.timerId = self.startTimer(self.update_interval_ms)
+      else:
+        self.killTimer(self.timerId)
 
   def minimumSizeHint(self):
     return QSize(400, 75)
@@ -69,29 +79,39 @@ class GLWaveformWidget(QOpenGLWidget):
       self.beatgrid_data = beatgrid_data
       self.update()
 
+  def setLoop(self, loop: tuple[float, float]):
+    if self.loop != loop:
+      self.loop = loop
+      self.update()
+
   # current time in seconds at position marker
   def setPosition(self, position, pitch=1, state="playing"):
-    #logging.debug("setPosition {} pitch {} state {}".format(position, pitch, state))
+    logging.debug("setPosition {} pitch {} state {}".format(position, pitch, state))
     if position is not None and pitch is not None:
       if state in PlayStateStopped:
         pitch = 0
       self.pitch = pitch
-      if self.time_offset != position:
-        #logging.debug("time offset diff %.6f", position-self.time_offset)
-        offset = abs(position - self.time_offset)
-        if state in PlayStatePlaying and offset < 0.05: # ignore negligible offset
-          return
-        if state in PlayStatePlaying and offset < 0.1: # small enough to compensate by temporary pitch modification
-          if position > self.time_offset:
-            #logging.debug("increasing pitch to catch up")
-            self.pitch += 0.01
-          else:
-            #logging.debug("decreasing pitch to fall behind")
-            self.pitch -= 0.01
-        else: # too large to compensate or non-monotonous -> direct assignment
-          #logging.debug("offset %.6f, direct assignment", offset)
+      if round(self.time_offset * 1000) != round(position * 1000):
+        if self.autoUpdate:
           self.time_offset = position
           self.update()
+        else:
+          #logging.debug("time offset diff %.6f", position-self.time_offset)
+          offset = abs(position - self.time_offset)
+          if state in PlayStatePlaying and offset < 0.05: # ignore negligible offset
+            return
+          
+          if state in PlayStatePlaying and offset < 0.1: # small enough to compensate by temporary pitch modification
+            if position > self.time_offset:
+              #logging.debug("increasing pitch to catch up")
+              self.pitch += 0.01
+            else:
+              #logging.debug("decreasing pitch to fall behind")
+              self.pitch -= 0.01
+          else: # too large to compensate or non-monotonous -> direct assignment
+            #logging.debug("offset %.6f, direct assignment", offset) 
+            self.time_offset = position
+            self.update()
     else:
       self.offset = 0
       self.pitch = 0
@@ -128,7 +148,7 @@ class GLWaveformWidget(QOpenGLWidget):
   def updateViewport(self):
     gl.glMatrixMode(gl.GL_PROJECTION)
     gl.glLoadIdentity()
-    gl.glOrtho(-1*self.viewport[0], self.viewport[0], -1*self.viewport[1], self.viewport[1], -2, 2)
+    gl.glOrtho(-self.viewport[0], self.viewport[0], -self.viewport[1], self.viewport[1], -2, 2)
     gl.glMatrixMode(gl.GL_MODELVIEW)
 
   def paintGL(self):
@@ -138,17 +158,22 @@ class GLWaveformWidget(QOpenGLWidget):
     gl.glCallList(self.lists)
 
     gl.glScalef(self.viewport[0]/self.zoom_seconds, 1, 1)
-    gl.glTranslatef(-1*self.time_offset, 0, 0)
+    gl.glTranslatef(-self.time_offset, 0, 0)
     if self.clearLists:
       gl.glNewList(self.lists+1, gl.GL_COMPILE)
       gl.glEndList()
       gl.glNewList(self.lists+2, gl.GL_COMPILE)
       gl.glEndList()
       self.clearLists = False
+
+    # draw waveform and beatgrid
     self.renderWaveform()
     self.renderBeatgrid()
     gl.glCallList(self.lists+1)
     gl.glCallList(self.lists+2)
+
+    # draw loop overlay if set
+    self.renderLoop()
 
   def resizeGL(self, width, height):
     gl.glViewport(0, 0, width, height)
@@ -167,9 +192,9 @@ class GLWaveformWidget(QOpenGLWidget):
     gl.glBegin(gl.GL_QUADS)
     # red position marker
     gl.glColor3f(1, 0, 0)
-    gl.glVertex3f(0, -1*self.viewport[1], 1)
-    gl.glVertex3f(.5, -1*self.viewport[1], 1)
-    gl.glVertex3f(.5, self.viewport[1], 1)
+    gl.glVertex3f(0, -self.viewport[1], 1)
+    gl.glVertex3f(self.position_marker_width, -self.viewport[1], 1)
+    gl.glVertex3f(self.position_marker_width, self.viewport[1], 1)
     gl.glVertex3f(0, self.viewport[1], 1)
     gl.glEnd()
     gl.glEndList()
@@ -189,6 +214,7 @@ class GLWaveformWidget(QOpenGLWidget):
 
       gl.glEndList()
       self.waveform_data = None # delete data after rendering
+
 
   def renderMonochromeQuads(self):
     for x,v in enumerate(self.waveform_data):
@@ -244,6 +270,21 @@ class GLWaveformWidget(QOpenGLWidget):
       gl.glEnd()
       gl.glEndList()
       self.beatgrid_data = None # delete data after rendering
+  def renderLoop(self):
+    if not self.loop:
+      return
+    start, end = self.loop
+    gl.glPushAttrib(gl.GL_ALL_ATTRIB_BITS)
+    gl.glEnable(gl.GL_BLEND)
+    gl.glBlendFunc(gl.GL_SRC_ALPHA, gl.GL_ONE_MINUS_SRC_ALPHA)
+    gl.glColor4f(1, 1, 0, 0.3)
+    gl.glBegin(gl.GL_QUADS)
+    gl.glVertex3f(start, -self.viewport[1], 0)
+    gl.glVertex3f(end, -self.viewport[1], 0)
+    gl.glVertex3f(end, self.viewport[1], 0)
+    gl.glVertex3f(start, self.viewport[1], 0)
+    gl.glEnd()
+    gl.glPopAttrib()
 
 class Window(QWidget):
   def __init__(self):

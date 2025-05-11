@@ -142,6 +142,7 @@ class PlayerWidget(QFrame):
     qsp = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Minimum)
     qsp.setHeightForWidth(True)
     self.preview_waveform.setSizePolicy(qsp)
+    self.preview_waveform.setMaximumHeight(50)
 
     # BPM / Pitch / Master display
     bpm_label = QLabel("BPM", self)
@@ -436,7 +437,9 @@ class Gui(QWidget):
     player.setMaster("master" in c.state)
     player.setSync("sync" in c.state)
     player.beat_bar.setBeat(c.beat)
+    player.waveform.changeAutoUpdate(c.supports_absolute_position_packets)
     player.waveform.setPosition(c.position, c.actual_pitch, c.play_state)
+    player.waveform.setLoop((c.loop_start, c.loop_end))
     player.setPlayState(c.play_state)
     player.setOnAir(c.on_air)
     player.setSlotInfo(c.loaded_player_number, c.loaded_slot)
@@ -444,7 +447,8 @@ class Gui(QWidget):
       player.setTime(c.position, c.metadata["duration"])
       player.setTotalTime(c.metadata["duration"])
       if c.position is not None:
-        player.preview_waveform.setPosition(c.position/c.metadata["duration"])
+        player.preview_waveform.setPosition(c.position / c.metadata["duration"])
+        player.preview_waveform.setLoop((c.loop_start / c.metadata["duration"], c.loop_end / c.metadata["duration"]))
     else:
       player.setTime(c.position, None)
       player.setTotalTime(None)
